@@ -327,6 +327,9 @@ window.initApp = function () {
             }),
             supabaseClient.from('Locations').select('*').order('Province').then(({ data }) => {
                 locationsDataStore = (data || []).map(r => ({ id: r.ID, district: r.District, province: r.Province }));
+                let o = '<option value="">-- ຄົ້ນຫາ ແລະ ເລືອກເມືອງ --</option>';
+                locationsDataStore.forEach(l => o += `<option value="${l.district}">${l.district}</option>`);
+                if (typeof jQuery !== 'undefined') $('#p_district').html(o);
             }),
             new Promise((resolve) => { window.preloadDropdownDataCallback(resolve); })
         ]).then(() => {
@@ -773,6 +776,56 @@ window.fetchReportData = function () {
     window._fetchReportData(sDate, eDate);
 };
 
+window._fetchReportData = async function (sDate, eDate) {
+    try {
+        // 1. Fetch Visits
+        const { data: visits, error: vError } = await supabaseClient.from('Visits')
+            .select('*')
+            .gte('Date', sDate + 'T00:00:00Z')
+            .lte('Date', eDate + 'T23:59:59Z')
+            .order('Date', { ascending: false });
+
+        if (vError) throw vError;
+        if (!visits || visits.length === 0) return window.renderReportPage([]);
+
+        // 2. Fetch unique Patients involved
+        const pIds = [...new Set(visits.map(v => v.Patient_ID).filter(id => !!id))];
+        let pMap = {};
+        
+        if (pIds.length > 0) {
+            const { data: patients, error: pError } = await supabaseClient.from('Patients')
+                .select('Patient_ID, First_Name, Last_Name, Gender, Age')
+                .in('Patient_ID', pIds);
+            
+            if (!pError && patients) {
+                patients.forEach(p => pMap[p.Patient_ID] = p);
+            }
+        }
+
+        // 3. Merge data
+        const processed = visits.map(r => {
+            let dObj = new Date(r.Date);
+            let p = pMap[r.Patient_ID];
+            return {
+                date: dObj.toLocaleDateString('en-GB'),
+                time: dObj.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }),
+                id: r.Patient_ID,
+                name: r.Patient_Name || (p ? `${p.First_Name} ${p.Last_Name}` : '-'),
+                gender: p?.Gender || '-',
+                age: p?.Age || '-',
+                type: r.Type || 'OPD',
+                status: r.Status || 'ໃໝ່',
+                category: r.Category || 'GN'
+            };
+        });
+        window.renderReportPage(processed);
+    } catch (err) {
+        console.error('Report Fetch Error:', err);
+        Swal.fire('Error', 'ບໍ່ສາມາດໂຫຼດຂໍ້ມູນລາຍງານໄດ້: ' + err.message, 'error');
+        window.renderReportPage([]);
+    }
+};
+
 window.renderReportPage = function (res) {
     currentReportData = res || [];
     if ($.fn.DataTable.isDataTable('#reportTable')) $('#reportTable').DataTable().destroy();
@@ -816,18 +869,24 @@ window.generateNextPatientID = async function () {
     try {
         const { data, error } = await supabaseClient
             .from('Patients')
-            .select('Patient_ID')
-            .order('Patient_ID', { ascending: false })
-            .limit(1);
+            .select('Patient_ID');
 
         if (error) throw error;
 
-        let lastId = data && data[0] ? data[0].Patient_ID : 'CN0000000';
-        // Clean ID (remove CN and any non-numeric chars)
-        let numPart = lastId.replace(/[^0-9]/g, '');
-        let num = parseInt(numPart, 10) || 0;
+        let maxNum = 0;
+        if (data && data.length > 0) {
+            data.forEach(row => {
+                if (row.Patient_ID && row.Patient_ID.startsWith('CN')) {
+                    let numPart = row.Patient_ID.replace(/[^0-9]/g, '');
+                    let num = parseInt(numPart, 10);
+                    if (!isNaN(num) && num > maxNum) {
+                        maxNum = num;
+                    }
+                }
+            });
+        }
         
-        return 'CN' + ('0000000' + (num + 1)).slice(-7);
+        return 'CN' + ('0000000' + (maxNum + 1)).slice(-7);
     } catch (err) {
         console.error("Error generating next CN:", err);
         return 'CN0000001'; // Fallback
@@ -875,7 +934,7 @@ window.initPatientTable = async function () {
                     <td class="text-primary fw-bold">${r.Patient_ID || '-'}</td>
                     <td class="fw-bold">${fullname}</td>
                     <td>${r.Gender || '-'}</td>
-                    <td><span class="badge bg-secondary rounded-pill">${r.Age || 0} ປີ</span></td>
+                    <td>${r.Age || 0} ປີ</td>
                     <td class="text-muted">${r.Phone_Number || '-'}</td>
                     <td class="small text-muted">${r.District || ''} ${r.Province || ''}</td>
                     <td class="text-danger fw-bold small">${r.Drug_Allergy || '-'}</td>
@@ -1114,7 +1173,7 @@ window.executeTriageSave = async function (fd) {
     Swal.fire({ title: 'ກຳລັງບັນທຶກ...', didOpen: () => Swal.showLoading() });
     const { error } = await supabaseClient.from('Visits').update({
         Status: 'Waiting OPD', BP: fd.v_bp, Temp: fd.v_temp,
-        Weight: fd.v_weight, Height: fd.v_height, BMI: fd.v_bmi,
+        Weight: fd.v_weight, Height: fd.v_height,
         Pulse: fd.v_pulse, SpO2: fd.v_spo2,
         Department: fd.v_department, Symptoms: fd.v_symptoms
     }).eq('Visit_ID', fd.visitId);
@@ -1210,25 +1269,48 @@ window.calculateBMI = function () {
 };
 
 window._fetchTriageQueue = async function () {
-    let today = new Date().toISOString().split('T')[0];
-    const { data, error } = await supabaseClient.from('Visits').select('*, Patients!inner(Age)')
-        .gte('Date', today + 'T00:00:00Z')
-        .lte('Date', today + 'T23:59:59Z')
-        .order('Date', { ascending: true });
+    try {
+        let today = new Date().toISOString().split('T')[0];
+        // 1. Fetch Visits
+        const { data: visits, error: vError } = await supabaseClient.from('Visits')
+            .select('*')
+            .gte('Date', today + 'T00:00:00Z')
+            .lte('Date', today + 'T23:59:59Z')
+            .order('Date', { ascending: true });
 
-    if (error || !data) return [];
-    return data.map((r, i) => {
-        let dObj = new Date(r.Date);
-        return {
-            rowIdx: r.Visit_ID, visitId: r.Visit_ID,
-            date: dObj.toLocaleDateString('en-GB'), time: dObj.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }),
-            patientId: r.Patient_ID, patientName: r.Patient_Name,
-            status: r.Status, department: r.Department || 'OPD', isNew: true,
-            age: r.Patients?.Age || 0,
-            bp: r.BP, temp: r.Temp, weight: r.Weight, height: r.Height,
-            bmi: r.BMI, pulse: r.Pulse, spo2: r.SpO2, symptoms: r.Symptoms
-        };
-    });
+        if (vError) throw vError;
+        if (!visits || visits.length === 0) return [];
+
+        // 2. Fetch unique Patient IDs
+        const pIds = [...new Set(visits.map(v => v.Patient_ID).filter(id => !!id))];
+        let pMap = {};
+        if (pIds.length > 0) {
+            const { data: patients, error: pError } = await supabaseClient.from('Patients')
+                .select('Patient_ID, Age')
+                .in('Patient_ID', pIds);
+            if (!pError && patients) {
+                patients.forEach(p => pMap[p.Patient_ID] = p);
+            }
+        }
+
+        // 3. Merge
+        return visits.map((r, i) => {
+            let dObj = new Date(r.Date);
+            let p = pMap[r.Patient_ID];
+            return {
+                rowIdx: r.Visit_ID, visitId: r.Visit_ID,
+                date: dObj.toLocaleDateString('en-GB'), time: dObj.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }),
+                patientId: r.Patient_ID, patientName: r.Patient_Name,
+                status: r.Status, department: r.Department || 'OPD', isNew: true,
+                age: p?.Age || 0,
+                bp: r.BP, temp: r.Temp, weight: r.Weight, height: r.Height,
+                bmi: r.BMI, pulse: r.Pulse, spo2: r.SpO2, symptoms: r.Symptoms
+            };
+        });
+    } catch (err) {
+        console.error('Triage Fetch Error:', err);
+        return [];
+    }
 };
 
 window._fetchOpdQueue = async function () {
@@ -1850,7 +1932,7 @@ window.generateIntervalInputs = function () {
 
 window.loadVaccineMaster = async function () {
     if ($.fn.DataTable.isDataTable('#vacMasterTable')) $('#vacMasterTable').DataTable().destroy();
-    $('#vacMasterTable tbody').html('<tr><td colspan="5" class="text-center py-4"><div class="spinner-border text-primary spinner-border-sm"></div> ກຳລັງໂຫຼດ...</td></tr>');
+    $('#vacMasterTable tbody').html('<tr><td colspan="6" class="text-center py-4"><div class="spinner-border text-primary spinner-border-sm"></div> ກຳລັງໂຫຼດ...</td></tr>');
 
     try {
         const { data: r, error } = await supabaseClient.from('Vaccines_Master').select('*');
@@ -1868,6 +1950,7 @@ window.loadVaccineMaster = async function () {
             r.forEach(v => {
                 let intv = (!v.Interval_Days || v.Interval_Days === "0") ? '<span class="text-muted">-</span>' : `<span class="text-info small">${v.Interval_Days.toString().split(',').join(' ມື້, ')} ມື້</span>`;
                 h += `<tr>
+                        <td class="text-center"><input type="checkbox" class="form-check-input bulk-check-vacMaster" value="${v.Vac_ID}"></td>
                         <td class="fw-bold text-primary">${v.Vaccine_Name}</td>
                         <td>${v.Disease}</td>
                         <td><span class="badge bg-secondary rounded-pill px-3">${v.Total_Doses} ໂດສ</span></td>
@@ -2103,7 +2186,7 @@ window.delPatientVac = async function (id) {
 
 window.loadDrugsMaster = async function () {
     if ($.fn.DataTable.isDataTable('#drugTable')) $('#drugTable').DataTable().destroy();
-    $('#drugTable tbody').html('<tr><td colspan="3" class="text-center py-4"><div class="spinner-border text-success spinner-border-sm"></div> ກຳລັງໂຫຼດ...</td></tr>');
+    $('#drugTable tbody').html('<tr><td colspan="4" class="text-center py-4"><div class="spinner-border text-success spinner-border-sm"></div> ກຳລັງໂຫຼດ...</td></tr>');
 
     try {
         const { data: r, error } = await supabaseClient.from('Drugs_Master').select('*');
@@ -2121,6 +2204,7 @@ window.loadDrugsMaster = async function () {
             r.forEach(x => {
                 // ອີງຕາມ Column ໃນ CSV: Drug_ID, Drug_Name, Description
                 h += `<tr>
+                        <td class="text-center"><input type="checkbox" class="form-check-input bulk-check-drugs" value="${x.Drug_ID}"></td>
                         <td class="fw-bold text-success">${x.Drug_Name}</td>
                         <td>${x.Description}</td>
                         <td class="text-center">
@@ -2182,7 +2266,7 @@ window.submitDrugMasterForm = async function (e) {
 
 window.loadLabsMaster = async function () {
     if ($.fn.DataTable.isDataTable('#labTable')) $('#labTable').DataTable().destroy();
-    $('#labTable tbody').html('<tr><td colspan="3" class="text-center py-4"><div class="spinner-border text-primary spinner-border-sm"></div> ກຳລັງໂຫຼດ...</td></tr>');
+    $('#labTable tbody').html('<tr><td colspan="4" class="text-center py-4"><div class="spinner-border text-primary spinner-border-sm"></div> ກຳລັງໂຫຼດ...</td></tr>');
 
     try {
         const { data: r, error } = await supabaseClient.from('Labs_Master').select('*');
@@ -2199,6 +2283,7 @@ window.loadLabsMaster = async function () {
             r.forEach(x => {
                 // ອີງຕາມ Column ໃນ CSV: Lab_ID, Lab_Name, Description
                 h += `<tr>
+                        <td class="text-center"><input type="checkbox" class="form-check-input bulk-check-labs" value="${x.Lab_ID}"></td>
                         <td class="fw-bold text-primary">${x.Lab_Name}</td>
                         <td>${x.Description}</td>
                         <td class="text-center">
@@ -2260,7 +2345,7 @@ window.submitLabMasterForm = async function (e) {
 
 window.loadUsers = async function () {
     if ($.fn.DataTable.isDataTable('#userTable')) $('#userTable').DataTable().destroy();
-    $('#userTable tbody').html('<tr><td colspan="5" class="text-center py-4"><div class="spinner-border text-dark spinner-border-sm"></div> ກຳລັງໂຫຼດ...</td></tr>');
+    $('#userTable tbody').html('<tr><td colspan="6" class="text-center py-4"><div class="spinner-border text-dark spinner-border-sm"></div> ກຳລັງໂຫຼດ...</td></tr>');
 
     try {
         const { data: u, error } = await supabaseClient.from('Users').select('*');
@@ -2278,6 +2363,7 @@ window.loadUsers = async function () {
             u.forEach(x => {
                 let sb = x.Status === 'active' ? '<span class="badge bg-success rounded-pill px-3">ເປີດໃຊ້ງານ</span>' : '<span class="badge bg-danger rounded-pill px-3">ປິດໃຊ້ງານ</span>';
                 h += `<tr>
+                        <td class="text-center"><input type="checkbox" class="form-check-input bulk-check-users" value="${x.ID}"></td>
                         <td class="fw-bold">${x.Name}</td>
                         <td class="text-muted">${x.Email}</td>
                         <td><span class="badge ${x.Role === 'admin' ? 'bg-primary' : 'bg-secondary'} rounded-pill px-3 text-uppercase">${x.Role}</span></td>
@@ -2463,7 +2549,7 @@ window.delMaster = async function (id) {
 
 window.loadOrgs = async function () {
     if ($.fn.DataTable.isDataTable('#orgTable')) $('#orgTable').DataTable().destroy();
-    $('#orgTable tbody').html('<tr><td colspan="7" class="text-center py-4"><div class="spinner-border text-info spinner-border-sm"></div> ກຳລັງໂຫຼດ...</td></tr>');
+    $('#orgTable tbody').html('<tr><td colspan="8" class="text-center py-4"><div class="spinner-border text-info spinner-border-sm"></div> ກຳລັງໂຫຼດ...</td></tr>');
 
     try {
         const { data: orgs, error } = await supabaseClient.from('Organizations').select('*');
@@ -2482,11 +2568,12 @@ window.loadOrgs = async function () {
                 let st = o.Status === 'Active' ? `<span class="badge bg-success rounded-pill px-3 shadow-sm" style="cursor:pointer" onclick="window.toggleOrg('${o.Org_ID}','${o.Status}')"><i class="fas fa-check me-1"></i> Active</span>` : `<span class="badge bg-danger rounded-pill px-3 shadow-sm" style="cursor:pointer" onclick="window.toggleOrg('${o.Org_ID}','${o.Status}')"><i class="fas fa-times me-1"></i> Inactive</span>`;
                 let sd = o.Discount ? String(o.Discount).replace(/[\r\n]+/g, " ").replace(/'/g, "\\'").replace(/"/g, "&quot;") : "";
                 h += `<tr>
-                        <td class="text-primary fw-bold">${o.Org_Code}</td>
+                        <td class="text-center"><input type="checkbox" class="form-check-input bulk-check-orgs" value="${o.Org_ID}"></td>
+                        <td class="text-primary fw-bold">${o.Org_Code || '-'}</td>
                         <td class="text-muted">${o.Cus_ID_Ex || '-'}</td>
-                        <td>${o.Name}</td>
-                        <td class="fw-bold">${o.Org_Name}</td>
-                        <td class="small text-danger">${sd}</td>
+                        <td>${o.Name || '-'}</td>
+                        <td class="fw-bold">${o.Org_Name || '-'}</td>
+                        <td class="small text-danger">${sd || '-'}</td>
                         <td>${st}</td>
                         <td class="text-center"><button class="btn btn-sm btn-primary shadow-sm" onclick="window.editOrg('${o.Org_ID}','${o.Cus_ID_Ex}','${o.Name}','${o.Org_Name}','${o.Org_Code}','${sd}')"><i class="fas fa-edit"></i> ແກ້ໄຂ</button></td>
                       </tr>`;
@@ -2619,7 +2706,7 @@ window.loadSettingsData = async function () {
 
 window.loadLocationsMasterView = async function () {
     if ($.fn.DataTable.isDataTable('#locationTable')) $('#locationTable').DataTable().destroy();
-    $('#locationTable tbody').html('<tr><td colspan="3" class="text-center py-4"><div class="spinner-border text-info spinner-border-sm"></div> ກຳລັງໂຫຼດ...</td></tr>');
+    $('#locationTable tbody').html('<tr><td colspan="4" class="text-center py-4"><div class="spinner-border text-info spinner-border-sm"></div> ກຳລັງໂຫຼດ...</td></tr>');
 
     try {
         const { data: r, error } = await supabaseClient.from('Locations').select('*');
@@ -2642,6 +2729,7 @@ window.loadLocationsMasterView = async function () {
             r.forEach(l => {
                 // ອີງຕາມ Column ໃນ CSV: ID, District, Province
                 h += `<tr>
+                        <td class="text-center"><input type="checkbox" class="form-check-input bulk-check-locations" value="${l.ID}"></td>
                         <td class="fw-bold text-primary">${l.District}</td>
                         <td><span class="badge bg-info text-dark">${l.Province}</span></td>
                         <td class="text-center">
@@ -2729,7 +2817,7 @@ window.delLocation = function (id) {
 
 window.loadServicesMasterView = async function () {
     if ($.fn.DataTable.isDataTable('#serviceTable')) $('#serviceTable').DataTable().destroy();
-    $('#serviceTable tbody').html('<tr><td colspan="4" class="text-center py-4"><div class="spinner-border text-info spinner-border-sm"></div> ກຳລັງໂຫຼດ...</td></tr>');
+    $('#serviceTable tbody').html('<tr><td colspan="5" class="text-center py-4"><div class="spinner-border text-info spinner-border-sm"></div> ກຳລັງໂຫຼດ...</td></tr>');
 
     try {
         const { data: r, error } = await supabaseClient.from('Service_Lists').select('*');
@@ -2750,6 +2838,7 @@ window.loadServicesMasterView = async function () {
                 let safeRev = (s.Revenue_Group || "").replace(/'/g, "\\'");
 
                 h += `<tr>
+                        <td class="text-center"><input type="checkbox" class="form-check-input bulk-check-services" value="${s.ID}"></td>
                         <td class="fw-bold text-primary">${s.Services_List}</td>
                         <td><span class="badge bg-info text-dark">${s.Mapped_Specialist || '-'}</span></td>
                         <td><span class="badge bg-success">${s.Revenue_Group || '-'}</span></td>
@@ -2869,39 +2958,43 @@ window.handlePatientExcelUpload = function (e) {
             if (row.length < 1 || !row[0]) continue;
             // Map array columns to Supabase 'Patients' table columns
             // Assumes standard template structure - adjust map if template varies
+            let parsedAge = parseInt(row[6]) || 0;
+            let ageGroup = row[28] || '';
+            if (parsedAge && !ageGroup) {
+                ageGroup = parsedAge <= 15 ? '0-15' : (parsedAge <= 35 ? '16-35' : (parsedAge <= 55 ? '36-55' : '55+'));
+            }
+
+            // Map array columns to Supabase 'Patients' table columns accurately based on real Excel structure
             insertData.push({
                 Patient_ID: row[0],
-                Status: row[1] || 'Active',
-                Customer_Type: row[2] || '',
-                Group_Type: row[3] || '',
-                Register_By: row[4] || '',
-                Date: row[5] || '',
-                Patient_Name: row[6] || '',
-                Title: row[7] || '',
-                First_Name: row[8] || '',
-                Last_Name: row[9] || '',
-                Nick_Name: row[10] || '',
-                Gender: row[11] || '',
-                DOB: row[12] || '',
-                Age: row[13] || '',
-                Nationality: row[14] || '',
-                Occupation: row[15] || '',
-                Blood_Type: row[16] || '',
-                Village: row[17] || '',
-                District: row[18] || '',
-                Province: row[19] || '',
-                Phone: row[20] || '',
-                Email: row[21] || '',
+                Title: row[1] || '',
+                First_Name: row[2] || '',
+                Last_Name: row[3] || '',
+                Gender: row[4] || '',
+                Date_of_Birth: row[5] || null,
+                Age: parsedAge,
+                Nationality: row[7] || '',
+                Occupation: row[8] || '',
+                Blood_Type: row[9] || '',
+                Phone_Number: row[10] || '',
+                Email: row[11] || '',
+                Address: row[12] || '',
+                District: row[13] || '',
+                Province: row[14] || '',
+                Organization_ID: row[15] || '',
+                Name_Org: row[16] || '',
+                Insurance_Code: row[17] || '',
+                Insured_Person_Name: row[18] || '',
+                Drug_Allergy: row[19] || '',
+                Underlying_Disease: row[20] || '',
+                Emergency_Name: row[21] || '',
                 Emergency_Contact: row[22] || '',
-                Insurance_Company: row[23] || '',
-                Policy_Number: row[24] || '',
-                Effective_Date: row[25] || '',
-                Expire_Date: row[26] || '',
-                Hear_About_Us: row[27] || '',
-                Organization_Name: row[28] || '',
-                Organization_Code: row[29] || '',
-                Tax_ID: row[30] || '',
-                Discount_Rate: row[31] || ''
+                Emergency_Relation: row[23] || '',
+                Channel: row[24] || '',
+                Registration_Date: row[25] || null,
+                Time: row[26] || '',
+                Shift: row[27] || '',
+                Age_Group: ageGroup
             });
         }
 
@@ -3098,4 +3191,60 @@ window.handleLabExcelUpload = function (e) {
         $('#labExcelInput').val('');
     };
     r.readAsArrayBuffer(f);
+};
+
+// Bulk Delete Logic
+window.toggleAllCheckboxes = function (masterCheckbox, type) {
+    const isChecked = $(masterCheckbox).is(':checked');
+    $(`.bulk-check-${type}`).prop('checked', !!isChecked);
+};
+
+window.bulkDelete = async function (type) {
+    const checked = $(`.bulk-check-${type}:checked`);
+    if (checked.length === 0) {
+        Swal.fire('ແຈ້ງເຕືອນ', 'ກະລຸນາເລືອກລາຍການທີ່ຕ້ອງການລຶບກ່ອນ', 'warning');
+        return;
+    }
+
+    const ids = [];
+    checked.each(function () {
+        ids.push($(this).val());
+    });
+
+    const config = {
+        'vacMaster': { table: 'Vaccines_Master', col: 'Vac_ID', reload: window.loadVaccineMaster },
+        'drugs': { table: 'Drugs_Master', col: 'Drug_ID', reload: window.loadDrugsMaster },
+        'labs': { table: 'Labs_Master', col: 'Lab_ID', reload: window.loadLabsMaster },
+        'users': { table: 'Users', col: 'ID', reload: window.loadUsers },
+        'orgs': { table: 'Organizations', col: 'Org_ID', reload: window.loadOrgs },
+        'locations': { table: 'Locations', col: 'ID', reload: window.loadLocationsMasterView },
+        'services': { table: 'Service_Lists', col: 'ID', reload: window.loadServicesMasterView }
+    };
+
+    const cfg = config[type];
+    if (!cfg) return;
+
+    Swal.fire({
+        title: 'ຍືນຍັນການລຶບ?',
+        text: `ທ່ານແນ່ໃຈບໍ່ວ່າຕ້ອງການລຶບ ${ids.length} ລາຍການທີ່ເລືອກ?`,
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#ef4444',
+        confirmButtonText: 'ລຶບເລີຍ',
+        cancelButtonText: 'ຍົກເລີກ'
+    }).then(async (result) => {
+        if (result.isConfirmed) {
+            Swal.fire({ title: 'ກຳລັງລຶບ...', didOpen: () => Swal.showLoading() });
+            try {
+                const { error } = await supabaseClient.from(cfg.table).delete().in(cfg.col, ids);
+                if (error) throw error;
+                
+                cfg.reload();
+                Swal.fire('ສຳເລັດ', 'ລຶບລາຍການທີ່ເລືອກສຳເລັດແລ້ວ', 'success');
+            } catch (err) {
+                console.error(err);
+                Swal.fire('ຂໍ້ຜິດພາດ', err.message, 'error');
+            }
+        }
+    });
 };

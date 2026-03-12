@@ -763,3 +763,60 @@ h6 {
   font-size: 12px !important;
   margin-top: 10px !important;
 }
+/* Table column custom widths */
+.table th { white-space: nowrap; }
+.table td { white-space: nowrap; }
+.table-responsive { overflow-x: auto; max-width: 100%; }
+
+/* Premium Buttons */
+.btn {
+  border-radius: 8px !important;
+  font-weight: 600 !important;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
+  padding: 8px 18px !important;
+  font-size: 13px !important;
+  border: none !important;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08) !important;
+}
+
+.btn-primary {
+  background: linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%) !important;
+  color: #fff !important;
+  box-shadow: 0 4px 12px rgba(14, 165, 233, 0.3) !important;
+}
+
+.btn-primary:hover {
+  transform: translateY(-1px) !important;
+  box-shadow: 0 6px 15px rgba(14, 165, 233, 0.45) !important;
+  filter: brightness(1.1);
+}
+
+.btn-success {
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%) !important;
+  color: #fff !important;
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3) !important;
+}
+
+.btn-success:hover {
+  transform: translateY(-1px) !important;
+  box-shadow: 0 6px 15px rgba(16, 185, 129, 0.45) !important;
+  filter: brightness(1.1);
+}
+
+.btn-danger {
+  background: linear-gradient(135deg, #f43f5e 0%, #e11d48 100%) !important;
+  color: #fff !important;
+  box-shadow: 0 4px 12px rgba(244, 63, 94, 0.3) !important;
+}
+
+.btn-danger:hover {
+  transform: translateY(-1px) !important;
+  box-shadow: 0 6px 15px rgba(244, 63, 94, 0.45) !important;
+  filter: brightness(1.1);
+}
+
+.btn-sm {
+  padding: 5px 12px !important;
+  font-size: 12px !important;
+}
+
