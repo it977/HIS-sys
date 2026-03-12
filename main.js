@@ -117,6 +117,51 @@ $(document).ready(function () {
         }
     });
 
+    // 🌟 ຈັດການ Dropdown ຂອງ TOP NAVBAR
+    $(document).on('click', '.his-dropdown-toggle', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        
+        let parent = $(this).closest('.his-dropdown');
+        let wasOpen = parent.hasClass('open');
+        
+        // Close ALL dropdowns first
+        $('.his-dropdown').removeClass('open');
+        
+        // Toggle current
+        if (!wasOpen) { 
+            parent.addClass('open');
+            if ($(this).hasClass('his-bell-btn')) { window.renderNotifications(); }
+        }
+    });
+
+    // Close on click outside OR item click
+    $(document).on('click', function(e) {
+        if (!$(e.target).closest('.his-dropdown-menu').length && !$(e.target).closest('.his-dropdown-toggle').length) {
+            $('.his-dropdown').removeClass('open');
+        }
+    });
+
+    $(document).on('click', '.his-dropdown-item', function() {
+        $('.his-dropdown').removeClass('open');
+    });
+
+    // Mobile Hamburger
+    $(document).on('click', '.his-hamburger', function(e) {
+        e.preventDefault();
+        $('#his-nav-items').toggleClass('open');
+    });
+
+    // Unified Nav Link Listener (supports both ID-based and Attribute-based navigation)
+    $(document).on('click', '.his-nav-link, .his-dropdown-item, .nav-link', function(e) {
+        let id = $(this).attr('id');
+        if (id && id.startsWith('nav-')) {
+            e.preventDefault();
+            let view = id.replace('nav-', '');
+            window.loadView(view);
+        }
+    });
+
     $('#triageForm input[name="v_bp"]').on('input', function () {
         let bp = $(this).val();
         if (bp.includes('/')) {
@@ -258,7 +303,7 @@ window.initApp = function () {
 
         let perms = (currentUser.permissions || "").split(',');
         if (currentUser.role === 'admin' || perms.includes('all')) {
-            $('.nav-item, .nav-header').show();
+            $('.nav-item, .nav-header, .his-dropdown, .his-nav-link').show();
         } else {
             perms.forEach(p => {
                 $('.mnu-' + p.trim()).show();
@@ -308,16 +353,30 @@ window.loadView = function (v) {
     $('.modal-backdrop').remove();
     $('body').removeClass('modal-open').css({ overflow: '', paddingRight: '' });
 
-    $('.nav-link').removeClass('active');
-    $('#nav-' + v).addClass('active');
+    // Handle Active States
+    $('.nav-link, .his-nav-link, .his-dropdown-item, .his-dropdown-toggle').removeClass('active');
+    
+    var navEl = $('#nav-' + v);
+    if (navEl.length) {
+        navEl.addClass('active');
+        let parentDropdown = navEl.closest('.his-dropdown');
+        if (parentDropdown.length) {
+            parentDropdown.find('.his-dropdown-toggle').addClass('active');
+        }
+    }
 
+    // Switch Views
     let views = ['dashboard', 'report', 'patients', 'settings', 'orgs', 'triage', 'opd', 'users', 'services', 'locations', 'appointments', 'vaccines', 'vaccine_master', 'drugs', 'labs'];
-    views.forEach(n => $('#view-' + n).hide());
-    $('#view-' + v).show();
+    views.forEach(n => {
+        if (n === v) $('#view-' + n).show();
+        else $('#view-' + n).hide();
+    });
 
+    // Reset intervals
     if (dashRefreshInterval) clearInterval(dashRefreshInterval);
     if (reportRefreshInterval) clearInterval(reportRefreshInterval);
 
+    // Load Data
     if (v === 'patients') window.initPatientTable();
     if (v === 'orgs') window.loadOrgs();
     if (v === 'triage') window.loadTriageQueue();
@@ -352,7 +411,7 @@ window.loadView = function (v) {
     if (!systemSettings.hospitalName) {
         supabaseClient.from('Settings').select('Key,Value').then(({ data }) => {
             (data || []).forEach(r => { if (r.Key === 'HospitalName') systemSettings.hospitalName = r.Value; });
-            $('#sidebarBrandName').text(systemSettings.hospitalName || 'HIS');
+            window.setBrandName(systemSettings.hospitalName);
         });
     }
 
@@ -365,9 +424,9 @@ window.loadView = function (v) {
         reportRefreshInterval = setInterval(() => { window.fetchReportData(); window.checkAlerts(); }, 120000);
     }
 
-    if ($(window).width() < 992 && $('body').hasClass('sidebar-open')) {
-        $('body').removeClass('sidebar-open');
-    }
+    // Close menus
+    $('.his-dropdown').removeClass('open');
+    $('#his-nav-items').removeClass('open');
 };
 
 window.executePrint = function (containerId) {
@@ -460,22 +519,26 @@ window.checkAlerts = async function () {
             header.html(`<span class="text-danger"><i class="fas fa-exclamation-circle"></i> ມີນັດໝາຍຕ້ອງຕິດຕາມ ${count} ລາຍການ</span>`);
             let html = '';
             alerts.forEach(a => {
-                let dateColor = a.isOverdue ? "text-danger fw-bold" : (a.daysOut === 0 ? "text-primary fw-bold" : "text-warning text-dark");
+                let dateColor = a.isOverdue ? "text-danger fw-bold" : (a.daysOut === 0 ? "text-info fw-bold" : "text-warning");
                 let label = a.isOverdue ? "ກາຍກຳນົດແລ້ວ!" : (a.daysOut === 0 ? "ມື້ນີ້!" : (a.daysOut === 1 ? "ມື້ອື່ນ" : `ອີກ ${a.daysOut} ວັນ`));
                 let iconBg = a.isOverdue ? "bg-danger text-white" : "bg-light text-dark";
                 let textType = a.type === 'Vaccine' ? '<span class="text-success">ວັກຊີນ</span>' : 'ທົ່ວໄປ';
 
-                html += `<a href="#" class="dropdown-item py-2" onclick="window.loadView('appointments')">
-                            <div class="d-flex align-items-center">
+                html += `<a href="#" class="his-dropdown-item py-2 border-bottom border-secondary border-opacity-25" onclick="window.loadView('appointments'); return false;">
+                            <div class="d-flex align-items-center w-100">
                                 <div class="me-3">
-                                    <div class="${iconBg} rounded-circle d-flex align-items-center justify-content-center" style="width:35px;height:35px;">
+                                    <div class="${iconBg} rounded-circle d-flex align-items-center justify-content-center" style="width:32px;height:32px; min-width:32px; font-size: 11px;">
                                         <i class="fas ${a.type === 'Vaccine' ? 'fa-syringe' : 'fa-calendar-check'}"></i>
                                     </div>
                                 </div>
-                                <div>
-                                    <h6 class="m-0 fw-bold">${a.patientName}</h6>
-                                    <p class="text-muted small m-0">${a.time} - ${textType}</p>
-                                    <p class="${dateColor} small m-0"><i class="far fa-clock"></i> ${label} (${a.date})</p>
+                                <div class="flex-grow-1 overflow-hidden" style="line-height: 1.2;">
+                                    <h6 class="m-0 fw-bold text-white mb-1" style="font-size:12.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${a.patientName}</h6>
+                                    <div class="text-info opacity-100 mb-1" style="font-size:10.5px; font-weight: 500;">
+                                        <i class="fas fa-tag me-1" style="font-size: 9px;"></i>${a.time} - ${textType}
+                                    </div>
+                                    <div class="${dateColor} opacity-100" style="font-size:10.5px; font-weight: 600;">
+                                        <i class="far fa-clock me-1" style="font-size: 9px;"></i>${label} (${a.date})
+                                    </div>
                                 </div>
                             </div>
                          </a>`;
@@ -548,7 +611,6 @@ window.setDashRange = function (type) {
     window.fetchDashboardData();
 };
 
-// 1. ຟັງຊັນຫຼັກສຳລັບ Dashboard
 window.fetchDashboardData = async function () {
     let sDate = $('#dashStartDate').val();
     let eDate = $('#dashEndDate').val();
@@ -559,19 +621,17 @@ window.fetchDashboardData = async function () {
     $('#dash-total, #dash-new, #dash-old, #dash-inscorp').html('<i class="fas fa-spinner fa-spin"></i>');
 
     try {
-        // ດຶງຂໍ້ມູນການ Visits ຈາກ Supabase ຕາມຊ່ວງວັນທີ
         const { data, error } = await supabaseClient
             .from('Visits')
             .select('*')
-            .gte('Date', sDate)
-            .lte('Date', eDate);
+            .gte('Date', sDate + 'T00:00:00Z')
+            .lte('Date', eDate + 'T23:59:59Z');
 
         if (error) {
             console.error('Dashboard Error:', error);
             return;
         }
 
-        // ສົ່ງຂໍ້ມູນໄປປະມວນຜົນເພື່ອສະແດງ Graph
         window.renderDashboardCharts(data);
 
     } catch (err) {
@@ -579,48 +639,13 @@ window.fetchDashboardData = async function () {
     }
 };
 
-// 2. ຟັງຊັນປະມວນຜົນຂໍ້ມູນ ແລະ ສະແດງຜົນ (ແທນໂຕທີ່ Error)
-window.renderDashboardCharts = function (visits) {
-    if (!visits) return;
-
-    // ຄຳນວນຕົວເລກສະຫຼຸບ
-    let total = visits.length;
-    let newPatients = visits.filter(v => v.Visit_Type === 'ໃໝ່').length;
-    let oldPatients = visits.filter(v => v.Visit_Type === 'ເກົ່າ').length;
-    let insCorp = visits.filter(v => v.Revenue_Group !== 'General Cash').length;
-
-    // ສະແດງຕົວເລກເທິງ Card
-    $('#dash-total').text(total);
-    $('#dash-new').text(newPatients);
-    $('#dash-old').text(oldPatients);
-    $('#dash-inscorp').text(insCorp);
-
-    // ສ້າງ Graph ບໍລິການຍອດຮິດ (Top Services)
-    let servicesMap = {};
-    visits.forEach(v => {
-        if (v.Services_List) {
-            v.Services_List.split(',').forEach(s => {
-                let name = s.trim();
-                servicesMap[name] = (servicesMap[name] || 0) + 1;
-            });
-        }
-    });
-
-    let sortedLabels = Object.keys(servicesMap).sort((a, b) => servicesMap[b] - servicesMap[a]).slice(0, 10);
-    let sortedData = sortedLabels.map(l => servicesMap[l]);
-
-    // ເອີ້ນໃຊ້ຟັງຊັນສ້າງ Chart (ມີຢູ່ໃນ main.js ເດີມຂອງເຈົ້າແລ້ວ)
-    window.createChart('chartTopServices', 'bar', sortedLabels, sortedData, ['#0ea5e9'], false);
-
-    // ເຈົ້າສາມາດເພີ່ມການຄຳນວນ chart ອື່ນໆ (Gender, Revenue) ໃສ່ບ່ອນນີ້ຕື່ມໄດ້
-};
-
 window.createChart = function (ctxId, type, labels, data, colors, isHorizontal = false) {
     if (chartInstances[ctxId]) chartInstances[ctxId].destroy();
-    const ctx = document.getElementById(ctxId).getContext('2d');
+    const el = document.getElementById(ctxId);
+    if (!el) return;
+    const ctx = el.getContext('2d');
     let options = {
-        responsive: true,
-        maintainAspectRatio: false,
+        responsive: true, maintainAspectRatio: false,
         plugins: {
             legend: { position: 'bottom' },
             datalabels: {
@@ -642,25 +667,70 @@ window.createChart = function (ctxId, type, labels, data, colors, isHorizontal =
     chartInstances[ctxId] = new Chart(ctx, { type: type, data: { labels: labels, datasets: [{ data: data, backgroundColor: colors, borderWidth: 1 }] }, options: options });
 };
 
-window.renderDashboardCharts = function (res) {
-    if (!res) return;
-    $('#dash-total').text(res.visitCount || 0);
-    $('#dash-new').text(res.newPatients || 0);
-    $('#dash-old').text(res.oldPatients || 0);
-    $('#dash-inscorp').text(res.insCorp || 0);
+window.renderDashboardCharts = function (visits) {
+    if (!visits) return;
+
+    // 1. Stats
+    let total = visits.length;
+    let newPatients = visits.filter(v => v.Visit_Type === 'ໃໝ່').length;
+    let oldPatients = visits.filter(v => v.Visit_Type === 'ເກົ່າ').length;
+    let insCorp = visits.filter(v => v.Revenue_Group && v.Revenue_Group !== 'General Cash').length;
+
+    $('#dash-total').text(total);
+    $('#dash-new').text(newPatients);
+    $('#dash-old').text(oldPatients);
+    $('#dash-inscorp').text(insCorp);
+
+    // 2. Helper
+    const getTopN = (map, n = 10) => {
+        let keys = Object.keys(map).sort((a, b) => map[b] - map[a]).slice(0, n);
+        return { labels: keys, data: keys.map(k => map[k]) };
+    };
+
+    // 3. Process data
+    let services = {}, revenue = {}, specialist = {}, gender = {}, deptType = {}, site = {}, opdGender = {}, timeSlot = {}, ageGroup = {}, province = {};
+
+    visits.forEach(v => {
+        let p = v.Patients || {};
+        if (v.Services_List) v.Services_List.split(',').forEach(s => { let n = s.trim(); services[n] = (services[n] || 0) + 1; });
+        if (v.Revenue_Group) revenue[v.Revenue_Group] = (revenue[v.Revenue_Group] || 0) + 1;
+        if (v.Mapped_Specialist) specialist[v.Mapped_Specialist] = (specialist[v.Mapped_Specialist] || 0) + 1;
+        
+        let g = p.Gender || "ບໍ່ລະບຸ";
+        gender[g] = (gender[g] || 0) + 1;
+        if (v.Visit_Type === 'OPD') opdGender[g] = (opdGender[g] || 0) + 1;
+        
+        let age = parseInt(p.Age);
+        if (!isNaN(age)) {
+            let grp = age < 15 ? "0-14" : (age < 35 ? "15-34" : (age < 60 ? "35-59" : "60+"));
+            ageGroup[grp] = (ageGroup[grp] || 0) + 1;
+        }
+        if (p.Province) province[p.Province] = (province[p.Province] || 0) + 1;
+        
+        if (v.Visit_Type) deptType[v.Visit_Type] = (deptType[v.Visit_Type] || 0) + 1;
+        if (v.Site) site[v.Site] = (site[v.Site] || 0) + 1;
+        
+        if (v.Date) {
+            let h = new Date(v.Date).getHours();
+            let slot = h < 12 ? "08:00 - 12:00" : (h < 16 ? "12:00 - 16:00" : "16:00 - 20:00");
+            timeSlot[slot] = (timeSlot[slot] || 0) + 1;
+        }
+    });
 
     const cB = '#0ea5e9', cP = '#f43f5e', cG = '#10b981', cY = '#f59e0b', cPu = '#8b5cf6', cO = '#fdba74';
-    window.createChart('chartTopServices', 'bar', res.topServices.labels, res.topServices.data, [cB], false);
-    window.createChart('chartRevenue', 'pie', Object.keys(res.revenue), Object.values(res.revenue), [cG, cB, cY, cP, cPu]);
-    window.createChart('chartSpecialist', 'doughnut', Object.keys(res.specialist), Object.values(res.specialist), [cPu, cB, cO, cG, cP]);
-    window.createChart('chartGender', 'doughnut', ['ຊາຍ', 'ຍິງ'], [res.gender["ຊາຍ"] || 0, res.gender["ຍິງ"] || 0], [cB, cP]);
-    window.createChart('chartDept', 'pie', ['OPD', 'IPD'], [res.deptType["OPD"] || 0, res.deptType["IPD"] || 0], [cG, cY]);
-    window.createChart('chartSite', 'pie', ['In-site', 'Onsite'], [res.site["In-site"] || 0, res.site["Onsite"] || 0], [cPu, '#64748b']);
-    window.createChart('chartOpdGender', 'doughnut', ['ຊາຍ', 'ຍິງ'], [res.opdGender["ຊາຍ"] || 0, res.opdGender["ຍິງ"] || 0], [cB, cP]);
-    window.createChart('chartTime', 'bar', Object.keys(res.timeSlot), Object.values(res.timeSlot), [cB, cY, '#3b82f6']);
-    window.createChart('chartAge', 'bar', Object.keys(res.ageGroup), Object.values(res.ageGroup), [cG, cB, cY, cP]);
-    window.createChart('chartProvince', 'bar', res.topProvinces.labels, res.topProvinces.data, [cB], true);
-    window.createChart('chartChannel', 'pie', Object.keys(res.channel), Object.values(res.channel), [cB, cP, cG, cY, cPu]);
+    let topSvc = getTopN(services);
+    let topProv = getTopN(province, 5);
+    
+    window.createChart('chartTopServices', 'bar', topSvc.labels, topSvc.data, [cB], false);
+    window.createChart('chartRevenue', 'pie', Object.keys(revenue), Object.values(revenue), [cG, cB, cY, cP, cPu]);
+    window.createChart('chartSpecialist', 'doughnut', Object.keys(specialist), Object.values(specialist), [cPu, cB, cO, cG, cP]);
+    window.createChart('chartGender', 'doughnut', Object.keys(gender), Object.values(gender), [cB, cP]);
+    window.createChart('chartDept', 'pie', Object.keys(deptType), Object.values(deptType), [cG, cY]);
+    window.createChart('chartSite', 'pie', Object.keys(site), Object.values(site), [cPu, '#64748b']);
+    window.createChart('chartOpdGender', 'doughnut', Object.keys(opdGender), Object.values(opdGender), [cB, cP]);
+    window.createChart('chartTime', 'bar', Object.keys(timeSlot).sort(), Object.values(timeSlot), [cB, cY, '#3b82f6']);
+    window.createChart('chartAge', 'bar', ["0-14", "15-34", "35-59", "60+"], ["0-14", "15-34", "35-59", "60+"].map(k => ageGroup[k] || 0), [cG, cB, cY, cP]);
+    window.createChart('chartProvince', 'bar', topProv.labels, topProv.data, [cB], true);
 };
 
 window.exportDashboardPDF = function () {
@@ -742,6 +812,28 @@ window.exportReportExcel = function () {
     XLSX.writeFile(wb, "HIS_Summary_Report.xlsx");
 };
 
+window.generateNextPatientID = async function () {
+    try {
+        const { data, error } = await supabaseClient
+            .from('Patients')
+            .select('Patient_ID')
+            .order('Patient_ID', { ascending: false })
+            .limit(1);
+
+        if (error) throw error;
+
+        let lastId = data && data[0] ? data[0].Patient_ID : 'CN0000000';
+        // Clean ID (remove CN and any non-numeric chars)
+        let numPart = lastId.replace(/[^0-9]/g, '');
+        let num = parseInt(numPart, 10) || 0;
+        
+        return 'CN' + ('0000000' + (num + 1)).slice(-7);
+    } catch (err) {
+        console.error("Error generating next CN:", err);
+        return 'CN0000001'; // Fallback
+    }
+};
+
 window.initPatientTable = async function () {
     if ($.fn.DataTable.isDataTable('#patientTable')) {
         $('#patientTable').DataTable().destroy();
@@ -818,10 +910,8 @@ window.openNewPatientModal = function () {
     $('#p_discount_show').val('');
     $('#p_district').val(null).trigger('change');
 
-    supabaseClient.from('Patients').select('Patient_ID').order('Patient_ID', { ascending: false }).limit(1).then(({ data }) => {
-        let last = data && data[0] ? data[0].Patient_ID : 'CN0000000';
-        let num = parseInt(last.replace('CN', ''), 10) || 0;
-        $('#disp_p_id').val('CN' + ('0000000' + (num + 1)).slice(-7));
+    window.generateNextPatientID().then(id => {
+        $('#disp_p_id').val(id);
     });
     let n = new Date();
     $('#p_date').val(window.getLocalStr(n));
@@ -874,9 +964,7 @@ window.submitPatientForm = async function (e) {
     const ageGroup = age <= 15 ? '0-15' : (age <= 35 ? '16-35' : (age <= 55 ? '36-55' : '55+'));
     let pId = fd.p_id;
     if (!isEdit) {
-        const { data: last } = await supabaseClient.from('Patients').select('Patient_ID').order('Patient_ID', { ascending: false }).limit(1);
-        const lastId = last && last[0] ? last[0].Patient_ID : 'CN0000000';
-        pId = 'CN' + ('0000000' + ((parseInt(lastId.replace('CN', ''), 10) || 0) + 1)).slice(-7);
+        pId = await window.generateNextPatientID();
     }
     const row = {
         Patient_ID: pId, Title: fd.p_title, First_Name: fd.p_firstname, Last_Name: fd.p_lastname,
@@ -1126,7 +1214,6 @@ window._fetchTriageQueue = async function () {
     const { data, error } = await supabaseClient.from('Visits').select('*, Patients!inner(Age)')
         .gte('Date', today + 'T00:00:00Z')
         .lte('Date', today + 'T23:59:59Z')
-        .in('Status', ['Triage', 'Waiting OPD'])
         .order('Date', { ascending: true });
 
     if (error || !data) return [];
@@ -1470,7 +1557,7 @@ window.submitEMRForm = async function (e) {
     };
     let mainStatus = statusMap[ds] || "Pharmacy";
 
-    await supabaseClient.from('Visits').update({
+    const { error: updateError } = await supabaseClient.from('Visits').update({
         Status: mainStatus, Symptoms: $('#emrCC').text(), Diagnosis: dx,
         Prescription_JSON: presJson, Doctor_Name: docName,
         Visit_Type: $('#emrDeptType').val() || 'OPD', Site: $('#emrSite').val() || 'In-site',
@@ -1480,9 +1567,13 @@ window.submitEMRForm = async function (e) {
         Lab_Orders_JSON: labJson, Discharge_Status: ds || ''
     }).eq('Visit_ID', visitId);
 
-    $('#emrModal').modal('hide');
-    window.loadQueue();
-    Swal.fire({ title: 'ສຳເລັດ!', text: 'ບັນທຶກແລ້ວ', icon: 'success', timer: 2000, showConfirmButton: false });
+    if (updateError) {
+        Swal.fire('ຜິດພາດ!', updateError.message, 'error');
+    } else {
+        $('#emrModal').modal('hide');
+        window.loadQueue();
+        Swal.fire({ title: 'ສຳເລັດ!', text: 'ບັນທຶກແລ້ວ', icon: 'success', timer: 1500, showConfirmButton: false });
+    }
 };
 
 window.printOPDCard = function (s, i) {
@@ -1608,6 +1699,19 @@ window.openPatientVacModal = function () {
     $('#pv_date').val(window.getLocalStr(new Date()));
     if (document.activeElement) document.activeElement.blur();
     $('#patientVacModal').modal('show');
+};
+
+window.delPatient = async function (id) {
+    let r = await Swal.fire({ title: 'ລຶບ?', icon: 'warning', showCancelButton: true, confirmButtonText: 'ລຶບ' });
+    if (r.isConfirmed) {
+        const { error } = await supabaseClient.from('Patients').delete().eq('Patient_ID', id);
+        if (error) {
+            Swal.fire('Error', error.message, 'error');
+        } else {
+            window.initPatientTable();
+            Swal.fire('ສຳເລັດ!', 'ລຶບຂໍ້ມູນຄົນເຈັບແລ້ວ', 'success');
+        }
+    }
 };
 
 window.loadAppointments = async function () {
@@ -1796,16 +1900,17 @@ window.loadPatientVaccines = async function () {
         let tStr = window.getLocalStr(new Date());
         if (r && r.length > 0) {
             r.forEach(x => {
-                let nd = x.Next_Due_Date && x.Next_Due_Date !== "-" ? `<span class="text-info fw-bold"><i class="far fa-calendar-alt"></i> ${x.Next_Due_Date}</span>` : '<span class="text-muted">-</span>';
-                let vm = vaccinesMasterList.find(v => v.Vaccine_Name === x.Vaccine_Name);
-                let td = vm ? parseInt(vm.Total_Doses) : 1;
+                let nextDue = x.Next_Appointment_Date || x.Next_Due_Date || "-";
+                let nd = nextDue !== "-" ? `<span class="text-info fw-bold"><i class="far fa-calendar-alt"></i> ${nextDue}</span>` : '<span class="text-muted">-</span>';
+                let vm = vaccinesMasterList.find(v => v.Vaccine_Name === x.Vaccine_Name || v.name === x.Vaccine_Name);
+                let td = vm ? parseInt(vm.Total_Doses || vm.doses) : 1;
                 let cd = parseInt(x.Dose_Number) || 1;
                 let sb = "";
 
                 if (cd >= td) {
                     sb = '<span class="badge bg-success">ສຳເລັດ (ຄົບໂດສ)</span>';
                 } else {
-                    if (x.Next_Due_Date && x.Next_Due_Date < tStr) {
+                    if (nextDue < tStr && nextDue !== "-") {
                         sb = `<span class="badge bg-danger">ກາຍກຳນົດເຂັມ ${cd + 1}!</span>`;
                     } else {
                         sb = `<span class="badge bg-warning text-dark">ລໍຖ້າເຂັມ ${cd + 1}</span>`;
@@ -1813,23 +1918,34 @@ window.loadPatientVaccines = async function () {
                 }
 
                 h += `<tr>
-                        <td>${x.Date_Given}</td>
-                        <td class="fw-bold">${x.Patient_Name}</td>
-                        <td class="text-success fw-bold">${x.Vaccine_Name}</td>
+                        <td>${x.Date_Given || ''}</td>
+                        <td class="fw-bold">${x.Patient_Name || ''}</td>
+                        <td class="text-success fw-bold">${x.Vaccine_Name || ''}</td>
                         <td><span class="text-primary fw-bold">${x.Lot_Number || '-'}</span></td>
-                        <td><span class="badge bg-primary rounded-pill">ໂດສທີ ${x.Dose_Number}/${td}</span></td>
-                        <td class="text-muted small">${x.Given_By || '-'}</td>
+                        <td><span class="badge bg-primary rounded-pill">ໂດສທີ ${cd}/${td}</span></td>
+                        <td class="text-muted small">${x.Given_By || ''}</td>
                         <td>${nd}</td>
                         <td class="text-center">${sb}</td>
                         <td class="text-center">
-                            <button class="btn btn-sm btn-info text-white shadow-sm me-1" onclick="window.printVacCard('${x.Patient_ID}','${x.Patient_Name}','${x.Vaccine_Name}','${x.Dose_Number}/${td}','${x.Date_Given}','${x.Next_Due_Date}')"><i class="fas fa-print"></i></button>
+                            <button class="btn btn-sm btn-info text-white shadow-sm me-1" onclick="window.printVacCard('${x.Patient_ID}','${x.Patient_Name}','${x.Vaccine_Name}','${cd}/${td}','${x.Date_Given}','${nextDue}')"><i class="fas fa-print"></i></button>
                             <button class="btn btn-sm btn-outline-danger shadow-sm" onclick="window.delPatientVac('${x.Record_ID}')"><i class="fas fa-trash"></i></button>
                         </td>
                       </tr>`;
             });
         }
         $('#patientVacTable tbody').html(h);
-        $('#patientVacTable').DataTable({ responsive: true, pageLength: 10, order: [[0, "desc"], [1, "desc"]], language: { search: "ຄົ້ນຫາ:", emptyTable: "ບໍ່ມີຂໍ້ມູນ" } });
+        $('#patientVacTable').DataTable({ 
+            responsive: true, 
+            pageLength: 10, 
+            order: [[0, "desc"], [1, "desc"]], 
+            language: { 
+                search: "ຄົ້ນຫາ:", 
+                lengthMenu: "ສະແດງ _MENU_", 
+                info: "ສະແດງ _START_ ຫາ _END_ ຈາກ _TOTAL_ ລາຍການ", 
+                paginate: { previous: "ກ່ອນໜ້າ", next: "ຕໍ່ໄປ" },
+                emptyTable: "ບໍ່ມີຂໍ້ມູນ"
+            } 
+        });
     } catch (err) {
         console.error('Error:', err);
         Swal.fire('Error', err.message, 'error');
@@ -1856,8 +1972,13 @@ window.editVacMaster = function (id, n, d, ds, i) {
 window.delVacMaster = async function (id) {
     let r = await Swal.fire({ title: 'ລຶບ?', icon: 'warning', showCancelButton: true, confirmButtonText: 'ລຶບ' });
     if (r.isConfirmed) {
-        await supabaseClient.from('Vaccines_Master').delete().eq('Vaccine_ID', id);
-        window.loadVaccineMaster();
+        const { error } = await supabaseClient.from('Vaccines_Master').delete().eq('Vac_ID', id);
+        if (error) {
+            Swal.fire('Error', error.message, 'error');
+        } else {
+            window.loadVaccineMaster();
+            Swal.fire('ສຳເລັດ!', 'ລຶບວັກຊີນແລ້ວ', 'success');
+        }
     }
 };
 
@@ -1874,9 +1995,11 @@ window.submitVacMasterForm = async function (e) {
     };
 
     if (isEdit) {
-        await supabaseClient.from('Vaccines_Master').update(row).eq('Vaccine_ID', $('#v_id').val());
+        const { error } = await supabaseClient.from('Vaccines_Master').update(row).eq('Vac_ID', $('#v_id').val());
+        if (error) return Swal.fire('Error', error.message, 'error');
     } else {
-        await supabaseClient.from('Vaccines_Master').insert(row);
+        const { error } = await supabaseClient.from('Vaccines_Master').insert(row);
+        if (error) return Swal.fire('Error', error.message, 'error');
     }
 
     $('#vacMasterModal').modal('hide');
@@ -1931,64 +2054,7 @@ window.printVacCard = function (id, n, vn, ds, dg, nd) {
     window.executePrint('vac-print-area');
 };
 
-window.loadPatientVaccines = async function () {
-    if ($.fn.DataTable.isDataTable('#patientVacTable')) $('#patientVacTable').DataTable().destroy();
-    $('#patientVacTable tbody').html('<tr><td colspan="9" class="text-center py-4"><div class="spinner-border text-success spinner-border-sm"></div> ກຳລັງໂຫຼດ...</td></tr>');
 
-    try {
-        const { data: r, error } = await supabaseClient.from('Patient_Vaccines').select('*').order('Date_Given', { ascending: false });
-
-        if (error) {
-            console.error('Error:', error);
-            Swal.fire('Error', error.message, 'error');
-            return;
-        }
-
-        if ($.fn.DataTable.isDataTable('#patientVacTable')) $('#patientVacTable').DataTable().destroy();
-        let h = '';
-        let tStr = window.getLocalStr(new Date());
-        if (r && r.length > 0) {
-            r.forEach(x => {
-                let nextDue = x.Next_Appointment_Date || "-";
-                let nd = nextDue !== "-" ? `<span class="text-info fw-bold"><i class="far fa-calendar-alt"></i> ${nextDue}</span>` : '<span class="text-muted">-</span>';
-                let vm = vaccinesMasterList.find(v => v.name === x.Vaccine_Name);
-                let td = vm ? parseInt(vm.doses) : 1;
-                let cd = parseInt(x.Dose_Number) || 1;
-                let sb = "";
-
-                if (cd >= td) {
-                    sb = '<span class="badge bg-success">ສຳເລັດ (ຄົບໂດສ)</span>';
-                } else {
-                    if (nextDue < tStr && nextDue !== "-") {
-                        sb = `<span class="badge bg-danger">ກາຍກຳນົດເຂັມ ${cd + 1}!</span>`;
-                    } else {
-                        sb = `<span class="badge bg-warning text-dark">ລໍຖ້າເຂັມ ${cd + 1}</span>`;
-                    }
-                }
-
-                h += `<tr>
-                        <td>${x.Date_Given || ''}</td>
-                        <td class="fw-bold">${x.Patient_Name || ''}</td>
-                        <td class="text-success fw-bold">${x.Vaccine_Name || ''}</td>
-                        <td><span class="text-primary fw-bold">${x.Lot_Number || '-'}</span></td>
-                        <td><span class="badge bg-primary rounded-pill">ໂດສທີ ${cd}/${td}</span></td>
-                        <td class="text-muted small">${x.Given_By || ''}</td>
-                        <td>${nd}</td>
-                        <td class="text-center">${sb}</td>
-                        <td class="text-center">
-                            <button class="btn btn-sm btn-info text-white shadow-sm me-1" onclick="window.printVacCard('${x.Patient_ID}','${x.Patient_Name}','${x.Vaccine_Name}','${cd}/${td}','${x.Date_Given}','${nextDue}')"><i class="fas fa-print"></i></button>
-                            <button class="btn btn-sm btn-outline-danger shadow-sm" onclick="window.delPatientVac('${x.Record_ID}')"><i class="fas fa-trash"></i></button>
-                        </td>
-                      </tr>`;
-            });
-        }
-        $('#patientVacTable tbody').html(h);
-        $('#patientVacTable').DataTable({ responsive: true, pageLength: 10, order: [[0, "desc"], [1, "desc"]], language: { search: "ຄົ້ນຫາ:", emptyTable: "ບໍ່ມີຂໍ້ມູນ" } });
-    } catch (err) {
-        console.error('System Error:', err);
-        Swal.fire('Error', err.message, 'error');
-    }
-};
 
 window.submitPatientVacForm = async function (e) {
     if (e) e.preventDefault();
@@ -2262,8 +2328,13 @@ window.togglePermissionsBox = function () {
 window.deleteUserRow = async function (id) {
     let r = await Swal.fire({ title: 'ລຶບ?', icon: 'warning', showCancelButton: true, confirmButtonColor: '#ef4444', confirmButtonText: 'ລຶບ' });
     if (r.isConfirmed) {
-        await supabaseClient.from('Users').delete().eq('User_ID', id);
-        window.loadUsers();
+        const { error } = await supabaseClient.from('Users').delete().eq('ID', id);
+        if (error) {
+            Swal.fire('Error', error.message, 'error');
+        } else {
+            window.loadUsers();
+            Swal.fire('ສຳເລັດ!', 'ລຶບຜູ້ໃຊ້ແລ້ວ', 'success');
+        }
     }
 };
 
@@ -2286,7 +2357,7 @@ window.submitUserForm = async function (e) {
     if (password) row.Password = password; // Reminder: plain text is insecure, should be hashed or use Supabase Auth
 
     if (isEdit) {
-        let { error } = await supabaseClient.from('Users').update(row).eq('User_ID', $('#u_id').val());
+        let { error } = await supabaseClient.from('Users').update(row).eq('ID', $('#u_id').val());
         if (error) { Swal.fire('Error', error.message, 'error'); return; }
     } else {
         // Need to register via Auth ideally
@@ -2370,7 +2441,7 @@ window.addMaster = async function () {
     if (!v) return;
     $('#newMasterVal').val('');
 
-    let { error } = await supabaseClient.from('Master_Data').insert({ Category: c, Item_Value: v });
+    let { error } = await supabaseClient.from('MasterData').insert({ Category: c, Value: v });
     if (!error) {
         window.loadMasterDataGlobal(); // Reloads and updates UI
     } else {
@@ -2381,8 +2452,12 @@ window.addMaster = async function () {
 window.delMaster = async function (id) {
     let r = await Swal.fire({ title: 'ລຶບ?', icon: 'warning', showCancelButton: true, confirmButtonText: 'ລຶບ' });
     if (r.isConfirmed) {
-        await supabaseClient.from('Master_Data').delete().eq('Master_ID', id);
-        window.loadMasterDataGlobal();
+        const { error } = await supabaseClient.from('MasterData').delete().eq('ID', id);
+        if (error) {
+            Swal.fire('Error', error.message, 'error');
+        } else {
+            window.loadMasterDataGlobal();
+        }
     }
 };
 
@@ -2752,32 +2827,9 @@ window.editService = function (id, sv, sp, rv) {
     $('#serviceModal').modal('show');
 };
 
-window.delService = async function (id) {
-    let r = await Swal.fire({ title: 'ລຶບ?', icon: 'warning', showCancelButton: true, confirmButtonText: 'ລຶບ' });
-    if (r.isConfirmed) {
-        await supabaseClient.from('Service_Lists').delete().eq('ID', id);
-        window.loadServicesMasterView();
-    }
-};
-
-window.submitServiceForm = async function (e) {
-    if (e) e.preventDefault();
-    Swal.fire({ title: 'ກຳລັງບັນທຶກ...', didOpen: () => Swal.showLoading() });
-
-    let isEdit = $('#s_id').val() !== '';
-    let row = {
-        Services_List: $('#s_serv').val(), Mapped_Specialist: $('#s_spec').val(), Revenue_Group: $('#s_rev').val()
-    };
-
-    if (isEdit) {
-        await supabaseClient.from('Service_Lists').update(row).eq('ID', $('#s_id').val());
-    } else {
-        await supabaseClient.from('Service_Lists').insert(row);
-    }
-
-    $('#serviceModal').modal('hide');
-    window.loadServicesMasterView();
-    Swal.fire('ສຳເລັດ!', '', 'success');
+window.setBrandName = function (name) {
+    var el = document.getElementById('topnavBrandName');
+    if (el && name) el.textContent = name;
 };
 
 window.handlePatientExcelUpload = function (e) {

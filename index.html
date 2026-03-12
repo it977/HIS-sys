@@ -98,55 +98,50 @@
 
       <!-- Menu items -->
       <div class="his-nav-items" id="his-nav-items">
-        <a href="#" class="his-nav-link active" id="nav-dashboard"
-          onclick="window.loadView('dashboard'); return false;">
+        <a href="#" class="his-nav-link active" id="nav-dashboard">
           <i class="fas fa-chart-pie"></i><span>Dashboard</span>
         </a>
-        <a href="#" class="his-nav-link" id="nav-report" onclick="window.loadView('report'); return false;">
+        <a href="#" class="his-nav-link" id="nav-report">
           <i class="fas fa-file-invoice"></i><span>ລາຍງານ</span>
         </a>
-        <a href="#" class="his-nav-link" id="nav-patients" onclick="window.loadView('patients'); return false;">
+        <a href="#" class="his-nav-link" id="nav-patients">
           <i class="fas fa-address-book"></i><span>ຄົນເຈັບ</span>
         </a>
-        <a href="#" class="his-nav-link" id="nav-appointments" onclick="window.loadView('appointments'); return false;">
+        <a href="#" class="his-nav-link" id="nav-appointments">
           <i class="fas fa-calendar-check"></i><span>ນັດໝາຍ</span>
         </a>
-        <a href="#" class="his-nav-link" id="nav-vaccines" onclick="window.loadView('vaccines'); return false;">
+        <a href="#" class="his-nav-link" id="nav-vaccines">
           <i class="fas fa-syringe"></i><span>ວັກຊີນ</span>
         </a>
-        <a href="#" class="his-nav-link" id="nav-triage" onclick="window.loadView('triage'); return false;">
+        <a href="#" class="his-nav-link" id="nav-triage">
           <i class="fas fa-heartbeat"></i><span>Triage</span>
         </a>
-        <a href="#" class="his-nav-link" id="nav-opd" onclick="window.loadView('opd'); return false;">
+        <a href="#" class="his-nav-link" id="nav-opd">
           <i class="fas fa-user-md"></i><span>ຫ້ອງກວດ</span>
         </a>
 
         <!-- Admin dropdown -->
         <div
           class="his-dropdown mnu-settings mnu-services mnu-drugs mnu-labs mnu-vaccine_master mnu-locations mnu-orgs mnu-users">
-          <a href="#" class="his-nav-link his-dropdown-toggle" onclick="return false;">
+          <a href="#" class="his-nav-link his-dropdown-toggle">
             <i class="fas fa-cogs"></i><span>ຕັ້ງຄ່າ</span><i class="fas fa-chevron-down his-chevron"></i>
           </a>
           <div class="his-dropdown-menu">
-            <a href="#" class="his-dropdown-item" id="nav-services"
-              onclick="window.loadView('services'); return false;"><i
+            <a href="#" class="his-dropdown-item" id="nav-services"><i
                 class="fas fa-list-alt me-2"></i>ຕັ້ງຄ່າບໍລິການ</a>
-            <a href="#" class="his-dropdown-item" id="nav-drugs" onclick="window.loadView('drugs'); return false;"><i
+            <a href="#" class="his-dropdown-item" id="nav-drugs"><i
                 class="fas fa-pills me-2 text-success"></i>ລາຍການຢາ</a>
-            <a href="#" class="his-dropdown-item" id="nav-labs" onclick="window.loadView('labs'); return false;"><i
+            <a href="#" class="his-dropdown-item" id="nav-labs"><i
                 class="fas fa-flask me-2 text-primary"></i>ລາຍການແລັບ</a>
-            <a href="#" class="his-dropdown-item" id="nav-vaccine_master"
-              onclick="window.loadView('vaccine_master'); return false;"><i
+            <a href="#" class="his-dropdown-item" id="nav-vaccine_master"><i
                 class="fas fa-vial me-2"></i>ຕັ້ງຄ່າວັກຊີນ</a>
-            <a href="#" class="his-dropdown-item" id="nav-locations"
-              onclick="window.loadView('locations'); return false;"><i
+            <a href="#" class="his-dropdown-item" id="nav-locations"><i
                 class="fas fa-map-marked-alt me-2"></i>ເມືອງ-ແຂວງ</a>
-            <a href="#" class="his-dropdown-item" id="nav-orgs" onclick="window.loadView('orgs'); return false;"><i
+            <a href="#" class="his-dropdown-item" id="nav-orgs"><i
                 class="fas fa-building me-2"></i>ອົງກອນ/ປະກັນໄພ</a>
-            <a href="#" class="his-dropdown-item" id="nav-users" onclick="window.loadView('users'); return false;"><i
+            <a href="#" class="his-dropdown-item" id="nav-users"><i
                 class="fas fa-user-shield me-2"></i>ຈັດການຜູ້ໃຊ້</a>
-            <a href="#" class="his-dropdown-item" id="nav-settings"
-              onclick="window.loadView('settings'); return false;"><i class="fas fa-cogs me-2"></i>ຕັ້ງຄ່າລະບົບ</a>
+            <a href="#" class="his-dropdown-item" id="nav-settings"><i class="fas fa-cogs me-2"></i>ຕັ້ງຄ່າລະບົບ</a>
           </div>
         </div>
       </div>
@@ -155,8 +150,7 @@
       <div class="his-nav-right">
         <!-- Bell notification -->
         <div class="his-dropdown">
-          <a href="#" class="his-nav-link his-dropdown-toggle his-bell-btn"
-            onclick="window.renderNotifications(); return false;">
+          <a href="#" class="his-nav-link his-dropdown-toggle his-bell-btn">
             <i class="far fa-bell"></i>
             <span class="his-bell-badge" id="bell-count" style="display:none;">0</span>
           </a>
@@ -164,14 +158,14 @@
             <div class="his-dropdown-header" id="bell-header">ບໍ່ມີການແຈ້ງເຕືອນ</div>
             <div id="bell-list" style="max-height:260px;overflow-y:auto;"></div>
             <div class="his-dropdown-footer">
-              <a href="#" onclick="window.loadView('appointments'); return false;">ເບິ່ງການນັດໝາຍທັງໝົດ</a>
+              <a href="#" id="nav-appointments">ເບິ່ງການນັດໝາຍທັງໝົດ</a>
             </div>
           </div>
         </div>
 
         <!-- User info -->
         <div class="his-dropdown">
-          <a href="#" class="his-nav-link his-user-btn his-dropdown-toggle" onclick="return false;">
+          <a href="#" class="his-nav-link his-user-btn his-dropdown-toggle">
             <div class="his-avatar"><i class="fas fa-user"></i></div>
             <span id="sidebarUserName">User</span>
             <i class="fas fa-chevron-down his-chevron ms-1"></i>
@@ -2295,70 +2289,7 @@
       </div>
     </div>
   </div>
-  <script>
-    /* ===== TOP NAVBAR INTERACTIONS ===== */
-    (function () {
-      // Toggle dropdown on click
-      document.addEventListener('click', function (e) {
-        var toggle = e.target.closest('.his-dropdown-toggle');
-        var dropdown = e.target.closest('.his-dropdown');
 
-        // Close all dropdowns first
-        document.querySelectorAll('.his-dropdown.open').forEach(function (d) {
-          if (d !== dropdown) d.classList.remove('open');
-        });
-
-        // Toggle clicked dropdown
-        if (toggle && dropdown) {
-          e.preventDefault();
-          dropdown.classList.toggle('open');
-        } else if (!dropdown) {
-          // Clicked outside - close all
-          document.querySelectorAll('.his-dropdown.open').forEach(function (d) {
-            d.classList.remove('open');
-          });
-        }
-      });
-
-      // Patch loadView to update active nav link
-      var _origLoadView = window.loadView;
-      window.loadView = function (view) {
-        // Remove active from all nav links
-        document.querySelectorAll('.his-nav-link').forEach(function (a) {
-          a.classList.remove('active');
-        });
-        document.querySelectorAll('.his-dropdown-item').forEach(function (a) {
-          a.classList.remove('active');
-        });
-
-        // Set active on matching link
-        var navEl = document.getElementById('nav-' + view);
-        if (navEl) {
-          navEl.classList.add('active');
-          // If inside dropdown, also highlight the dropdown toggle
-          var parentDropdown = navEl.closest('.his-dropdown');
-          if (parentDropdown) {
-            var toggle = parentDropdown.querySelector('.his-dropdown-toggle');
-            if (toggle) toggle.classList.add('active');
-          }
-        }
-
-        // Close mobile menu
-        document.getElementById('his-nav-items').classList.remove('open');
-
-        // Call original
-        if (_origLoadView) _origLoadView(view);
-      };
-
-      // Update brand name when settings loaded
-      var _origSetBrandName = window.setBrandName;
-      window.setBrandName = function (name) {
-        var el = document.getElementById('topnavBrandName');
-        if (el && name) el.textContent = name;
-        if (_origSetBrandName) _origSetBrandName(name);
-      };
-    })();
-  </script>
   <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/js/bootstrap.bundle.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/select2/4.0.13/js/select2.min.js"></script>
