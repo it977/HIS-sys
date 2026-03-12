@@ -1,0 +1,26 @@
+<div id="view-opd" style="display:none;">
+  <div class="d-flex justify-content-between align-items-center mb-4 pb-3" style="border-bottom:2px solid var(--border-color);">
+    <div>
+      <h3 class="fw-bold m-0 text-dark"><i class="fas fa-user-md text-info me-2"></i>ຫ້ອງກວດແພດ (OPD)</h3>
+      <p class="text-muted mb-0 mt-1" style="font-size:11.5px;">ຄິວຄົນເຈັບທີ່ລໍຖ້າກວດ ແລະ ສະຖານະການດູແລ</p>
+    </div>
+    <button class="btn btn-outline-info fw-bold shadow-sm" onclick="window.loadQueue()"><i class="fas fa-sync-alt me-1"></i> ໂຫຼດຄິວ</button>
+  </div>
+  <div class="card card-outline card-info shadow-sm">
+    <div class="card-body table-responsive p-0">
+      <table id="queueTable" class="table table-hover align-middle mb-0">
+        <thead class="bg-light">
+          <tr>
+            <th>ວັນທີ ແລະ ເວລາ</th>
+            <th>CN ຄົນເຈັບ</th>
+            <th>ຄົນເຈັບ</th>
+            <th>ຫ້ອງກວດ</th>
+            <th>ສະຖານະ</th>
+            <th class="text-center">ຈັດການ</th>
+          </tr>
+        </thead>
+        <tbody id="queueTableBody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>

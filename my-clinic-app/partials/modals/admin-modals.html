@@ -1,0 +1,80 @@
+<!-- Service Modal -->
+<div class="modal fade" id="serviceModal" tabindex="-1" data-bs-backdrop="static">
+  <div class="modal-dialog">
+    <div class="modal-content border-0 shadow">
+      <div class="modal-header bg-purple text-white" style="background-color:#7c3aed;">
+        <h5 class="modal-title fw-bold"><i class="fas fa-concierge-bell me-2"></i>ຈັດການ ລາຍການບໍລິການ</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body p-4">
+        <form id="serviceForm" onsubmit="window.submitServiceForm(event)">
+          <input type="hidden" id="s_id">
+          <div class="mb-3"><label class="form-label fw-bold required">ຊື່ບໍລິການ (Service)</label><input type="text" class="form-control" id="s_serv" required placeholder="ຕົວຢ່າງ: OPD General Consultation"></div>
+          <div class="mb-3"><label class="form-label fw-bold">ແພດສະເພາະທາງ (Specialist)</label><input type="text" class="form-control" id="s_spec" placeholder="ຕົວຢ່າງ: General Practitioner"></div>
+          <div class="mb-4"><label class="form-label fw-bold">ໝວດລາຍຮັບ (Revenue Group)</label><input type="text" class="form-control" id="s_rev" placeholder="ຕົວຢ່າງ: OPD"></div>
+          <button type="submit" class="btn w-100 fw-bold text-white" style="background-color:#7c3aed;"><i class="fas fa-save me-2"></i>ບັນທຶກ</button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Location Modal -->
+<div class="modal fade" id="locationModal" tabindex="-1" data-bs-backdrop="static">
+  <div class="modal-dialog">
+    <div class="modal-content border-0 shadow">
+      <div class="modal-header bg-info text-white">
+        <h5 class="modal-title fw-bold"><i class="fas fa-map-marker-alt me-2"></i>ຈັດການ ເມືອງ / ແຂວງ</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body p-4">
+        <form id="locationForm" onsubmit="window.submitLocationForm(event)">
+          <input type="hidden" id="l_id">
+          <div class="mb-3"><label class="form-label fw-bold required">ເມືອງ (District)</label><input type="text" class="form-control" id="l_dist" required placeholder="ຕົວຢ່າງ: ຈັນທະບູລີ"></div>
+          <div class="mb-4"><label class="form-label fw-bold required">ແຂວງ (Province)</label><input type="text" class="form-control" id="l_prov" required placeholder="ຕົວຢ່າງ: ນະຄອນຫຼວງວຽງຈັນ"></div>
+          <button type="submit" class="btn btn-info text-white w-100 fw-bold"><i class="fas fa-save me-2"></i>ບັນທຶກ</button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Drug Master Modal -->
+<div class="modal fade" id="drugMasterModal" tabindex="-1" data-bs-backdrop="static">
+  <div class="modal-dialog">
+    <div class="modal-content border-0 shadow">
+      <div class="modal-header bg-success text-white">
+        <h5 class="modal-title fw-bold"><i class="fas fa-pills me-2"></i>ຈັດການ Master ຢາ</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body p-4">
+        <form id="drugMasterForm" onsubmit="window.submitDrugMasterForm(event)">
+          <input type="hidden" id="dr_id">
+          <div class="mb-3"><label class="form-label fw-bold required">ຊື່ຢາ (Drug Name)</label><input type="text" class="form-control" id="dr_name" required placeholder="ຕົວຢ່າງ: Paracetamol 500mg"></div>
+          <div class="mb-4"><label class="form-label fw-bold">ລາຍລະອຽດ / ໝາຍເຫດ</label><input type="text" class="form-control" id="dr_desc" placeholder="ຕົວຢ່າງ: ຢາແກ້ເຈັບ, ຢາລົດໄຂ້"></div>
+          <button type="submit" class="btn btn-success w-100 fw-bold"><i class="fas fa-save me-2"></i>ບັນທຶກ</button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Lab Master Modal -->
+<div class="modal fade" id="labMasterModal" tabindex="-1" data-bs-backdrop="static">
+  <div class="modal-dialog">
+    <div class="modal-content border-0 shadow">
+      <div class="modal-header bg-primary text-white">
+        <h5 class="modal-title fw-bold"><i class="fas fa-flask me-2"></i>ຈັດການ Master Lab</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body p-4">
+        <form id="labMasterForm" onsubmit="window.submitLabMasterForm(event)">
+          <input type="hidden" id="lb_id">
+          <div class="mb-3"><label class="form-label fw-bold required">ຊື່ Lab Test</label><input type="text" class="form-control" id="lb_name" required placeholder="ຕົວຢ່າງ: Complete Blood Count (CBC)"></div>
+          <div class="mb-4"><label class="form-label fw-bold">ລາຍລະອຽດ</label><input type="text" class="form-control" id="lb_desc" placeholder="ຕົວຢ່າງ: ກວດເລືອດທົ່ວໄປ"></div>
+          <button type="submit" class="btn btn-primary w-100 fw-bold"><i class="fas fa-save me-2"></i>ບັນທຶກ</button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>

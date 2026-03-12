@@ -1,0 +1,170 @@
+<!-- Patient Registration Modal -->
+<div class="modal fade" id="patientModal" tabindex="-1" data-bs-backdrop="static">
+  <div class="modal-dialog modal-xl">
+    <div class="modal-content border-0 shadow">
+      <div class="modal-header bg-primary text-white">
+        <h5 class="modal-title fw-bold" id="patientModalTitle"><i class="fas fa-user-plus me-2"></i>ລົງທະບຽນຄົນເຈັບໃໝ່</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body p-4">
+        <form id="patientForm" onsubmit="window.submitPatientForm(event)">
+          <input type="hidden" name="p_action" id="p_action" value="new">
+          <input type="hidden" name="p_id" id="p_id">
+
+          <div class="row g-3 mb-3">
+            <div class="col-md-3">
+              <label class="form-label fw-bold text-primary">ລະຫັດຄົນເຈັບ (CN)</label>
+              <input type="text" class="form-control bg-light fw-bold text-primary border-primary" id="disp_p_id" readonly placeholder="ກຳລັງໂຫຼດ...">
+            </div>
+            <div class="col-md-3">
+              <label class="form-label fw-bold required">ວັນທີລົງທະບຽນ</label>
+              <input type="date" class="form-control" name="p_date" id="p_date" required>
+            </div>
+            <div class="col-md-3">
+              <label class="form-label fw-bold required">ເວລາ</label>
+              <input type="time" class="form-control" name="p_time" id="p_time" required>
+            </div>
+            <div class="col-md-3">
+              <label class="form-label fw-bold">ກະເວນ (Shift)</label>
+              <select class="form-select dyn-Shift" name="p_shift"><option value="">-- ເລືອກ --</option></select>
+            </div>
+          </div>
+
+          <div class="row g-3 mb-3">
+            <div class="col-md-2">
+              <label class="form-label fw-bold">ຄຳນຳໜ້າ</label>
+              <select class="form-select dyn-Title" name="p_title"><option value="">-- ເລືອກ --</option></select>
+            </div>
+            <div class="col-md-5">
+              <label class="form-label fw-bold required">ຊື່ (First Name)</label>
+              <input type="text" class="form-control" name="p_firstname" required placeholder="ຊື່ຄົນເຈັບ">
+            </div>
+            <div class="col-md-5">
+              <label class="form-label fw-bold required">ນາມສະກຸນ (Last Name)</label>
+              <input type="text" class="form-control" name="p_lastname" required placeholder="ນາມສະກຸນ">
+            </div>
+          </div>
+
+          <div class="row g-3 mb-3">
+            <div class="col-md-3">
+              <label class="form-label fw-bold">ເພດ (Gender)</label>
+              <select class="form-select dyn-Gender" name="p_gender"><option value="">-- ເລືອກ --</option></select>
+            </div>
+            <div class="col-md-3">
+              <label class="form-label fw-bold">ວ/ດ/ປ ເກີດ (DOB)</label>
+              <input type="date" class="form-control" name="p_dob" id="dobInput" onchange="window.calculateAgeForm()">
+            </div>
+            <div class="col-md-2">
+              <label class="form-label fw-bold">ອາຍຸ</label>
+              <input type="number" class="form-control" name="p_age" id="ageInput" min="0" max="150" placeholder="0">
+            </div>
+            <div class="col-md-2">
+              <label class="form-label fw-bold">ໝວດເລືອດ</label>
+              <select class="form-select dyn-BloodType" name="p_blood"><option value="">--</option></select>
+            </div>
+            <div class="col-md-2">
+              <label class="form-label fw-bold">ສັນຊາດ</label>
+              <select class="form-select dyn-Nationality" name="p_nation"><option value="">-- ເລືອກ --</option></select>
+            </div>
+          </div>
+
+          <div class="row g-3 mb-3">
+            <div class="col-md-4">
+              <label class="form-label fw-bold required">ເບີໂທ (Phone)</label>
+              <input type="text" class="form-control" name="p_phone" required placeholder="020xxxxxxxx">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label fw-bold">ອີເມວ (Email)</label>
+              <input type="email" class="form-control" name="p_email" placeholder="example@email.com">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label fw-bold">ອາຊີບ</label>
+              <select class="form-select dyn-Occupation" name="p_job"><option value="">-- ເລືອກ --</option></select>
+            </div>
+          </div>
+
+          <div class="row g-3 mb-3">
+            <div class="col-md-4">
+              <label class="form-label fw-bold">ທີ່ຢູ່ ບ້ານ (Address)</label>
+              <input type="text" class="form-control" name="p_address" placeholder="ບ້ານ / ຖະໜົນ">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label fw-bold">ເມືອງ (District)</label>
+              <select class="form-select" name="p_district" id="p_district" style="width:100%;"><option value="">-- ຄົ້ນຫາ ແລະ ເລືອກເມືອງ --</option></select>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label fw-bold">ແຂວງ (Province)</label>
+              <input type="text" class="form-control bg-light" name="p_province" id="p_province" readonly placeholder="ຕື່ມອັດຕະໂນມັດ">
+            </div>
+          </div>
+
+          <div class="row g-3 mb-3">
+            <div class="col-md-3">
+              <label class="form-label fw-bold">ລະຫັດອົງກອນ</label>
+              <select class="form-select" name="p_org_id" id="p_org_id" style="width:100%;" onchange="window.fetchOrg()">
+                <option value="">-- ເລືອກອົງກອນ --</option>
+              </select>
+            </div>
+            <div class="col-md-3">
+              <label class="form-label fw-bold">ຊື່ອົງກອນ</label>
+              <input type="text" class="form-control bg-light" name="p_org_name" id="p_org_name" readonly>
+            </div>
+            <div class="col-md-3">
+              <label class="form-label fw-bold text-danger">ສ່ວນຫຼຸດ</label>
+              <input type="text" class="form-control bg-warning bg-opacity-10" id="p_discount_show" readonly>
+            </div>
+            <div class="col-md-3">
+              <label class="form-label fw-bold">ຊ່ອງທາງຮູ້ຈັກ</label>
+              <select class="form-select dyn-Channel" name="p_channel"><option value="">-- ເລືອກ --</option></select>
+            </div>
+          </div>
+
+          <div class="row g-3 mb-3">
+            <div class="col-md-4">
+              <label class="form-label fw-bold">ບໍລິສັດປະກັນໄພ</label>
+              <select class="form-select dyn-InsCompany" name="p_ins_company"><option value="">-- ເລືອກ --</option></select>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label fw-bold">ລະຫັດປະກັນ</label>
+              <input type="text" class="form-control" name="p_ins_code">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label fw-bold">ຊື່ຜູ້ຖືປະກັນ</label>
+              <input type="text" class="form-control" name="p_ins_name">
+            </div>
+          </div>
+
+          <div class="row g-3 mb-3">
+            <div class="col-md-6">
+              <label class="form-label fw-bold text-danger"><i class="fas fa-exclamation-triangle me-1"></i>ປະຫວັດການແພ້ຢາ (Drug Allergy)</label>
+              <input type="text" class="form-control border-danger" name="p_allergy" placeholder="ຖ້າບໍ່ມີ ໃສ່: ບໍ່ມີ">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label fw-bold">ພະຍາດປະຈຳຕົວ (Underlying Disease)</label>
+              <input type="text" class="form-control" name="p_disease" placeholder="ຖ້າບໍ່ມີ ໃສ່: ບໍ່ມີ">
+            </div>
+          </div>
+
+          <div class="row g-3 mb-4">
+            <div class="col-md-4">
+              <label class="form-label fw-bold">ຊື່ຜູ້ຕິດຕໍ່ສຸກເສີນ</label>
+              <input type="text" class="form-control" name="p_emer_name">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label fw-bold">ເບີໂທ ສຸກເສີນ</label>
+              <input type="text" class="form-control" name="p_emer_contact">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label fw-bold">ຄວາມສຳພັນ</label>
+              <input type="text" class="form-control" name="p_emer_relation" placeholder="ພໍ່ / ແມ່ / ພີ່ນ້ອງ...">
+            </div>
+          </div>
+
+          <button type="submit" class="btn btn-primary w-100 fw-bold py-2 shadow-sm">
+            <i class="fas fa-save me-2"></i>ບັນທຶກຂໍ້ມູນຄົນເຈັບ
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>

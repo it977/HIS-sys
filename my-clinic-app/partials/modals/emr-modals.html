@@ -1,0 +1,152 @@
+<!-- EMR Modal -->
+<div class="modal fade" id="emrModal" tabindex="-1" data-bs-backdrop="static">
+  <div class="modal-dialog modal-xl">
+    <div class="modal-content border-0 shadow">
+      <div class="modal-header bg-info text-white">
+        <div>
+          <h5 class="modal-title fw-bold mb-0"><i class="fas fa-user-md me-2"></i>ຫ້ອງກວດແພດ (EMR)</h5>
+          <div class="small mt-1 opacity-75"><span id="emrPatientId" class="me-2"></span><span id="emrPatientName" class="fw-bold"></span></div>
+        </div>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body p-3">
+        <div class="alert border rounded d-flex align-items-center gap-3 mb-3 py-2 px-3 bg-light border-secondary" id="emrAllergyBox">
+          <i class="fas fa-exclamation-triangle fa-lg text-secondary" id="emrAllergyIcon"></i>
+          <div><span class="fw-bold text-secondary small">ປະຫວັດການແພ້:</span><span id="emrAllergy" class="fw-bold text-secondary ms-1">ບໍ່ມີ</span></div>
+        </div>
+        <div class="card bg-light border-0 mb-3">
+          <div class="card-body py-2 px-3">
+            <div class="d-flex flex-wrap gap-4 align-items-center">
+              <div><i class="fas fa-comment-medical text-primary me-1"></i><b>CC:</b> <span id="emrCC" class="text-dark">-</span></div>
+              <div><i class="fas fa-heartbeat text-danger me-1"></i><b>BP:</b> <span id="emrBp" class="fw-bold">-</span></div>
+              <div><i class="fas fa-thermometer-half text-warning me-1"></i><b>Temp:</b> <span id="emrTemp" class="fw-bold">-</span></div>
+              <div><i class="fas fa-weight text-success me-1"></i><b>Wt:</b> <span id="emrWeight">-</span></div>
+            </div>
+          </div>
+        </div>
+        <form id="emrForm" onsubmit="window.submitEMRForm(event)">
+          <input type="hidden" id="emrRowIdx">
+          <div class="row g-3">
+            <div class="col-12">
+              <div class="row g-3">
+                <div class="col-md-6"><label class="form-label fw-bold">ສະຖານທີ່ (Site)</label><select class="form-select" id="emrSite" onchange="window.handleSiteChange()"></select></div>
+                <div class="col-md-6"><label class="form-label fw-bold">ປະເພດ (Type)</label><select class="form-select" id="emrDeptType"><option value="OPD">OPD</option><option value="IPD">IPD</option></select></div>
+                <div class="col-12">
+                  <label class="form-label fw-bold">ບໍລິການທີ່ໃຊ້ (Services) <span class="text-muted small fw-normal">— ເລືອກໄດ້ຫຼາຍລາຍການ</span></label>
+                  <select class="form-select" id="emrService" multiple style="width:100%;"></select>
+                </div>
+                <div class="col-md-6"><label class="form-label fw-bold">ແພດສະເພາະທາງ (Specialist)</label><input type="text" class="form-control bg-light" id="emrSpecialist" readonly placeholder="ຕື່ມອັດຕະໂນມັດຈາກ Services"></div>
+                <div class="col-md-6"><label class="form-label fw-bold">ໝວດລາຍຮັບ (Revenue Group)</label><input type="text" class="form-control bg-light" id="emrRevenue" readonly placeholder="ຕື່ມອັດຕະໂນມັດຈາກ Services"></div>
+                <div class="col-12"><label class="form-label fw-bold">ຜົນກວດຮ່າງກາຍ (Physical Exam)</label><textarea class="form-control" id="emrPE" rows="2" placeholder="ຜົນກວດ..."></textarea></div>
+                <div class="col-12"><label class="form-label fw-bold text-danger">ການວິນິດໄສ (Diagnosis / Dx)</label><textarea class="form-control border-danger" id="emrDiagnosis" rows="2" placeholder="Dx (ຈຳເປັນຕ້ອງໃສ່ເມື່ອຕ້ອງການປິດຈົບການກວດ)..."></textarea></div>
+                <div class="col-md-6"><label class="form-label fw-bold">ຄຳແນະນຳ (Advice)</label><textarea class="form-control" id="emrAdvice" rows="2" placeholder="ຄຳແນະນຳ / ຄຳເຕືອນ..."></textarea></div>
+                <div class="col-md-6"><label class="form-label fw-bold">ນັດໝາຍຕໍ່ໄປ (Follow-up)</label><input type="date" class="form-control" id="emrFollowup"></div>
+                <div class="col-md-6"><label class="form-label fw-bold">ແພດຜູ້ກວດ (Doctor)</label><select class="form-select dyn-Doctor" id="emrDoctor"><option value="">-- ເລືອກແພດ --</option></select></div>
+                <div class="col-md-6">
+                  <label class="form-label fw-bold text-danger required">ສະຖານະປິດຈົບ (Discharge Status)</label>
+                  <select class="form-select border-danger" id="emrDischargeStatus" required>
+                    <option value="">-- ກະລຸນາເລືອກ --</option>
+                    <option value="ລໍຖ້າຜົນແລັບ (Waiting Lab)">⏳ ລໍຖ້າຜົນແລັບ (ພັກການກວດໄວ້ກ່ອນ)</option>
+                    <option value="ຮັບຢາກັບບ້ານ">💊 ຮັບຢາກັບບ້ານ (ໄປຮັບຢາ)</option>
+                    <option value="ນອນຕິດຕາມ (Admit / IPD)">🏥 ນອນຕິດຕາມ (Admit / IPD)</option>
+                    <option value="ສົ່ງຕໍ່ (Transfer)">🚑 ສົ່ງຕໍ່ (Transfer)</option>
+                    <option value="ກວດສຳເລັດ / ກັບບ້ານ">🏠 ກວດສຳເລັດ / ກັບບ້ານ (ບໍ່ມີຢາ)</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+            <div class="col-12">
+              <div class="card border-primary mb-3">
+                <div class="card-header bg-primary text-white py-2 d-flex justify-content-between align-items-center">
+                  <span class="fw-bold small"><i class="fas fa-flask me-1"></i>ລາຍການ Lab</span>
+                  <button type="button" class="btn btn-sm btn-light text-primary fw-bold py-0 px-2" onclick="window.openEMRLabModal()"><i class="fas fa-plus me-1"></i>ເພີ່ມ</button>
+                </div>
+                <div class="card-body p-0">
+                  <table class="table table-sm mb-0">
+                    <tbody id="emrLabTableBody"><tr><td colspan="2" class="text-center text-muted small py-2">ຍັງບໍ່ມີລາຍການ</td></tr></tbody>
+                  </table>
+                </div>
+              </div>
+              <div class="card border-success">
+                <div class="card-header bg-success text-white py-2 d-flex justify-content-between align-items-center">
+                  <span class="fw-bold small"><i class="fas fa-pills me-1"></i>ລາຍການຢາ (Rx)</span>
+                  <button type="button" class="btn btn-sm btn-light text-success fw-bold py-0 px-2" onclick="window.openEMRDrugModal()"><i class="fas fa-plus me-1"></i>ເພີ່ມ</button>
+                </div>
+                <div class="card-body p-0">
+                  <table class="table table-sm mb-0">
+                    <tbody id="emrDrugTableBody"><tr><td colspan="4" class="text-center text-muted small py-2">ຍັງບໍ່ມີລາຍການ</td></tr></tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </div>
+          <button type="submit" class="btn btn-info text-white w-100 fw-bold mt-3 py-2 shadow-sm"><i class="fas fa-save me-2"></i>ບັນທຶກຜົນການກວດ</button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- EMR Lab Modal -->
+<div class="modal fade" id="emrLabModal" tabindex="-1">
+  <div class="modal-dialog modal-md">
+    <div class="modal-content border-0 shadow">
+      <div class="modal-header bg-primary text-white">
+        <h5 class="modal-title fw-bold"><i class="fas fa-flask me-2"></i>ເລືອກລາຍການ Lab</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body p-3">
+        <div class="mb-2">
+          <input type="text" class="form-control form-control-sm" placeholder="ຄົ້ນຫາລາຍການ Lab..." oninput="let q=this.value.toLowerCase();document.querySelectorAll('#labCheckboxContainer .form-check').forEach(el=>{el.style.display=el.textContent.toLowerCase().includes(q)?'':'none';});">
+        </div>
+        <div id="labCheckboxContainer" style="max-height:320px; overflow-y:auto;" class="border rounded p-2 bg-light">
+          <p class="text-muted text-center small py-3"><i class="fas fa-spinner fa-spin me-1"></i>ກຳລັງໂຫຼດລາຍການ Lab...</p>
+        </div>
+      </div>
+      <div class="modal-footer py-2">
+        <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">ຍົກເລີກ</button>
+        <button type="button" class="btn btn-primary btn-sm fw-bold" onclick="window.addLabToEMRList()"><i class="fas fa-check me-1"></i>ຢືນຍັນເລືອກ</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- EMR Drug Modal -->
+<div class="modal fade" id="emrDrugModal" tabindex="-1">
+  <div class="modal-dialog modal-md">
+    <div class="modal-content border-0 shadow">
+      <div class="modal-header bg-success text-white">
+        <h5 class="modal-title fw-bold"><i class="fas fa-pills me-2"></i>ເພີ່ມລາຍການຢາ</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body p-4">
+        <div class="mb-3"><label class="form-label fw-bold required">ຊື່ຢາ</label><select class="form-select" id="emrAddDrugSelect" style="width:100%;"><option value="">-- ເລືອກຢາ --</option></select></div>
+        <div class="row g-3 mb-3">
+          <div class="col-md-4"><label class="form-label fw-bold">ຈຳນວນ (Qty)</label><input type="number" class="form-control" id="emrAddDrugQty" min="1" value="1"></div>
+          <div class="col-md-4"><label class="form-label fw-bold">ໜ່ວຍ (Unit)</label><select class="form-select dyn-DrugUnit" id="emrAddDrugUnit"><option value="">-- ໜ່ວຍ --</option></select></div>
+          <div class="col-md-4"><label class="form-label fw-bold">ວິທີໃຊ້ (Usage)</label><select class="form-select dyn-DrugUsage" id="emrAddDrugUsage"><option value="">-- ວິທີໃຊ້ --</option></select></div>
+        </div>
+      </div>
+      <div class="modal-footer py-2">
+        <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">ຍົກເລີກ</button>
+        <button type="button" class="btn btn-success btn-sm fw-bold" onclick="window.addDrugToEMRList()"><i class="fas fa-plus me-1"></i>ເພີ່ມຢາ</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Report Detail Modal -->
+<div class="modal fade" id="reportDetailModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-centered">
+    <div class="modal-content border-0 shadow-lg" style="border-radius: 15px; overflow: hidden;">
+      <div class="modal-header bg-primary text-white py-3">
+        <h5 class="modal-title fw-bold"><i class="fas fa-file-alt me-2 text-warning"></i>ລາຍລະອຽດການຮັບບໍລິການ</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body p-0" id="reportDetailContent" style="background-color: #f8fafc;"></div>
+      <div class="modal-footer bg-white border-0 py-3">
+        <button type="button" class="btn btn-secondary fw-bold px-4 shadow-sm" data-bs-dismiss="modal" style="border-radius: 8px;">ປິດໜ້າຕ່າງ</button>
+      </div>
+    </div>
+  </div>
+</div>

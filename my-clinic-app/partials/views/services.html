@@ -1,0 +1,28 @@
+<div id="view-services" style="display:none;">
+  <div class="d-flex justify-content-between align-items-center mb-4 pb-3" style="border-bottom:2px solid var(--border-color);">
+    <div>
+      <h3 class="fw-bold m-0 text-dark"><i class="fas fa-list-alt text-primary me-2"></i>ຕັ້ງຄ່າບໍລິການ (Services Mapping)</h3>
+      <p class="text-muted mb-0 mt-1" style="font-size:11.5px;">ເຊື່ອມໂຍງລາຍການບໍລິການ, ໝວດ ແລະ ແພດ</p>
+    </div>
+    <div>
+      <button class="btn btn-danger shadow-sm fw-bold me-2" onclick="window.bulkDelete('services')"><i class="fas fa-trash-alt me-1"></i> ລຶບລາຍການທີ່ເລືອກ</button>
+      <input type="file" id="excelFileInput" accept=".xlsx, .xls, .csv" style="display: none;" onchange="window.handleExcelUpload(event)">
+      <button class="btn btn-success shadow-sm fw-bold me-2" onclick="document.getElementById('excelFileInput').click()"><i class="fas fa-file-excel me-1"></i> ອັບໂຫຼດ Excel</button>
+      <button class="btn btn-primary shadow-sm fw-bold" onclick="window.openAddServiceModal()"><i class="fas fa-plus me-1"></i> ເພີ່ມບໍລິການໃໝ່</button>
+    </div>
+  </div>
+  <div class="card card-outline card-primary">
+    <div class="card-body table-responsive">
+      <table id="serviceTable" class="table table-hover align-middle w-100">
+        <thead class="bg-light">
+          <tr>
+            <th class="text-center" style="width: 40px;"><input type="checkbox" class="form-check-input" onchange="window.toggleAllCheckboxes(this, 'services')"></th>
+            <th>Services List (ຊື່ບໍລິການ)</th><th>Mapped Specialist (ແພດສະເພາະທາງ)</th>
+            <th>Revenue Group (ໝວດລາຍຮັບ)</th><th class="text-center">ຈັດການ</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </div>
+</div>

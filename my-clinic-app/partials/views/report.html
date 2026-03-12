@@ -1,0 +1,39 @@
+<div id="view-report" style="display:none;">
+  <div class="d-flex flex-wrap justify-content-between align-items-center mb-4 gap-2 pb-3" style="border-bottom:2px solid var(--border-color);">
+    <div>
+      <h3 class="fw-bold m-0 text-dark"><i class="fas fa-file-invoice text-primary me-2"></i>ລາຍງານສະຫຼຸບ (Summary Report)</h3>
+      <p class="text-muted mb-0 mt-1" style="font-size:11.5px;">ສະຫຼຸບຂໍ້ມູນຜູ້ໃຊ້ບໍລິການ — Export Excel</p>
+    </div>
+    <div class="d-flex flex-wrap gap-2 align-items-center bg-white p-2 rounded shadow-sm border">
+      <span class="text-muted small ms-2" id="repRefreshTime">ອັບເດດ: -</span>
+      <div class="btn-group ms-2">
+        <button class="btn btn-sm btn-primary active" id="btnRepToday" onclick="window.setReportRange('today')">ມື້ນີ້</button>
+        <button class="btn btn-sm btn-outline-primary" id="btnRepWeek" onclick="window.setReportRange('week')">ອາທິດນີ້</button>
+        <button class="btn btn-sm btn-outline-primary" id="btnRepMonth" onclick="window.setReportRange('month')">ເດືອນນີ້</button>
+        <button class="btn btn-sm btn-outline-primary" id="btnRepYear" onclick="window.setReportRange('year')">ປີນີ້</button>
+      </div>
+      <div class="input-group input-group-sm ms-2" style="width: auto;">
+        <span class="input-group-text bg-light">ຈາກ</span>
+        <input type="date" id="repStartDate" class="form-control" onchange="window.fetchReportData()">
+        <span class="input-group-text bg-light">ຫາ</span>
+        <input type="date" id="repEndDate" class="form-control" onchange="window.fetchReportData()">
+      </div>
+      <button class="btn btn-sm btn-success ms-2 fw-bold shadow-sm" onclick="window.exportReportExcel()"><i class="fas fa-file-excel me-1"></i> Excel</button>
+    </div>
+  </div>
+  <div class="card card-outline card-primary shadow-sm">
+    <div class="card-header border-0"><h5 class="card-title fw-bold text-primary"><i class="fas fa-list me-2"></i>ລາຍຊື່ຜູ້ມາໃຊ້ບໍລິການ</h5></div>
+    <div class="card-body table-responsive">
+      <table id="reportTable" class="table table-hover table-striped w-100 align-middle">
+        <thead class="bg-light">
+          <tr>
+            <th>ວັນທີ</th><th>ເວລາ</th><th>ID</th><th>ຊື່ ແລະ ນາມສະກຸນ</th>
+            <th>ເພດ</th><th>ອາຍຸ</th><th>ປະເພດ (Type)</th><th>ສະຖານະ</th>
+            <th>ໝວດໝູ່ (Category)</th><th class="text-center">ຈັດການ</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </div>
+</div>

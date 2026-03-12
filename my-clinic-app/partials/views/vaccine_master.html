@@ -1,0 +1,26 @@
+<div id="view-vaccine_master" style="display:none;">
+  <div class="d-flex justify-content-between align-items-center mb-4 pb-3" style="border-bottom:2px solid var(--border-color);">
+    <div>
+      <h3 class="fw-bold m-0 text-dark"><i class="fas fa-vial text-primary me-2"></i>ຕັ້ງຄ່າຂໍ້ມູນວັກຊີນ (Vaccine Master)</h3>
+      <p class="text-muted mb-0 mt-1" style="font-size:11.5px;">ລາຍຊື່ວັກຊີນ, ໂດສ ແລະ ໄລຍະ Schedule</p>
+    </div>
+    <div>
+      <button class="btn btn-danger shadow-sm fw-bold me-2" onclick="window.bulkDelete('vacMaster')"><i class="fas fa-trash-alt me-1"></i> ລຶບລາຍການທີ່ເລືອກ</button>
+      <button class="btn btn-primary shadow-sm fw-bold" onclick="window.openVacMasterModal()"><i class="fas fa-plus me-1"></i> ເພີ່ມລາຍຊື່ວັກຊີນ</button>
+    </div>
+  </div>
+  <div class="card card-outline card-primary">
+    <div class="card-body table-responsive">
+      <table id="vacMasterTable" class="table table-hover align-middle w-100">
+        <thead class="bg-light">
+          <tr>
+            <th class="text-center" style="width: 40px;"><input type="checkbox" class="form-check-input" onchange="window.toggleAllCheckboxes(this, 'vacMaster')"></th>
+            <th>ຊື່ວັກຊີນ (Vaccine Name)</th><th>ພະຍາດທີ່ປ້ອງກັນ</th>
+            <th>ຈຳນວນໂດສທັງໝົດ</th><th>ໄລຍະຫ່າງແຕ່ລະເຂັມ</th><th class="text-center">ຈັດການ</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </div>
+</div>

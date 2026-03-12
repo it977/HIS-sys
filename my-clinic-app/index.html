@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="lo">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Hospital Information System</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Lao:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/admin-lte/3.2.0/css/adminlte.min.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/datatables.net-bs5/1.13.4/dataTables.bootstrap5.min.css">
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/select2/4.0.13/css/select2.min.css" rel="stylesheet" />
+
+  <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/js/bootstrap.bundle.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/select2/4.0.13/js/select2.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/datatables.net/1.13.4/jquery.dataTables.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/datatables.net-bs5/1.13.4/dataTables.bootstrap5.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.0.0"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <script src="https://unpkg.com/html5-qrcode"></script>
+  <!-- Supabase JS client (must load before main.js) -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+  <link rel="stylesheet" href="style.css">
+</head>
+
+<body class="hold-transition">
+  <div id="loading">
+    <div style="text-align:center;">
+      <div class="spinner-border text-primary" style="width:3rem;height:3rem;border-width:3px;"></div>
+      <p style="color:rgba(255,255,255,0.6);font-size:12px;margin-top:14px;letter-spacing:1px;">ກຳລັງໂຫຼດລະບົບ...</p>
+    </div>
+  </div>
+
+  <!-- ===== LOGIN SECTION ===== -->
+  <div class="login-page" id="login-section">
+    <div class="login-box">
+      <div class="card card-outline card-primary">
+        <div class="card-body p-4">
+          <div class="text-center login-logo mb-4">
+            <i class="fas fa-clinic-medical fa-3x text-primary mb-3"
+              style="display:block;font-size:2.8rem;margin-bottom:12px;color:var(--primary);filter:drop-shadow(0 0 12px rgba(14,165,233,0.35));"></i>
+            <h3 class="fw-bold m-0" style="font-size:1.5rem;font-weight:800;">HIS <span class="text-primary">SYSTEM</span></h3>
+            <p class="text-muted mt-1 mb-0" style="font-size:11.5px;letter-spacing:0.5px;">Hospital Information System</p>
+          </div>
+          <div id="loginForm">
+            <div class="mb-3">
+              <label class="form-label text-muted" style="font-size:11.5px;font-weight:600;letter-spacing:0.3px;">ອີເມວ (Email)</label>
+              <div class="input-group">
+                <div class="input-group-text"><i class="fas fa-envelope text-muted" style="font-size:12px;"></i></div>
+                <input type="email" class="form-control" id="loginEmail" placeholder="your@email.com" required style="border-left:none;">
+              </div>
+            </div>
+            <div class="mb-4">
+              <label class="form-label text-muted" style="font-size:11.5px;font-weight:600;letter-spacing:0.3px;">ລະຫັດຜ່ານ (Password)</label>
+              <div class="input-group">
+                <div class="input-group-text"><i class="fas fa-lock text-muted" style="font-size:12px;"></i></div>
+                <input type="password" class="form-control" id="loginPass" placeholder="••••••••" required
+                  onkeypress="if(event.key === 'Enter') window.doLogin();" style="border-left:none;">
+              </div>
+            </div>
+            <button type="button" class="btn btn-primary w-100 fw-bold py-2" onclick="window.doLogin()"
+              style="font-size:14px;letter-spacing:0.3px;">
+              <i class="fas fa-sign-in-alt me-2"></i> ເຂົ້າສູ່ລະບົບ
+            </button>
+            <p class="text-center text-muted mt-3 mb-0" style="font-size:10.5px;">One Meds Hospital Information System v2.0</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== APP SHELL ===== -->
+  <div class="wrapper" id="app-content" style="display:none;">
+    <!-- Navbar injected here -->
+    <div id="partial-navbar"></div>
+
+    <!-- Content views injected here -->
+    <div class="his-content-wrapper" id="partial-views"></div>
+  </div>
+
+  <!-- Modals injected here -->
+  <div id="partial-modals"></div>
+
+  <!-- Print areas injected here -->
+  <div id="partial-prints"></div>
+
+  <script src="main.js"></script>
+</body>
+
+</html>

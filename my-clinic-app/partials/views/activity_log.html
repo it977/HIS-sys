@@ -1,0 +1,125 @@
+<div id="view-activity_log" style="display:none;">
+  <!-- Header -->
+  <div class="d-flex justify-content-between align-items-center mb-4 pb-3" style="border-bottom:2px solid var(--border-color);">
+    <div>
+      <h3 class="fw-bold m-0 text-dark"><i class="fas fa-history text-info me-2"></i>ບັນທຶກການກະທຳ (Activity Log)</h3>
+      <p class="text-muted mb-0 mt-1" style="font-size:11.5px;">ຕິດຕາມ ແລະ ກວດສອບການກະທຳຂອງຜູ້ໃຊ້ທຸກຄົນໃນລະບົບ</p>
+    </div>
+    <div>
+      <button class="btn btn-outline-secondary shadow-sm me-2" onclick="window.exportActivityLogCSV()">
+        <i class="fas fa-file-csv me-1"></i> Export CSV
+      </button>
+      <button class="btn btn-info text-white shadow-sm" onclick="window.loadActivityLog()">
+        <i class="fas fa-sync-alt me-1"></i> Refresh
+      </button>
+    </div>
+  </div>
+
+  <!-- Filters -->
+  <div class="card shadow-sm mb-4">
+    <div class="card-body py-3">
+      <div class="row g-2 align-items-end">
+        <div class="col-md-2">
+          <label class="form-label small text-muted mb-1"><i class="fas fa-calendar-alt me-1"></i>ວັນທີເລີ່ມຕົ້ນ</label>
+          <input type="date" id="logStartDate" class="form-control form-control-sm">
+        </div>
+        <div class="col-md-2">
+          <label class="form-label small text-muted mb-1"><i class="fas fa-calendar-alt me-1"></i>ວັນທີສິ້ນສຸດ</label>
+          <input type="date" id="logEndDate" class="form-control form-control-sm">
+        </div>
+        <div class="col-md-2">
+          <label class="form-label small text-muted mb-1"><i class="fas fa-cubes me-1"></i>Module</label>
+          <select id="logModuleFilter" class="form-select form-select-sm">
+            <option value="">-- ທັງໝົດ --</option>
+            <option value="Auth">Auth (Login/Logout)</option>
+            <option value="Patients">ຄົນເຈັບ</option>
+            <option value="Triage">Triage</option>
+            <option value="OPD">OPD / EMR</option>
+            <option value="Appointments">ນັດໝາຍ</option>
+            <option value="Vaccines">ວັກຊີນ</option>
+            <option value="Users">ຜູ້ໃຊ້</option>
+            <option value="Drugs">ຢາ</option>
+            <option value="Labs">ແລັບ</option>
+            <option value="Services">ບໍລິການ</option>
+            <option value="Locations">ເມືອງ-ແຂວງ</option>
+            <option value="Organizations">ອົງກອນ</option>
+            <option value="Settings">ຕັ້ງຄ່າ</option>
+          </select>
+        </div>
+        <div class="col-md-2">
+          <label class="form-label small text-muted mb-1"><i class="fas fa-user me-1"></i>ຜູ້ໃຊ້</label>
+          <input type="text" id="logUserFilter" class="form-control form-control-sm" placeholder="ຄົ້ນຫາຊື່ຜູ້ໃຊ້...">
+        </div>
+        <div class="col-md-2">
+          <label class="form-label small text-muted mb-1"><i class="fas fa-bolt me-1"></i>ການກະທຳ</label>
+          <select id="logActionFilter" class="form-select form-select-sm">
+            <option value="">-- ທັງໝົດ --</option>
+            <option value="Login">Login</option>
+            <option value="Logout">Logout</option>
+            <option value="Add">Add (ເພີ່ມ)</option>
+            <option value="Edit">Edit (ແກ້ໄຂ)</option>
+            <option value="Delete">Delete (ລຶບ)</option>
+            <option value="Save">Save (ບັນທຶກ)</option>
+          </select>
+        </div>
+        <div class="col-md-2">
+          <button class="btn btn-primary btn-sm w-100 shadow-sm" onclick="window.loadActivityLog()">
+            <i class="fas fa-search me-1"></i> ຄົ້ນຫາ
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Summary Badges -->
+  <div class="row g-3 mb-4" id="logSummaryCards">
+    <div class="col-6 col-md-3">
+      <div class="card border-0 shadow-sm text-center py-3">
+        <div class="text-info" style="font-size:28px;"><i class="fas fa-list-alt"></i></div>
+        <div class="fw-bold fs-4" id="logCountTotal">-</div>
+        <div class="text-muted small">ທັງໝົດ</div>
+      </div>
+    </div>
+    <div class="col-6 col-md-3">
+      <div class="card border-0 shadow-sm text-center py-3">
+        <div class="text-success" style="font-size:28px;"><i class="fas fa-plus-circle"></i></div>
+        <div class="fw-bold fs-4" id="logCountAdd">-</div>
+        <div class="text-muted small">ເພີ່ມ / ບັນທຶກ</div>
+      </div>
+    </div>
+    <div class="col-6 col-md-3">
+      <div class="card border-0 shadow-sm text-center py-3">
+        <div class="text-warning" style="font-size:28px;"><i class="fas fa-edit"></i></div>
+        <div class="fw-bold fs-4" id="logCountEdit">-</div>
+        <div class="text-muted small">ແກ້ໄຂ</div>
+      </div>
+    </div>
+    <div class="col-6 col-md-3">
+      <div class="card border-0 shadow-sm text-center py-3">
+        <div class="text-danger" style="font-size:28px;"><i class="fas fa-trash-alt"></i></div>
+        <div class="fw-bold fs-4" id="logCountDelete">-</div>
+        <div class="text-muted small">ລຶບ</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Table -->
+  <div class="card shadow-sm">
+    <div class="card-body table-responsive p-0">
+      <table id="activityLogTable" class="table table-hover align-middle mb-0">
+        <thead class="bg-light">
+          <tr>
+            <th style="min-width:140px;"><i class="fas fa-clock me-1 text-muted"></i>ວັນທີ / ເວລາ</th>
+            <th><i class="fas fa-user me-1 text-muted"></i>ຜູ້ໃຊ້</th>
+            <th><i class="fas fa-bolt me-1 text-muted"></i>ການກະທຳ</th>
+            <th><i class="fas fa-info-circle me-1 text-muted"></i>ລາຍລະອຽດ</th>
+            <th><i class="fas fa-cube me-1 text-muted"></i>Module</th>
+          </tr>
+        </thead>
+        <tbody id="activityLogTableBody">
+          <tr><td colspan="5" class="text-center py-4 text-muted"><i class="fas fa-history me-2"></i>ກຳລັງໂຫຼດ...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>

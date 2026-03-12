@@ -1,0 +1,25 @@
+<div id="view-users" style="display:none;">
+  <div class="d-flex justify-content-between align-items-center mb-4 pb-3" style="border-bottom:2px solid var(--border-color);">
+    <div>
+      <h3 class="fw-bold m-0 text-dark"><i class="fas fa-user-shield text-warning me-2"></i>ຈັດການຜູ້ໃຊ້ລະບົບ</h3>
+      <p class="text-muted mb-0 mt-1" style="font-size:11.5px;">ສ້າງ ແລະ ຈັດການ Role ຜູ້ໃຊ້ລະບົບ</p>
+    </div>
+    <div>
+      <button class="btn btn-danger shadow-sm fw-bold me-2" onclick="window.bulkDelete('users')"><i class="fas fa-trash-alt me-1"></i> ລຶບລາຍການທີ່ເລືອກ</button>
+      <button class="btn btn-primary shadow-sm" onclick="window.openAddUserModal()"><i class="fas fa-user-plus me-1"></i> ເພີ່ມຜູ້ໃຊ້</button>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-body table-responsive p-0">
+      <table id="userTable" class="table table-hover align-middle mb-0">
+        <thead class="bg-light">
+          <tr>
+            <th class="text-center" style="width: 40px;"><input type="checkbox" class="form-check-input" onchange="window.toggleAllCheckboxes(this, 'users')"></th>
+            <th>ຊື່ພະນັກງານ</th><th>ອີເມວ</th><th>ສິດ (Role)</th><th>ສະຖານະ</th><th class="text-center">ຈັດການ</th>
+          </tr>
+        </thead>
+        <tbody id="userTableBody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>

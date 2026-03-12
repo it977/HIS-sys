@@ -1,0 +1,22 @@
+<div id="view-appointments" style="display:none;">
+  <div class="d-flex justify-content-between align-items-center mb-4 pb-3" style="border-bottom:2px solid var(--border-color);">
+    <div>
+      <h3 class="fw-bold m-0 text-dark"><i class="fas fa-calendar-check text-warning me-2"></i>ລະບົບນັດໝາຍ</h3>
+      <p class="text-muted mb-0 mt-1" style="font-size:11.5px;">ຈັດການການນັດໝາຍ ແລະ ຕິດຕາມສະຖານະ</p>
+    </div>
+    <button class="btn btn-warning shadow-sm fw-bold text-dark" onclick="window.openApptModal()"><i class="fas fa-calendar-plus me-1"></i> ສ້າງນັດໝາຍໃໝ່</button>
+  </div>
+  <div class="card card-outline card-warning">
+    <div class="card-body table-responsive">
+      <table id="apptTable" class="table table-hover align-middle w-100">
+        <thead class="bg-light">
+          <tr>
+            <th>ວັນທີນັດ</th><th>ເວລາ</th><th>ປະເພດ</th><th>ລູກຄ້າ/ຄົນເຈັບ</th>
+            <th>ສາເຫດ / ລາຍລະອຽດ</th><th>ແພດຜູ້ນັດ</th><th>ສະຖານະ</th><th class="text-center">ຈັດການ</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </div>
+</div>

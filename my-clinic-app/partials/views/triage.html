@@ -1,0 +1,26 @@
+<div id="view-triage" style="display:none;">
+  <div class="d-flex justify-content-between align-items-center mb-4 pb-3" style="border-bottom:2px solid var(--border-color);">
+    <div>
+      <h3 class="fw-bold m-0 text-dark"><i class="fas fa-heartbeat text-danger me-2"></i>ຈຸດຊັກປະຫວັດ (Triage)</h3>
+      <p class="text-muted mb-0 mt-1" style="font-size:11.5px;">ວັດ Vital Signs ແລະ ສ່ົງຄົນເຈັບເຂົ້າຫ້ອງກວດ</p>
+    </div>
+    <button class="btn btn-outline-danger fw-bold shadow-sm" onclick="window.loadTriageQueue()"><i class="fas fa-sync-alt me-1"></i> ໂຫຼດຄິວ</button>
+  </div>
+  <div class="card card-outline card-danger shadow-sm">
+    <div class="card-body table-responsive p-0">
+      <table id="triageTable" class="table table-hover align-middle mb-0">
+        <thead class="bg-light">
+          <tr>
+            <th>ວັນທີ</th>
+            <th>ເວລາ</th>
+            <th>ຊື່ ແລະ ນາມສະກຸນຄົນເຈັບ</th>
+            <th>ອາຍຸ</th>
+            <th>ສະຖານະ</th>
+            <th class="text-center">ຈັດການ</th>
+          </tr>
+        </thead>
+        <tbody id="triageTableBody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
