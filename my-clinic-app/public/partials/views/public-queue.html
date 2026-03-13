@@ -1,0 +1,103 @@
+<div class="public-queue-view" id="view-public-queue" style="display: none; height: 100vh; background: #0f172a; color: white; padding: 0; position: fixed; top: 0; left: 0; width: 100vw; z-index: 10000; overflow: hidden;">
+    <!-- Top Header / Brand -->
+    <div class="d-flex align-items-center justify-content-between px-5 py-4" style="background: rgba(30, 41, 59, 0.7); backdrop-filter: blur(10px); border-bottom: 2px solid rgba(255,255,255,0.1);">
+        <div class="d-flex align-items-center gap-3">
+            <div style="width: 60px; height: 60px; background: linear-gradient(135deg, #0ea5e9, #6366f1); border-radius: 12px; display: flex; align-items: center; justify-content: center; box-shadow: 0 0 20px rgba(14,165,233,0.4);">
+                <i class="fas fa-clinic-medical fa-2x"></i>
+            </div>
+            <div>
+                <h1 class="mb-0 fw-bold" style="font-size: 2.5rem; letter-spacing: -1px;" id="tvHospitalName">HIS HOSPITAL</h1>
+                <p class="mb-0 opacity-50" style="font-size: 1.1rem; letter-spacing: 2px;">QUEUE DISPLAY SYSTEM</p>
+            </div>
+        </div>
+        <div class="text-end">
+            <h2 id="tvClock" class="mb-0 fw-bold" style="font-size: 3rem;">00:00:00</h2>
+            <p id="tvDate" class="mb-0 opacity-50 fs-5"></p>
+        </div>
+    </div>
+
+    <div class="row g-0 h-100">
+        <!-- Main Left: Calling Now -->
+        <div class="col-8 p-5 h-100 border-end border-white border-opacity-10 d-flex flex-column">
+            <div class="mb-4 d-flex align-items-center gap-3">
+                <span class="badge bg-danger px-3 py-2 fs-5 rounded-pill">📢 ກຳລັງເອີ້ນ (CALLING NOW)</span>
+            </div>
+            
+            <div id="callingCard" class="flex-grow-1 d-flex flex-column justify-content-center align-items-center text-center p-5 rounded-4" 
+                 style="background: linear-gradient(135deg, rgba(30, 41, 59, 1), rgba(15, 23, 42, 1)); border: 2px solid #334155; position: relative; overflow: hidden;">
+                
+                <!-- Background Glow -->
+                <div style="position: absolute; top: -50%; left: -50%; width: 200%; height: 200%; background: radial-gradient(circle, rgba(14,165,233,0.1) 0%, transparent 70%);"></div>
+
+                <div id="callingDetails" style="position: relative; z-index: 1;">
+                    <i class="fas fa-user-circle fa-5x mb-4 text-primary opacity-50 animate__animated animate__pulse animate__infinite"></i>
+                    <h1 id="callingName" style="font-size: 8rem; font-weight: 800; line-height: 1;" class="mb-3">...</h1>
+                    <div class="h-divider mx-auto my-5" style="width: 200px; height: 10px; background: #0ea5e9; border-radius: 5px;"></div>
+                    <div class="d-flex align-items-center justify-content-center gap-4">
+                        <span id="callingDept" style="font-size: 4rem; color: #fbbf24; font-weight: 700;">ກະລຸນາລໍຖ້າ...</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Side: Recent Lists -->
+        <div class="col-4 p-5 h-100 d-flex flex-column" style="background: rgba(15, 23, 42, 0.5);">
+            <!-- OPD Queue -->
+            <div class="mb-5 flex-grow-1 overflow-hidden d-flex flex-column">
+                <h3 class="mb-4 d-flex align-items-center justify-content-between">
+                    <span><i class="fas fa-user-md text-info me-2"></i> ຫ້ອງກວດ (OPD)</span>
+                    <span class="badge bg-info bg-opacity-20 text-info fs-6">ລໍຖ້າກວດ</span>
+                </h3>
+                <div id="tvOpdList" class="flex-grow-1 overflow-auto pe-2">
+                    <!-- List items here -->
+                </div>
+            </div>
+
+            <!-- Triage Queue -->
+            <div class="flex-grow-1 overflow-hidden d-flex flex-column">
+                <h3 class="mb-4 d-flex align-items-center justify-content-between">
+                    <span><i class="fas fa-heartbeat text-danger me-2"></i> ຊັກປະຫວັດ (Triage)</span>
+                    <span class="badge bg-danger bg-opacity-20 text-danger fs-6">ລໍຖ້າວັດແທກ</span>
+                </h3>
+                <div id="tvTriageList" class="flex-grow-1 overflow-auto pe-2">
+                    <!-- List items here -->
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.public-queue-view {
+    font-family: 'Noto Sans Lao', sans-serif;
+}
+.queue-item {
+    background: rgba(30, 41, 59, 0.5);
+    border: 1px solid rgba(255,255,255,0.05);
+    border-radius: 12px;
+    padding: 1.5rem;
+    margin-bottom: 1rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    transition: all 0.3s ease;
+}
+.queue-item.calling {
+    background: rgba(14, 165, 233, 0.1);
+    border-color: #0ea5e9;
+    box-shadow: 0 0 15px rgba(14,165,233,0.3);
+    animation: flash 1.5s infinite;
+}
+@keyframes flash {
+    0% { opacity: 1; }
+    50% { opacity: 0.7; }
+    100% { opacity: 1; }
+}
+#tvOpdList::-webkit-scrollbar, #tvTriageList::-webkit-scrollbar {
+    width: 6px;
+}
+#tvOpdList::-webkit-scrollbar-thumb, #tvTriageList::-webkit-scrollbar-thumb {
+    background: rgba(255,255,255,0.1);
+    border-radius: 10px;
+}
+</style>

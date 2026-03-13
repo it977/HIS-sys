@@ -35,7 +35,7 @@ async function loadPartials() {
   const views = [
     'dashboard', 'report', 'patients', 'triage', 'opd',
     'appointments', 'vaccines', 'vaccine_master', 'drugs',
-    'labs', 'services', 'locations', 'users', 'orgs', 'settings', 'activity_log'
+    'labs', 'services', 'locations', 'users', 'orgs', 'settings', 'activity_log', 'public-queue'
   ];
   const modals = [
     'triage-modal',
@@ -442,11 +442,23 @@ window.loadView = function (v) {
   }
 
   // Switch Views
-  let views = ['dashboard', 'report', 'patients', 'settings', 'orgs', 'triage', 'opd', 'users', 'services', 'locations', 'appointments', 'vaccines', 'vaccine_master', 'drugs', 'labs', 'activity_log'];
+  let views = ['dashboard', 'report', 'patients', 'settings', 'orgs', 'triage', 'opd', 'users', 'services', 'locations', 'appointments', 'vaccines', 'vaccine_master', 'drugs', 'labs', 'activity_log', 'public-queue'];
   views.forEach(n => {
     if (n === v) $('#view-' + n).show();
     else $('#view-' + n).hide();
   });
+
+  // Special handling for TV Display (Hide Navbars)
+  if (v === 'public-queue') {
+    $('#partial-navbar').hide();
+    $('.main-sidebar').hide();
+    $('.content-wrapper').css('margin-left', '0');
+    window.initPublicQueueView();
+  } else {
+    $('#partial-navbar').show();
+    $('.main-sidebar').show();
+    $('.content-wrapper').css('margin-left', '');
+  }
 
   // Reset intervals
   if (dashRefreshInterval) clearInterval(dashRefreshInterval);
@@ -1827,17 +1839,23 @@ window.loadTriageQueue = async function () {
   let h = '';
   if (q && q.length > 0) {
     q.forEach((r, i) => {
-      let sb = r.status === 'Triage' ? '<span class="badge bg-warning text-dark"><i class="fas fa-hourglass-half"></i> ລໍຖ້າວັດແທກ</span>' : `<span class="badge bg-success"><i class="fas fa-check-circle"></i> ໄປ ${r.department} ແລ້ວ</span>`;
+      let isCalling = r.status === 'Calling Triage';
+      let sb = r.status === 'Triage' || isCalling ? '<span class="badge bg-warning text-dark"><i class="fas fa-hourglass-half"></i> ລໍຖ້າວັດແທກ</span>' : `<span class="badge bg-success"><i class="fas fa-check-circle"></i> ໄປ ${r.department} ແລ້ວ</span>`;
+      if (isCalling) sb = '<span class="badge bg-danger animate__animated animate__flash animate__infinite"><i class="fas fa-volume-up"></i> ກຳລັງເອີ້ນ...</span>';
+      
       let nb = r.isNew ? '<span class="badge bg-success ms-2">ໃໝ່</span>' : '<span class="badge bg-secondary ms-2">ເກົ່າ</span>';
-      let btnHtml = `<button class="btn btn-sm btn-info text-white shadow-sm me-1" onclick="window.viewTriage(${i})"><i class="fas fa-eye"></i></button>`;
-      if (r.status === 'Triage') {
-        btnHtml += `<button class="btn btn-sm btn-danger fw-bold shadow-sm me-1" onclick="window.openTriage(${i})"><i class="fas fa-stethoscope"></i> ວັດແທກ</button>`;
+      let btnHtml = `<button class="btn btn-sm btn-info text-white shadow-sm me-1" onclick="window.viewTriage(${i})" title="ເບິ່ງລາຍລະອຽດ"><i class="fas fa-eye"></i></button>`;
+      if (r.status === 'Triage' || isCalling) {
+        btnHtml += `<button class="btn btn-sm btn-danger fw-bold shadow-sm me-1" onclick="window.openTriage(${i})" title="ວັດແທກ"><i class="fas fa-stethoscope"></i> ວັດແທກ</button>`;
       } else {
-        btnHtml += `<button class="btn btn-sm btn-primary shadow-sm me-1" onclick="window.openTriage(${i})"><i class="fas fa-edit"></i></button>`;
+        btnHtml += `<button class="btn btn-sm btn-primary shadow-sm me-1" onclick="window.openTriage(${i})" title="ແກ້ໄຂ"><i class="fas fa-edit"></i></button>`;
       }
-      btnHtml += `<button class="btn btn-sm btn-outline-danger shadow-sm me-1" onclick="window.deleteVisitFlow('${r.visitId}')"><i class="fas fa-trash"></i></button>
-                        <button class="btn btn-sm btn-secondary text-white shadow-sm" onclick="window.printOPDCard('triage', ${i})"><i class="fas fa-file-medical"></i></button>`;
-      h += `<tr>
+      // Add Call Button
+      btnHtml += `<button class="btn btn-sm btn-dark shadow-sm me-1" onclick="window.triggerPublicCall('${r.visitId}', '${r.patientId}', 'ຊັກປະຫວັດ (Triage)')" title="ເອີ້ນຄິວ"><i class="fas fa-volume-up"></i></button>`;
+      
+      btnHtml += `<button class="btn btn-sm btn-outline-danger shadow-sm me-1" onclick="window.deleteVisitFlow('${r.visitId}')" title="ລຶບ"><i class="fas fa-trash"></i></button>
+                         <button class="btn btn-sm btn-secondary text-white shadow-sm" onclick="window.printOPDCard('triage', ${i})" title="ພິມໃບ OPD"><i class="fas fa-file-medical"></i></button>`;
+      h += `<tr class="${isCalling ? 'table-danger' : ''}">
                     <td class="text-muted">${r.date}</td>
                     <td class="fw-bold">${r.time}</td>
                     <td><div class="fw-bold text-primary">${r.patientName} ${nb}</div><div class="small text-muted">${r.patientId}</div></td>
@@ -1944,7 +1962,7 @@ window.openTriage = function (i) {
   $('#triageForm')[0].reset();
   $('input[name="v_bp"]').removeClass('border-danger text-danger bg-danger border-warning text-dark bg-warning bg-opacity-10 border-success text-success fw-bold');
 
-  if (r.status !== 'Triage') {
+  if (r.status !== 'Triage' && r.status !== 'Calling Triage') {
     $('input[name="v_bp"]').val(r.bp || '').trigger('input');
     $('input[name="v_temp"]').val(r.temp || '');
     $('input[name="v_weight"]').val(r.weight || '');
@@ -1957,6 +1975,12 @@ window.openTriage = function (i) {
   } else {
     $('#v_bmi').val('');
   }
+
+  // Clear "Calling" status if opening
+  if (r.status === 'Calling Triage') {
+    supabaseClient.from('Visits').update({ Status: 'Triage' }).eq('Visit_ID', r.visitId);
+  }
+
   if (document.activeElement) document.activeElement.blur();
   $('#triageModal').modal('show');
 };
@@ -1982,15 +2006,22 @@ window.loadQueue = async function () {
   let h = '';
   if (q && q.length > 0) {
     q.forEach((r, i) => {
+      // Skip patients still in Triage
+      if (r.status === 'Triage' || r.status === 'Calling Triage') return;
+
       let b = '', a = '';
-      if (r.status === 'Waiting OPD') {
-        b = '<span class="badge bg-warning text-dark"><i class="fas fa-user-clock"></i> ລໍຖ້າກວດ</span>';
+      let isCalling = r.status.startsWith('Calling');
+      
+      if (r.status === 'Waiting OPD' || r.status === 'Calling OPD') {
+        b = isCalling ? '<span class="badge bg-danger animate__animated animate__flash animate__infinite"><i class="fas fa-volume-up"></i> ກຳລັງເອີ້ນ...</span>' : '<span class="badge bg-warning text-dark"><i class="fas fa-user-clock"></i> ລໍຖ້າກວດ</span>';
         a = `<button class="btn btn-sm btn-info text-white fw-bold me-1" onclick="window.openEMR(${i})"><i class="fas fa-stethoscope"></i> ເປີດກວດ</button>
-                     <button class="btn btn-sm btn-secondary text-white" onclick="window.printOPDCard('opd', ${i})"><i class="fas fa-file-medical"></i> ພິມ</button>`;
-      } else if (r.status === 'Waiting Lab') {
-        b = '<span class="badge bg-primary"><i class="fas fa-flask"></i> ລໍຖ້າຜົນແລັບ</span>';
+                      <button class="btn btn-sm btn-dark text-white me-1" onclick="window.triggerPublicCall('${r.visitId}', '${r.patientId}', '${r.department || 'ຫ້ອງກວດ (OPD)'}')" title="ເອີ້ນຄິວ"><i class="fas fa-volume-up"></i></button>
+                      <button class="btn btn-sm btn-secondary text-white" onclick="window.printOPDCard('opd', ${i})"><i class="fas fa-file-medical"></i> ພິມ</button>`;
+      } else if (r.status === 'Waiting Lab' || r.status === 'Calling Lab') {
+        b = isCalling ? '<span class="badge bg-danger animate__animated animate__flash animate__infinite"><i class="fas fa-volume-up"></i> ກຳລັງເອີ້ນ...</span>' : '<span class="badge bg-primary"><i class="fas fa-flask"></i> ລໍຖ້າຜົນແລັບ</span>';
         a = `<button class="btn btn-sm btn-primary text-white fw-bold me-1" onclick="window.openEMR(${i})"><i class="fas fa-edit"></i> ອ່ານຜົນແລັບ</button>
-                     <button class="btn btn-sm btn-secondary text-white" onclick="window.printOPDCard('opd', ${i})"><i class="fas fa-file-medical"></i> ພິມ</button>`;
+                      <button class="btn btn-sm btn-dark text-white me-1" onclick="window.triggerPublicCall('${r.visitId}', '${r.patientId}', '${r.department || 'ຫ້ອງກວດ (OPD)'}')" title="ເອີ້ນຄິວ"><i class="fas fa-volume-up"></i></button>
+                      <button class="btn btn-sm btn-secondary text-white" onclick="window.printOPDCard('opd', ${i})"><i class="fas fa-file-medical"></i> ພິມ</button>`;
       } else {
         b = `<span class="badge bg-success"><i class="fas fa-check-circle"></i> ປິດຈົບ (${r.dischargeStatus || 'ກວດສຳເລັດ'})</span>`;
         a = `<button class="btn btn-sm btn-success text-white fw-bold me-1" onclick="window.viewEMR(${i})" title="ເບິ່ງລາຍລະອຽດການກວດ"><i class="fas fa-eye"></i></button>
@@ -1999,7 +2030,7 @@ window.loadQueue = async function () {
       }
       let nb = r.isNew ? '<span class="badge bg-success ms-2">ໃໝ່</span>' : '<span class="badge bg-secondary ms-2">ເກົ່າ</span>';
       let dateTimeStr = (r.date ? r.date + ' ' : '') + r.time;
-      h += `<tr>
+      h += `<tr class="${isCalling ? 'table-danger' : ''}">
                     <td class="text-muted small">${dateTimeStr}</td>
                     <td class="text-dark fw-bold">${r.patientId}</td>
                     <td><div class="fw-bold text-primary">${r.patientName} ${nb}</div></td>
@@ -2185,6 +2216,12 @@ window.openEMR = function (i) {
 
   window.renderEMRLabTable();
   window.renderEMRDrugTable();
+
+  // Clear "Calling" status if opening
+  if (q.status === 'Calling OPD' || q.status === 'Calling Lab') {
+    let resetStatus = q.status === 'Calling OPD' ? 'Waiting OPD' : 'Waiting Lab';
+    supabaseClient.from('Visits').update({ Status: resetStatus }).eq('Visit_ID', q.visitId);
+  }
 
   if (document.activeElement) document.activeElement.blur();
   $('#emrModal').modal('show');
@@ -3975,5 +4012,210 @@ window.exportActivityLogCSV = function () {
   a.href = url; a.download = 'Activity_Log_' + window.getLocalStr(new Date()) + '.csv'; a.click();
   URL.revokeObjectURL(url);
 };
+
+// ==========================================
+// PUBLIC QUEUE & VOICE CALL
+// ==========================================
+let publicQueueChannel = null;
+
+window.initPublicQueueView = async function () {
+  console.log("Initializing Public Queue View...");
+  
+  // Set Hospital Name
+  $('#tvHospitalName').text(systemSettings.hospitalName || "HIS HOSPITAL");
+  
+  // Update Clock
+  setInterval(() => {
+    let now = new Date();
+    $('#tvClock').text(now.toLocaleTimeString('en-GB', { hour12: false }));
+    $('#tvDate').text(now.toLocaleDateString('lo-LA', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }));
+  }, 1000);
+
+  // Fetch Initial Data
+  window.refreshPublicQueueDisplay();
+
+  // Supabase Real-time Subscription
+  if (publicQueueChannel) supabaseClient.removeChannel(publicQueueChannel);
+  
+  publicQueueChannel = supabaseClient.channel('public-queue-updates')
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'Visits' }, payload => {
+      console.log('Queue Change Detected:', payload);
+      window.refreshPublicQueueDisplay();
+      
+      // If someone was just set to "Calling"
+      if (payload.new && payload.new.Status && payload.new.Status.startsWith('Calling')) {
+        window.speakQueue(payload.new.Patient_ID, payload.new.Status.replace('Calling ', ''));
+      }
+    })
+    .subscribe();
+};
+
+window.refreshPublicQueueDisplay = async function () {
+  let today = new Date().toISOString().split('T')[0];
+  const { data: visits, error } = await supabaseClient.from('Visits')
+    .select('*')
+    .gte('Date', today + 'T00:00:00Z')
+    .lte('Date', today + 'T23:59:59Z')
+    .order('Date', { ascending: true });
+
+  if (error) return console.error('refreshPublicQueueDisplay error:', error);
+
+  let opdWait = [];
+  let triageWait = [];
+  let callingNow = null;
+
+  (visits || []).forEach(v => {
+    if (v.Status === 'Waiting OPD' || v.Status === 'Calling OPD') opdWait.push(v);
+    else if (v.Status === 'Triage' || v.Status === 'Calling Triage') triageWait.push(v);
+    
+    if (v.Status.startsWith('Calling')) callingNow = v;
+  });
+
+  // Update Calling Now Card
+  if (callingNow) {
+    $('#callingName').text(callingNow.Patient_Name);
+    $('#callingDept').text(callingNow.Status.replace('Calling ', ''));
+    $('#callingCard').addClass('animate__animated animate__pulse animate__infinite');
+  } else {
+    $('#callingName').text('...');
+    $('#callingDept').text('ກະລຸນາລໍຖ້າ...');
+    $('#callingCard').removeClass('animate__animated animate__pulse animate__infinite');
+  }
+
+  // Update OPD List
+  let opdHtml = '';
+  opdWait.forEach(v => {
+    let isCalling = v.Status === 'Calling OPD';
+    opdHtml += `
+      <div class="queue-item ${isCalling ? 'calling' : ''}">
+        <div>
+          <div class="fw-bold fs-4">${v.Patient_Name}</div>
+          <small class="opacity-50">${v.Patient_ID}</small>
+        </div>
+        <div class="text-end">
+          <span class="badge ${isCalling ? 'bg-danger' : 'bg-info bg-opacity-20 text-info'} fs-5 px-3">
+            ${isCalling ? 'ເອີ້ນແລ້ວ' : 'ລໍຖ້າກວດ'}
+          </span>
+        </div>
+      </div>`;
+  });
+  $('#tvOpdList').html(opdHtml || '<p class="text-center opacity-30 mt-5">ບໍ່ມີຄິວລໍຖ້າ</p>');
+
+  // Update Triage List
+  let triageHtml = '';
+  triageWait.forEach(v => {
+    let isCalling = v.Status === 'Calling Triage';
+    triageHtml += `
+      <div class="queue-item ${isCalling ? 'calling' : ''}">
+        <div>
+          <div class="fw-bold fs-4">${v.Patient_Name}</div>
+          <small class="opacity-50">${v.Patient_ID}</small>
+        </div>
+        <div class="text-end">
+          <span class="badge ${isCalling ? 'bg-danger' : 'bg-danger bg-opacity-20 text-danger'} fs-5 px-3">
+            ${isCalling ? 'ເອີ້ນແລ້ວ' : 'ລໍຖ້າວັດແທກ'}
+          </span>
+        </div>
+      </div>`;
+  });
+  $('#tvTriageList').html(triageHtml || '<p class="text-center opacity-30 mt-5">ບໍ່ມີຄິວລໍຖ້າ</p>');
+};
+
+window.triggerPublicCall = async function (visitId, cn, dept) {
+  console.log(`Calling Patient ID: ${cn} to ${dept}`);
+  
+  // Detemine internal status code
+  let newStatus = 'Calling OPD';
+  if (dept.includes('Triage')) newStatus = 'Calling Triage';
+  else if (dept.includes('Lab')) newStatus = 'Calling Lab';
+  
+  try {
+    // Set to Calling
+    const { error } = await supabaseClient.from('Visits').update({ Status: newStatus }).eq('Visit_ID', visitId);
+    if (error) throw error;
+    
+    // Refresh local views immediately
+    if (dept.includes('Triage')) window.loadTriageQueue(); else window.loadQueue();
+
+    // 2. Local Speak
+    window.speakQueue(cn, dept);
+
+    Swal.fire({
+      title: 'ກຳລັງເອີ້ນ...',
+      text: 'ລະຫັດ: ' + cn,
+      icon: 'info',
+      timer: 2000,
+      showConfirmButton: false,
+      toast: true,
+      position: 'top-end'
+    });
+
+  } catch (err) {
+    console.error('triggerPublicCall error:', err);
+    Swal.fire('Error', 'ບໍ່ສາມາດເອີ້ນຄິວໄດ້', 'error');
+  }
+};
+
+window.speakQueue = function (cn, dept) {
+  if (!window.speechSynthesis) return;
+  
+  let voices = window.speechSynthesis.getVoices();
+  if (voices.length === 0) {
+    setTimeout(() => window.speakQueue(cn, dept), 100);
+    return;
+  }
+
+  window.speechSynthesis.cancel();
+
+  // 1. Voice Selection
+  let localVoice = voices.find(v => (v.name.includes('Achara') || v.name.includes('Premwadee')) && v.name.includes('Natural'));
+  if (!localVoice) localVoice = voices.find(v => v.name.includes('Google ภาษาไทย'));
+  if (!localVoice) localVoice = voices.find(v => (v.lang.includes('th') || v.lang.includes('lo')) && v.name.toLowerCase().includes('female'));
+  if (!localVoice) localVoice = voices.find(v => v.lang.includes('th') || v.lang.includes('lo'));
+
+  let enVoice = voices.find(v => (v.name.includes('Sonia') || v.name.includes('Jenny') || v.name.includes('Aria')) && v.name.includes('Natural'));
+  if (!enVoice) enVoice = voices.find(v => v.lang.includes('en') && v.name.toLowerCase().includes('female'));
+  if (!enVoice) enVoice = voices.find(v => v.lang.includes('en'));
+
+  // 2. Prepare Texts
+  let isThai = localVoice && localVoice.lang.includes('th');
+  let cleanCN = (cn || '').toUpperCase();
+  let cnParts = cleanCN.startsWith('CN') ? cleanCN.substring(2).split('') : cleanCN.split('');
+  let cnSpaced = cnParts.join(' ');
+
+  // Local Text
+  let prefix = isThai ? 'ขอเชิญ หมายเลข ' : 'ຂໍເຊີນ ໝາຍເລກ ';
+  let cnPrefix = isThai ? 'ซี เอ็น ' : 'ຊີ ເອັນ ';
+  let suffix = isThai ? ' ที่ ' : ' ທີ່ ';
+
+  let cleanDeptLocal = dept.replace('ຊັກປະຫວັດ (Triage)', isThai ? 'จุดคัดกรอง' : 'ຈຸດວັດແທກ').replace('ຫ້ອງກວດ (OPD)', isThai ? 'ห้องตรวจ' : 'ຫ້ອງກວດ');
+  let localText = `${prefix}${cnPrefix}${cnSpaced}${suffix}${cleanDeptLocal}`;
+
+  // English Text
+  let enDept = dept.replace('ຊັກປະຫວັດ (Triage)', 'Triage Display').replace('ຫ້ອງກວດ (OPD)', 'Examination Room');
+  let enText = `Attention please, number, C, N, ${cnSpaced}, at, ${enDept}`;
+
+  // 3. Sequential Speaking
+  let localMsg = new SpeechSynthesisUtterance(localText);
+  localMsg.rate = 0.85;
+  if (localVoice) {
+    localMsg.voice = localVoice;
+    localMsg.lang = localVoice.lang;
+    localMsg.pitch = (localVoice.name.includes('Natural') || localVoice.name.includes('Google')) ? 1.05 : 1.25;
+  }
+
+  localMsg.onend = function() {
+    let enMsg = new SpeechSynthesisUtterance(enText);
+    enMsg.rate = 0.9;
+    if (enVoice) {
+      enMsg.voice = enVoice;
+      enMsg.lang = enVoice.lang;
+    }
+    window.speechSynthesis.speak(enMsg);
+  };
+
+  window.speechSynthesis.speak(localMsg);
+};
+
 
 
