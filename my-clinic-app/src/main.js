@@ -1140,6 +1140,77 @@ window.generateNextPatientID = async function () {
   }
 };
 
+// ==========================================
+// PATIENT VIEW & DATA
+// ==========================================
+window.viewPatientDetail = async function (id) {
+  console.log("viewPatientDetail called for ID:", id);
+  try {
+    Swal.fire({ title: 'ກຳລັງດຶງຂໍ້ມູນ...', didOpen: () => Swal.showLoading() });
+    const { data, error } = await supabaseClient.from('Patients').select('*').eq('Patient_ID', id).single();
+    Swal.close();
+    if (error || !data) {
+      console.error("Fetch error:", error);
+      return Swal.fire('Error', 'ບໍ່ພົບຂໍ້ມູນຄົນເຈັບ', 'error');
+    }
+
+    console.log("Patient data fetched:", data);
+
+    const fullname = `${data.Title || ''} ${data.First_Name || ''} ${data.Last_Name || ''}`.trim();
+    $('#view_p_name').text(fullname);
+    $('#view_p_id').text(data.Patient_ID);
+    $('#view_p_gender').text(data.Gender || '-');
+    $('#view_p_age').text((data.Age || '0') + ' ປີ');
+    $('#view_p_dob').text(data.Date_of_Birth || '-');
+    $('#view_p_blood').text(data.Blood_Type || '-');
+    $('#view_p_phone').text(data.Phone_Number || '-');
+    $('#view_p_nation').text(data.Nationality || '-');
+    $('#view_p_job').text(data.Occupation || '-');
+    $('#view_p_email').text(data.Email || '-');
+
+    $('#view_p_allergy').text(data.Drug_Allergy || 'ບໍ່ມີ');
+    $('#view_p_disease').text(data.Underlying_Disease || 'ບໍ່ມີ');
+    $('#view_p_reg_date').text(`${data.Registration_Date || '-'} (${data.Shift || ''})`);
+    $('#view_p_reg_time').text(data.Time || '-');
+
+    $('#view_p_address').text(data.Address || '-');
+    $('#view_p_location').text(`${data.District || ''} ${data.Province || ''}`);
+    
+    const insOrg = [data.Insurance_Company, data.Organization_Name].filter(x => x).join(' / ') || '-';
+    $('#view_p_ins_org').text(insOrg);
+    $('#view_p_ins_code').text(data.Insurance_Code || '-');
+    $('#view_p_channel').text(data.Marketing_Channel || '-');
+
+    $('#view_p_emer').text(data.Emergency_Name || '-');
+    $('#view_p_emer_contact').text(`${data.Emergency_Contact || ''} (${data.Emergency_Relation || ''})`);
+
+    if (data.Photo_URL) {
+      console.log("Setting photo URL:", data.Photo_URL);
+      $('#view_p_photo').attr('src', data.Photo_URL).show();
+      $('#view_p_photo_placeholder').hide();
+    } else {
+      $('#view_p_photo').hide();
+      $('#view_p_photo_placeholder').show();
+    }
+
+    if ($('#patientProfileModal').length === 0) {
+      console.error("Modal element #patientProfileModal NOT found in DOM!");
+      return Swal.fire('Error', 'ລະບົບບໍລິຫາ Modal ບໍ່ເຫັນໃນ DOM', 'error');
+    }
+
+    $('#btn_edit_from_view').off('click').on('click', () => {
+      $('#patientProfileModal').modal('hide');
+      window.editPatient(id);
+    });
+
+    console.log("Showing modal...");
+    $('#patientProfileModal').modal('show');
+  } catch (err) {
+    console.error("viewPatientDetail error:", err);
+    Swal.fire('Error', 'ເກີດຂໍ້ຜິດພາດ: ' + err.message, 'error');
+  }
+};
+
 window.initPatientTable = async function () {
   if ($.fn.DataTable.isDataTable('#patientTable')) {
     $('#patientTable').DataTable().destroy();
@@ -1169,9 +1240,10 @@ window.initPatientTable = async function () {
       let safeName = fullname.replace(/'/g, "\\'").replace(/"/g, "&quot;");
 
       let acts = `<div class="d-flex gap-1 flex-nowrap justify-content-center">
+                          <button class="btn btn-sm btn-info text-white shadow-sm fw-bold" title="ເບິ່ງລາຍລະອຽດ" onclick="window.viewPatientDetail('${r.Patient_ID}')"><i class="fas fa-eye me-1"></i> View</button>
                           <button class="btn btn-sm btn-warning text-dark shadow-sm fw-bold" onclick="window.sendToTriageFlow('${r.Patient_ID}', '${safeName}')"><i class="fas fa-share me-1"></i> Triage</button>
                           <button class="btn btn-sm btn-primary shadow-sm" title="ແກ້ໄຂ" onclick="window.editPatient('${r.Patient_ID}')"><i class="fas fa-edit"></i></button>
-                          <button class="btn btn-sm btn-info text-white shadow-sm" title="ພິມບັດ QR" onclick="window.printQRCard('${r.Patient_ID}')"><i class="fas fa-qrcode"></i></button>
+                          <button class="btn btn-sm btn-dark text-white shadow-sm" title="ພິມບັດ QR" onclick="window.printQRCard('${r.Patient_ID}')"><i class="fas fa-qrcode"></i></button>
                           <button class="btn btn-sm btn-danger shadow-sm" title="ລຶບ" onclick="window.delPatient('${r.Patient_ID}')"><i class="fas fa-trash"></i></button>
                         </div>`;
 
@@ -1208,6 +1280,99 @@ window.initPatientTable = async function () {
   }
 };
 
+// ==========================================
+// PATIENT PHOTO HANDLERS (Camera & Upload)
+// ==========================================
+let cameraStream = null;
+
+window.openCamera = async function () {
+  try {
+    const video = document.getElementById('camera-video');
+    cameraStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' }, audio: false });
+    video.srcObject = cameraStream;
+    $('#cameraModal').modal('show');
+  } catch (err) {
+    console.error("Camera error:", err);
+    Swal.fire('Error', 'ບໍ່ສາມາດເປີດກ້ອງໄດ້: ' + err.message, 'error');
+  }
+};
+
+window.closeCamera = function () {
+  if (cameraStream) {
+    cameraStream.getTracks().forEach(track => track.stop());
+    cameraStream = null;
+  }
+  $('#cameraModal').modal('hide');
+};
+
+window.capturePhoto = function () {
+  const video = document.getElementById('camera-video');
+  const canvas = document.getElementById('camera-canvas');
+  const preview = document.getElementById('photo-preview');
+  const placeholder = document.getElementById('photo-placeholder');
+
+  canvas.width = video.videoWidth;
+  canvas.height = video.videoHeight;
+  const ctx = canvas.getContext('2d');
+  ctx.translate(canvas.width, 0);
+  ctx.scale(-1, 1);
+  ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+  const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
+  preview.src = dataUrl;
+  preview.style.display = 'block';
+  placeholder.style.display = 'none';
+
+  window.closeCamera();
+};
+
+window.handlePhotoUpload = function (input) {
+  if (input.files && input.files[0]) {
+    const reader = new FileReader();
+    reader.onload = function (e) {
+      $('#photo-preview').attr('src', e.target.result).show();
+      $('#photo-placeholder').hide();
+    };
+    reader.readAsDataURL(input.files[0]);
+  }
+};
+
+window.uploadPatientPhoto = async function (pId) {
+  const preview = document.getElementById('photo-preview');
+  if (!preview.src || preview.src.startsWith('http')) return preview.src;
+
+  try {
+    // Convert base64 to Blob
+    const response = await fetch(preview.src);
+    const blob = await response.blob();
+    const fileName = `${pId}_${Date.now()}.jpg`;
+
+    const { data, error } = await supabaseClient.storage
+      .from('patient-photos')
+      .upload(fileName, blob, { contentType: 'image/jpeg', upsert: true });
+
+    if (error) throw error;
+
+    const { data: urlData } = supabaseClient.storage
+      .from('patient-photos')
+      .getPublicUrl(fileName);
+
+    return urlData.publicUrl;
+  } catch (err) {
+    console.error("Upload error:", err);
+    if (err.message && err.message.includes('Bucket not found')) {
+      Swal.fire({
+        icon: 'error',
+        title: 'ບໍ່ພົບ Bucket ເກັບຮູບ',
+        html: `ກະລຸນາສ້າງ Bucket ຊື່ວ່າ <b>patient-photos</b> ໃນ Supabase Storage ກ່ອນເດີ້!<br><br>ຜິດພາດ: ${err.message}`,
+        confirmButtonText: 'ເຂົ້າໃຈແລ້ວ'
+      });
+      return "__BUCKET_ERROR__"; // Special flag
+    }
+    return null;
+  }
+};
+
 window.openNewPatientModal = function () {
   $('#patientForm')[0].reset();
   $('#p_action').val("new");
@@ -1220,6 +1385,10 @@ window.openNewPatientModal = function () {
   window.generateNextPatientID().then(id => {
     $('#disp_p_id').val(id);
   });
+  $('#photo-preview').attr('src', '').hide();
+  $('#photo-placeholder').show();
+  $('#p_photo_url').val('');
+
   let n = new Date();
   $('#p_date').val(window.getLocalStr(n));
   $('#p_time').val(n.toTimeString().split(' ')[0].substring(0, 5));
@@ -1244,8 +1413,20 @@ window.editPatient = async function (id) {
     ins_name: data.Insured_Person_Name || '', allergy: data.Drug_Allergy || 'ບໍ່ມີ',
     disease: data.Underlying_Disease || 'ບໍ່ມີ', emer_name: data.Emergency_Name || '',
     emer_contact: data.Emergency_Contact || '', emer_relation: data.Emergency_Relation || '',
-    channel: data.Channel || '', date: data.Registration_Date || '', time: data.Time || '', shift: data.Shift || ''
+    channel: data.Channel || '', date: data.Registration_Date || '', time: data.Time || '', shift: data.Shift || '',
+    photo_url: data.Photo_URL || ''
   };
+
+  if (d.photo_url) {
+    $('#photo-preview').attr('src', d.photo_url).show();
+    $('#photo-placeholder').hide();
+    $('#p_photo_url').val(d.photo_url);
+  } else {
+    $('#photo-preview').attr('src', '').hide();
+    $('#photo-placeholder').show();
+    $('#p_photo_url').val('');
+  }
+
   $('#patientModalTitle').html(`<i class="fas fa-user-edit text-warning me-2"></i>ແກ້ໄຂຂໍ້ມູນ: <span class="text-primary">${d.id}</span>`);
   $('#p_action').val('edit');
   $('#p_id').val(d.id);
@@ -1275,6 +1456,11 @@ window.submitPatientForm = async function (e) {
   if (!isEdit) {
     pId = await window.generateNextPatientID();
   }
+
+  // 1. ອັບໂຫຼດຮູບກ່ອນ (ຖ້າມີການປ່ຽນແປງ ຫຼື ຖ່າຍໃໝ່)
+  const photoUrl = await window.uploadPatientPhoto(pId);
+  if (photoUrl === "__BUCKET_ERROR__") return; // ຢຸດການເຮັດວຽກ ຖ້າ Bucket ບໍ່ມີ (Swal ຈະສະແດງຢູ່ໃນ uploadPatientPhoto)
+
   const row = {
     Patient_ID: pId, Title: fd.p_title, First_Name: fd.p_firstname, Last_Name: fd.p_lastname,
     Gender: fd.p_gender, Date_of_Birth: fd.p_dob || null, Age: age,
@@ -1286,7 +1472,8 @@ window.submitPatientForm = async function (e) {
     Drug_Allergy: fd.p_allergy, Underlying_Disease: fd.p_disease,
     Emergency_Name: fd.p_emer_name, Emergency_Contact: fd.p_emer_contact, Emergency_Relation: fd.p_emer_relation,
     Channel: fd.p_channel, Registration_Date: fd.p_date || null, Time: fd.p_time,
-    Shift: fd.p_shift, Age_Group: ageGroup
+    Shift: fd.p_shift, Age_Group: ageGroup,
+    Photo_URL: photoUrl || fd.p_photo_url // ໃຊ້ URL ໃໝ່ ຫຼື URL ເກົ່າ
   };
   let result;
   if (isEdit) result = await supabaseClient.from('Patients').update(row).eq('Patient_ID', pId);
@@ -1546,12 +1733,12 @@ window._fetchTriageQueue = async function () {
     if (vError) throw vError;
     if (!visits || visits.length === 0) return [];
 
-    // 2. Fetch unique Patient IDs
+    // 2. Fetch unique Patient IDs with photo
     const pIds = [...new Set(visits.map(v => v.Patient_ID).filter(id => !!id))];
     let pMap = {};
     if (pIds.length > 0) {
       const { data: patients, error: pError } = await supabaseClient.from('Patients')
-        .select('Patient_ID, Age')
+        .select('Patient_ID, Age, Photo_URL')
         .in('Patient_ID', pIds);
       if (!pError && patients) {
         patients.forEach(p => pMap[p.Patient_ID] = p);
@@ -1576,6 +1763,7 @@ window._fetchTriageQueue = async function () {
         status: r.Status, department: r.Department || 'OPD',
         isNew: (firstVisitMap[r.Patient_ID] === r.Visit_ID),
         age: p?.Age || 0,
+        photoUrl: p?.Photo_URL || '',
         bp: r.BP, temp: r.Temp, weight: r.Weight, height: r.Height,
         bmi: r.BMI, pulse: r.Pulse, spo2: r.SpO2, symptoms: r.Symptoms
       };
@@ -1595,6 +1783,15 @@ window._fetchOpdQueue = async function () {
 
   if (error || !data) return [];
   const pIds = [...new Set(data.map(v => v.Patient_ID).filter(id => !!id))];
+  
+  let pMap = {};
+  if (pIds.length > 0) {
+    const { data: patients } = await supabaseClient.from('Patients')
+      .select('Patient_ID, Age, Photo_URL')
+      .in('Patient_ID', pIds);
+    if (patients) patients.forEach(p => pMap[p.Patient_ID] = p);
+  }
+
   let firstVisitMap = {};
   if (pIds.length > 0) {
     const { data: allVs } = await supabaseClient.from('Visits').select('Visit_ID, Patient_ID, Date').in('Patient_ID', pIds).order('Date', { ascending: true });
@@ -1603,12 +1800,15 @@ window._fetchOpdQueue = async function () {
 
   return data.map((r, i) => {
     let dObj = new Date(r.Date);
+    let p = pMap[r.Patient_ID];
     return {
       rowIdx: r.Visit_ID, visitId: r.Visit_ID,
       date: dObj.toLocaleDateString('en-GB'), time: dObj.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }),
       patientId: r.Patient_ID, patientName: r.Patient_Name,
       status: r.Status, department: r.Department || 'OPD',
       isNew: (firstVisitMap[r.Patient_ID] === r.Visit_ID),
+      age: p?.Age || 0,
+      photoUrl: p?.Photo_URL || '',
       dischargeStatus: r.Discharge_Status, doctor: r.Doctor_Name,
       symptoms: r.Symptoms, bp: r.BP, temp: r.Temp, weight: r.Weight, height: r.Height,
       pe: r.Physical_Exam, diagnosis: r.Diagnosis, advice: r.Advice, followup: r.Follow_Up,
@@ -1702,9 +1902,14 @@ window.viewTriage = function (i) {
             <div class="text-start">
                 <div class="d-flex align-items-center justify-content-between mb-3 p-3 rounded"
                      style="background: linear-gradient(135deg, #1e293b, #334155); color:white; border-radius: 10px;">
-                    <div>
-                        <div class="fw-bold fs-6">${r.patientId}</div>
-                        <div class="small opacity-75"><i class="fas fa-clock me-1"></i>${r.date} ${r.time}</div>
+                    <div class="d-flex align-items-center gap-3">
+                        <div style="width: 50px; height: 50px; border-radius: 50%; overflow: hidden; background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.4); display: flex; align-items: center; justify-content: center;">
+                            ${r.photoUrl ? `<img src="${r.photoUrl}" style="width: 100%; height: 100%; object-fit: cover;">` : `<i class="fas fa-user text-white-50"></i>`}
+                        </div>
+                        <div>
+                            <div class="fw-bold fs-6">${r.patientId}</div>
+                            <div class="small opacity-75"><i class="fas fa-clock me-1"></i>${r.date} ${r.time}</div>
+                        </div>
                     </div>
                     <div class="text-end">
                         ${statusBadge}
@@ -1727,6 +1932,15 @@ window.openTriage = function (i) {
   $('#vRowIdx').val(r.rowIdx);
   $('#vPatientId').text(r.patientId);
   $('#vPatientName').text(r.patientName);
+  
+  if (r.photoUrl) {
+    $('#v_p_photo').attr('src', r.photoUrl).show();
+    $('#v_p_photo_placeholder').hide();
+  } else {
+    $('#v_p_photo').hide();
+    $('#v_p_photo_placeholder').show();
+  }
+
   $('#triageForm')[0].reset();
   $('input[name="v_bp"]').removeClass('border-danger text-danger bg-danger border-warning text-dark bg-warning bg-opacity-10 border-success text-success fw-bold');
 
@@ -1824,9 +2038,17 @@ window.viewEMR = function (i) {
 
   let htmlBody = `
         <div class="text-start" style="font-size: 14px; line-height: 1.6;">
-            <div class="row border-bottom pb-2 mb-2">
-                <div class="col-6"><b><i class="fas fa-user text-primary"></i> ຄົນເຈັບ:</b> ${q.patientName} <br><small class="text-muted">(${q.patientId})</small></div>
-                <div class="col-6"><b><i class="far fa-clock text-info"></i> ເວລາ:</b> ${q.time}</div>
+            <div class="row border-bottom pb-2 mb-2 align-items-center">
+                <div class="col-6 d-flex align-items-center gap-2">
+                    <div style="width: 45px; height: 45px; border-radius: 50%; overflow: hidden; background: #f1f5f9; border: 2px solid #e2e8f0; display: flex; align-items: center; justify-content: center;">
+                        ${q.photoUrl ? `<img src="${q.photoUrl}" style="width: 100%; height: 100%; object-fit: cover;">` : `<i class="fas fa-user text-muted"></i>`}
+                    </div>
+                    <div>
+                        <b><i class="fas fa-user text-primary"></i> ຄົນເຈັບ:</b> ${q.patientName} <br>
+                        <small class="text-muted">(${q.patientId})</small>
+                    </div>
+                </div>
+                <div class="col-6 text-end"><b><i class="far fa-clock text-info"></i> ເວລາ:</b> ${q.time}</div>
             </div>
             <p><b><i class="fas fa-user-md text-primary"></i> ແພດຜູ້ກວດ:</b> <span class="text-primary fw-bold">${q.doctor || '-'}</span></p>
             <p><b><i class="fas fa-comment-medical text-danger"></i> ອາການເບື້ອງຕົ້ນ (CC):</b><br> ${q.symptoms || '-'}</p>
@@ -1890,6 +2112,14 @@ window.openEMR = function (i) {
   $('#emrRowIdx').val(q.rowIdx);
   $('#emrPatientId').text(q.patientId);
   $('#emrPatientName').text(q.patientName);
+
+  if (q.photoUrl) {
+    $('#emr_p_photo').attr('src', q.photoUrl).show();
+    $('#emr_p_photo_placeholder').hide();
+  } else {
+    $('#emr_p_photo').hide();
+    $('#emr_p_photo_placeholder').show();
+  }
 
   if (q.allergy && q.allergy.trim() !== "" && q.allergy !== "ບໍ່ມີ" && q.allergy !== "-") {
     $('#emrAllergy').text(q.allergy).removeClass('text-secondary').addClass('text-danger');
@@ -3745,4 +3975,5 @@ window.exportActivityLogCSV = function () {
   a.href = url; a.download = 'Activity_Log_' + window.getLocalStr(new Date()) + '.csv'; a.click();
   URL.revokeObjectURL(url);
 };
+
 

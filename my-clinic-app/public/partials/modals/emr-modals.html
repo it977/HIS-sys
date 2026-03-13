@@ -2,12 +2,18 @@
 <div class="modal fade" id="emrModal" tabindex="-1" data-bs-backdrop="static">
   <div class="modal-dialog modal-xl">
     <div class="modal-content border-0 shadow">
-      <div class="modal-header bg-info text-white">
-        <div>
-          <h5 class="modal-title fw-bold mb-0"><i class="fas fa-user-md me-2"></i>ຫ້ອງກວດແພດ (EMR)</h5>
-          <div class="small mt-1 opacity-75"><span id="emrPatientId" class="me-2"></span><span id="emrPatientName" class="fw-bold"></span></div>
+      <div class="modal-header bg-info text-white d-flex align-items-center">
+        <div class="d-flex align-items-center gap-3">
+          <div class="emr-photo-wrapper" style="width: 50px; height: 50px; border-radius: 50%; overflow: hidden; background: rgba(255,255,255,0.2); border: 2px solid rgba(255,255,255,0.5); display: flex; align-items: center; justify-content: center;">
+            <img id="emr_p_photo" src="" style="display:none; width: 100%; height: 100%; object-fit: cover;">
+            <i class="fas fa-user text-white-50" id="emr_p_photo_placeholder"></i>
+          </div>
+          <div>
+            <h5 class="modal-title fw-bold mb-0"><i class="fas fa-user-md me-2"></i>ຫ້ອງກວດແພດ (EMR)</h5>
+            <div class="small mt-1 opacity-75"><span id="emrPatientId" class="me-2"></span><span id="emrPatientName" class="fw-bold"></span></div>
+          </div>
         </div>
-        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+        <button type="button" class="btn-close btn-close-white ms-auto" data-bs-dismiss="modal"></button>
       </div>
       <div class="modal-body p-3">
         <div class="alert border rounded d-flex align-items-center gap-3 mb-3 py-2 px-3 bg-light border-secondary" id="emrAllergyBox">

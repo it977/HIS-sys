@@ -10,6 +10,122 @@
   --nav-active-bg: #0ea5e9;
   --nav-dropdown-bg: #1e293b;
   --border-color: #e2e8f0;
+  --patient-photo-size: 85px;
+}
+
+/* ===== PATIENT PHOTO ===== */
+.patient-photo-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  margin-bottom: 0;
+}
+
+.photo-preview-wrapper {
+  position: relative;
+  width: var(--patient-photo-size);
+  height: var(--patient-photo-size);
+  border-radius: 50%;
+  border: 4px solid #fff;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  overflow: hidden;
+  background: #f1f5f9;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: transform 0.2s;
+}
+
+.photo-preview-wrapper:hover {
+  transform: scale(1.03);
+}
+
+.photo-preview-wrapper i {
+  font-size: 40px;
+  color: #cbd5e1;
+}
+
+.photo-preview-wrapper img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.photo-actions {
+  display: flex;
+  gap: 4px;
+}
+
+.btn-photo {
+  padding: 2px 8px !important;
+  font-size: 10px !important;
+  border-radius: 15px !important;
+}
+
+/* Camera styles */
+#camera-video {
+  width: 100%;
+  max-width: 480px;
+  border-radius: 12px;
+  background: #000;
+  transform: scaleX(-1); /* Mirror effect */
+}
+
+/* Patient Profile Modal */
+.profile-header {
+  background: linear-gradient(135deg, #0ea5e9, #6366f1);
+  color: white;
+  padding: 30px 20px;
+  border-radius: 12px 12px 0 0;
+  position: relative;
+}
+
+.profile-img-wrapper {
+  width: 120px;
+  height: 120px;
+  border-radius: 50%;
+  border: 5px solid rgba(255,255,255,0.2);
+  overflow: hidden;
+  background: #f1f5f9;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 15px;
+  box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+}
+
+.profile-img-wrapper img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.profile-info-card {
+  border: none;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+  transition: transform 0.2s;
+}
+
+.profile-info-card:hover {
+  transform: translateY(-2px);
+}
+
+.profile-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  color: #64748b;
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+
+.profile-value {
+  font-size: 14px;
+  font-weight: 600;
+  color: #1e293b;
 }
 
 * {
