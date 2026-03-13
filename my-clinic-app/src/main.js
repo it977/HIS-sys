@@ -44,6 +44,7 @@ async function loadPartials() {
     'org-user-modal',
     'admin-modals',
     'vaccine-modals',
+    'patient-timeline-modal',
     'emr-modals'
   ];
 
@@ -412,6 +413,10 @@ window.initApp = function () {
       else if (perms.includes('patients')) window.loadView('patients');
       else if (perms.includes('triage')) window.loadView('triage');
       else if (perms.includes('opd')) window.loadView('opd');
+      $('body').on('click', '.btn-timeline', function() {
+        let pid = $(this).attr('data-pid');
+        if (pid) window.showPatientTimeline(pid);
+      });
     });
   } catch (e) {
     console.error("InitApp Error:", e);
@@ -467,8 +472,22 @@ window.loadView = function (v) {
   // Load Data
   if (v === 'patients') window.initPatientTable();
   if (v === 'orgs') window.loadOrgs();
-  if (v === 'triage') window.loadTriageQueue();
-  if (v === 'opd') window.loadQueue();
+  if (v === 'triage') {
+    if (!$('#triageStartDate').val()) {
+      let today = new Date();
+      $('#triageStartDate').val(window.getLocalStr(today));
+      $('#triageEndDate').val(window.getLocalStr(today));
+    }
+    window.loadTriageQueue();
+  }
+  if (v === 'opd') {
+    if (!$('#opdStartDate').val()) {
+      let today = new Date();
+      $('#opdStartDate').val(window.getLocalStr(today));
+      $('#opdEndDate').val(window.getLocalStr(today));
+    }
+    window.loadQueue();
+  }
   if (v === 'users') window.loadUsers();
   if (v === 'services') window.loadServicesMasterView();
   if (v === 'locations') window.loadLocationsMasterView();
@@ -717,44 +736,105 @@ window.fetchDashboardData = async function () {
   $('#dash-total, #dash-new, #dash-old, #dash-inscorp').html('<i class="fas fa-spinner fa-spin"></i>');
 
   try {
-    const { data, error } = await supabaseClient
-      .from('Visits')
-      .select('*')
-      .gte('Date', sDate + 'T00:00:00Z')
-      .lte('Date', eDate + 'T23:59:59Z');
-
-    if (error) {
-      console.error('Dashboard Error:', error);
-      return;
+    // 1. Fetch Visits with range (Paginated)
+    let dataInRange = [];
+    let startRange = 0;
+    while (true) {
+      const { data: chunk, error } = await supabaseClient
+        .from('Visits')
+        .select('*')
+        .gte('Date', sDate + 'T00:00:00Z')
+        .lte('Date', eDate + 'T23:59:59Z')
+        .range(startRange, startRange + 999);
+      if (error) { console.error('Dashboard Range Error:', error); break; }
+      if (!chunk || chunk.length === 0) break;
+      dataInRange = dataInRange.concat(chunk);
+      if (chunk.length < 1000) break;
+      startRange += 1000;
     }
 
-    // Calculate isNew for each visit
-    const pIds = [...new Set(data.map(v => v.Patient_ID).filter(id => !!id))];
-    let firstVisitMap = {};
-    if (pIds.length > 0) {
-      const { data: allVisits, error: avError } = await supabaseClient.from('Visits')
-        .select('Visit_ID, Patient_ID, Date')
-        .in('Patient_ID', pIds)
-        .order('Date', { ascending: true });
+    // 2. Recover NULL or Invalid/Missing dates (Paginated)
+    let dataNull = [];
+    let startNull = 0;
+    while (true) {
+      const { data: chunk, error } = await supabaseClient.from('Visits').select('*').is('Date', null).range(startNull, startNull + 999);
+      if (error || !chunk || chunk.length === 0) break;
+      dataNull = dataNull.concat(chunk);
+      if (chunk.length < 1000) break;
+      startNull += 1000;
+      if (dataNull.length > 5000) break;
+    }
 
-      if (!avError && allVisits) {
-        allVisits.forEach(v => {
-          if (!firstVisitMap[v.Patient_ID]) {
-            firstVisitMap[v.Patient_ID] = v.Visit_ID;
-          }
-        });
+    // 3. Recover ANY other missing rows by fetching Latest (Paginated)
+    let dataLatest = [];
+    let startLatest = 0;
+    while (true) {
+      const { data: chunk, error } = await supabaseClient.from('Visits').select('*').order('Visit_ID', { ascending: false }).range(startLatest, startLatest + 999);
+      if (error || !chunk || chunk.length === 0) break;
+      dataLatest = dataLatest.concat(chunk);
+      if (chunk.length < 1000 || dataLatest.length >= 2000) break; // Keep latest 2000 as buffer
+      startLatest += 1000;
+    }
+
+    // Merge them all
+    let rawData = [...(dataInRange || []), ...(dataNull || []), ...(dataLatest || [])];
+    
+    // De-duplicate
+    const seenData = new Set();
+    let data = rawData.filter(v => {
+      if (!v.Visit_ID || seenData.has(v.Visit_ID)) return false;
+      seenData.add(v.Visit_ID);
+      return true;
+    });
+
+    console.log(`Dashboard Diagnostic: Range[${dataInRange.length}] Null[${dataNull.length}] Latest[${dataLatest.length}] -> Combined[${data.length}]`);
+
+    // 2. Fetch unique Patients involved (Paginated)
+    const pIds = [...new Set(data.map(v => v.Patient_ID).filter(id => !!id))];
+    let pMap = {};
+    if (pIds.length > 0) {
+      let pStart = 0;
+      while (true) {
+        const { data: pChunk, error: pError } = await supabaseClient.from('Patients')
+          .select('*')
+          .in('Patient_ID', pIds)
+          .range(pStart, pStart + 999);
+        if (pError || !pChunk || pChunk.length === 0) break;
+        pChunk.forEach(p => pMap[p.Patient_ID] = p);
+        if (pChunk.length < 1000) break;
+        pStart += 1000;
       }
     }
 
-    const visitsWithIsNew = data.map(v => ({
+    // 3. Fetch all-time visits for these patients for isNew logic (Paginated)
+    let firstVisitMap = {};
+    if (pIds.length > 0) {
+      let avStart = 0;
+      while (true) {
+        const { data: avChunk, error: avError } = await supabaseClient.from('Visits')
+          .select('Visit_ID, Patient_ID, Date')
+          .in('Patient_ID', pIds)
+          .order('Date', { ascending: true })
+          .range(avStart, avStart + 999);
+        if (avError || !avChunk || avChunk.length === 0) break;
+        avChunk.forEach(v => {
+          if (!firstVisitMap[v.Patient_ID]) firstVisitMap[v.Patient_ID] = v.Visit_ID;
+        });
+        if (avChunk.length < 1000) break;
+        avStart += 1000;
+      }
+    }
+
+    const visitsWithDetails = data.map(v => ({
       ...v,
+      Patients: pMap[v.Patient_ID] || {},
       isNew: firstVisitMap[v.Patient_ID] === v.Visit_ID
     }));
 
-    window.renderDashboardCharts(visitsWithIsNew);
+    window.renderDashboardCharts(visitsWithDetails);
 
   } catch (err) {
-    console.error('System Error:', err);
+    console.error(' Dashboard Error:', err);
   }
 };
 
@@ -763,27 +843,73 @@ window.createChart = function (ctxId, type, labels, data, colors, isHorizontal =
   const el = document.getElementById(ctxId);
   if (!el) return;
   const ctx = el.getContext('2d');
-  let options = {
+    let options = {
     responsive: true, maintainAspectRatio: false,
+    indexAxis: isHorizontal ? 'y' : 'x',
     plugins: {
-      legend: { position: 'bottom' },
+      legend: { 
+        display: !['bar'].includes(type) && labels.length > 0,
+        position: 'bottom',
+        labels: { boxWidth: 10, padding: 15, font: { size: 10, family: "'Noto Sans Lao', sans-serif" } }
+      },
+      tooltip: {
+        backgroundColor: 'rgba(2, 6, 23, 0.95)',
+        padding: 10,
+        titleFont: { size: 13, weight: '600' },
+        bodyFont: { size: 12 },
+        cornerRadius: 6,
+        displayColors: true
+      },
       datalabels: {
-        color: type === 'bar' ? '#334155' : '#ffffff',
-        font: { weight: 'bold', size: 14 },
-        anchor: type === 'bar' ? 'end' : 'center',
-        align: type === 'bar' ? 'top' : 'center',
-        formatter: (value) => { return value > 0 ? value : ''; }
+        display: (ctx) => ctx.dataset.data[ctx.dataIndex] > 0,
+        color: (type === 'bar' || isHorizontal) ? '#334155' : '#ffffff',
+        font: { weight: '700', size: 10 },
+        anchor: (type === 'bar' || isHorizontal) ? 'end' : 'center',
+        align: (type === 'bar' || isHorizontal) ? (isHorizontal ? 'end' : 'top') : 'center',
+        offset: 8
       }
-    }
+    },
+    scales: type === 'bar' ? {
+      x: isHorizontal ? { 
+          beginAtZero: true, 
+          grid: { color: '#f1f5f9', drawBorder: false }, 
+          ticks: { precision: 0, font: { size: 10 } } 
+        } : { 
+          grid: { display: false },
+          ticks: { font: { size: 10 } }
+        },
+      y: isHorizontal ? { 
+          grid: { display: false },
+          ticks: { font: { size: 11 }, autoSkip: false },
+          position: 'left'
+        } : { 
+          beginAtZero: true, 
+          grid: { color: '#f1f5f9', drawBorder: false }, 
+          ticks: { precision: 0, font: { size: 10 } } 
+        }
+    } : {
+      x: { display: false },
+      y: { display: false }
+    },
+    layout: { padding: { right: isHorizontal ? 60 : 15, top: isHorizontal ? 10 : 35, left: 10, bottom: 10 } }
   };
-  if (type === 'bar') {
-    options.plugins.legend.display = false;
-    options.indexAxis = isHorizontal ? 'y' : 'x';
-    options.scales = isHorizontal ?
-      { x: { beginAtZero: true, ticks: { precision: 0 } }, y: { grid: { display: false } } } :
-      { y: { beginAtZero: true, ticks: { precision: 0 } }, x: { grid: { display: false } } };
-  }
-  chartInstances[ctxId] = new Chart(ctx, { type: type, data: { labels: labels, datasets: [{ data: data, backgroundColor: colors, borderWidth: 1 }] }, options: options });
+  
+  const datasetConfig = {
+    data: data,
+    backgroundColor: colors.length > 1 ? colors : colors[0],
+    borderRadius: 4,
+    barThickness: data.length === 1 ? 40 : (data.length < 5 ? 30 : 'flex'),
+    maxBarThickness: 45,
+    minBarLength: 5,
+    categoryPercentage: 0.8,
+    barPercentage: 0.9
+  };
+
+  chartInstances[ctxId] = new Chart(ctx, { 
+    type: type, 
+    data: { labels: labels, datasets: [datasetConfig] }, 
+    options: options 
+  });
 };
 
 window.renderDashboardCharts = function (visits) {
@@ -802,41 +928,95 @@ window.renderDashboardCharts = function (visits) {
     else oldPatients++;
   });
 
-  let insCorp = visits.filter(v => v.Revenue_Group && v.Revenue_Group !== 'General Cash').length;
+  // Robust comparison for Insurance/Corporate
+  let insCorp = visits.filter(v => {
+    let rg = (v.Revenue_Group || v.RevenueGroup || v["Revenue Group"] || "").toString();
+    let vt = (v.Visit_Type || v.VisitType || "").toString();
+    return (rg && rg !== 'General Cash') || vt.toLowerCase().includes('package');
+  }).length;
 
   $('#dash-total').text(total);
   $('#dash-new').text(newPatients);
   $('#dash-old').text(oldPatients);
   $('#dash-inscorp').text(insCorp);
 
-  // 2. Helper
-  const getTopN = (map, n = 10) => {
-    let keys = Object.keys(map).sort((a, b) => map[b] - map[a]).slice(0, n);
-    return { labels: keys, data: keys.map(k => map[k]) };
+  // 2. Helper with Grouping
+  const getTopNWithOthers = (map, n = 5, minPercent = 0.01) => {
+    let entries = Object.entries(map).sort((a, b) => b[1] - a[1]);
+    let total = entries.reduce((acc, curr) => acc + curr[1], 0);
+    if (total === 0) return { labels: [], data: [] };
+
+    // Threshold grouping
+    let mainEntries = entries.filter(e => e[1] / total >= minPercent);
+    let otherEntries = entries.filter(e => e[1] / total < minPercent);
+
+    // Limit to N most frequent
+    if (mainEntries.length > n) {
+      otherEntries = otherEntries.concat(mainEntries.slice(n));
+      mainEntries = mainEntries.slice(0, n);
+    }
+
+    let labels = mainEntries.map(e => e[0]);
+    let data = mainEntries.map(e => e[1]);
+
+    if (otherEntries.length > 0) {
+      let otherSum = otherEntries.reduce((acc, curr) => acc + curr[1], 0);
+      if (otherSum > 0) {
+        labels.push("ອື່ນໆ (Other)");
+        data.push(otherSum);
+      }
+    }
+    return { labels, data };
   };
 
   // 3. Process data
-  let services = {}, revenue = {}, specialist = {}, gender = {}, deptType = {}, site = {}, opdGender = {}, timeSlot = {}, ageGroup = {}, province = {};
+  let services = {}, revenue = {}, specialist = {}, gender = {}, deptType = {}, site = {}, opdGender = {}, timeSlot = {}, ageGroup = {}, district = {}, doctors = {};
 
   visits.forEach(v => {
     let p = v.Patients || {};
-    if (v.Services_List) v.Services_List.split(',').forEach(s => { let n = s.trim(); services[n] = (services[n] || 0) + 1; });
-    if (v.Revenue_Group) revenue[v.Revenue_Group] = (revenue[v.Revenue_Group] || 0) + 1;
-    if (v.Mapped_Specialist) specialist[v.Mapped_Specialist] = (specialist[v.Mapped_Specialist] || 0) + 1;
+    
+    let servicesStr = v.Services_List || v.ServicesList || v["Services List"] || "";
+    let revenueVal = v.Revenue_Group || v.RevenueGroup || v["Revenue Group"] || "";
+    let specialistVal = v.Mapped_Specialist || v.MappedSpecialist || v["Specialist"] || "";
+    let visitType = v.Visit_Type || v.VisitType || "";
+    let docName = v.Doctor_Name || v.DoctorName || v["Doctor Name"] || "ບໍ່ລະບຸຊື່ແພດ";
+    
+    if (!revenueVal && visitType.toLowerCase().includes('package')) {
+      revenueVal = visitType;
+    }
+
+    if (servicesStr) servicesStr.split(',').forEach(s => { let n = s.trim(); if(n) services[n] = (services[n] || 0) + 1; });
+    if (revenueVal) revenue[revenueVal] = (revenue[revenueVal] || 0) + 1;
+    if (specialistVal) specialist[specialistVal] = (specialist[specialistVal] || 0) + 1;
+    
+    // Heuristic: only count doctors if they have a specialist assigned (to filter out nurses)
+    if (docName && docName !== "ບໍ່ລະບຸຊື່ແພດ" && specialistVal && specialistVal !== "-") {
+      doctors[docName] = (doctors[docName] || 0) + 1;
+    }
 
     let g = p.Gender || "ບໍ່ລະບຸ";
     gender[g] = (gender[g] || 0) + 1;
-    if (v.Visit_Type === 'OPD') opdGender[g] = (opdGender[g] || 0) + 1;
+    if (visitType === 'OPD') opdGender[g] = (opdGender[g] || 0) + 1;
 
     let age = parseInt(p.Age);
     if (!isNaN(age)) {
       let grp = age < 15 ? "0-14" : (age < 35 ? "15-34" : (age < 60 ? "35-59" : "60+"));
       ageGroup[grp] = (ageGroup[grp] || 0) + 1;
     }
-    if (p.Province) province[p.Province] = (province[p.Province] || 0) + 1;
+    
+    let dist = p.District || p.district || "";
+    if (dist) district[dist] = (district[dist] || 0) + 1;
 
-    if (v.Visit_Type) deptType[v.Visit_Type] = (deptType[v.Visit_Type] || 0) + 1;
-    if (v.Site) site[v.Site] = (site[v.Site] || 0) + 1;
+    // Simplified Dept Type: only OPD/IPD
+    let dept = (visitType || "").toString().toUpperCase();
+    if (dept.includes('IPD')) dept = 'IPD';
+    else if (dept) dept = 'OPD';
+    if (dept) deptType[dept] = (deptType[dept] || 0) + 1;
+
+    // Simplified Site: In-site vs Out-site
+    let sValue = (v.Site || "In-site").toString().toLowerCase();
+    let siteKey = (sValue.includes('on') || sValue.includes('out')) ? 'Out-site' : 'In-site';
+    site[siteKey] = (site[siteKey] || 0) + 1;
 
     if (v.Date) {
       let h = new Date(v.Date).getHours();
@@ -845,20 +1025,25 @@ window.renderDashboardCharts = function (visits) {
     }
   });
 
-  const cB = '#0ea5e9', cP = '#f43f5e', cG = '#10b981', cY = '#f59e0b', cPu = '#8b5cf6', cO = '#fdba74';
-  let topSvc = getTopN(services);
-  let topProv = getTopN(province, 5);
+  const palette = ['#6366f1', '#f43f5e', '#10b981', '#f59e0b', '#8b5cf6', '#06b6d4', '#ec4899', '#84cc16', '#f97316', '#64748b'];
+  
+  let topSvc = getTopNWithOthers(services, 10, 0.001);
+  let topRev = getTopNWithOthers(revenue, 8, 0.005);
+  let topSpec = getTopNWithOthers(specialist, 8, 0.005);
+  let topDist = getTopNWithOthers(district, 5, 0.001);
+  let topDocs = getTopNWithOthers(doctors, 5, 0.0001);
 
-  window.createChart('chartTopServices', 'bar', topSvc.labels, topSvc.data, [cB], false);
-  window.createChart('chartRevenue', 'pie', Object.keys(revenue), Object.values(revenue), [cG, cB, cY, cP, cPu]);
-  window.createChart('chartSpecialist', 'doughnut', Object.keys(specialist), Object.values(specialist), [cPu, cB, cO, cG, cP]);
-  window.createChart('chartGender', 'doughnut', Object.keys(gender), Object.values(gender), [cB, cP]);
-  window.createChart('chartDept', 'pie', Object.keys(deptType), Object.values(deptType), [cG, cY]);
-  window.createChart('chartSite', 'pie', Object.keys(site), Object.values(site), [cPu, '#64748b']);
-  window.createChart('chartOpdGender', 'doughnut', Object.keys(opdGender), Object.values(opdGender), [cB, cP]);
-  window.createChart('chartTime', 'bar', Object.keys(timeSlot).sort(), Object.values(timeSlot), [cB, cY, '#3b82f6']);
-  window.createChart('chartAge', 'bar', ["0-14", "15-34", "35-59", "60+"], ["0-14", "15-34", "35-59", "60+"].map(k => ageGroup[k] || 0), [cG, cB, cY, cP]);
-  window.createChart('chartProvince', 'bar', topProv.labels, topProv.data, [cB], true);
+  window.createChart('chartTopServices', 'bar', topSvc.labels, topSvc.data, palette, true);
+  window.createChart('chartRevenue', 'bar', topRev.labels, topRev.data, palette, true);
+  window.createChart('chartSpecialist', 'bar', topSpec.labels, topSpec.data, palette, true);
+  window.createChart('chartMarketing', 'bar', topDocs.labels, topDocs.data, palette, true);
+  window.createChart('chartGender', 'doughnut', Object.keys(gender), Object.values(gender), ['#3b82f6', '#f43f5e', '#94a3b8']);
+  window.createChart('chartDept', 'pie', Object.keys(deptType), Object.values(deptType), ['#10b981', '#f59e0b']);
+  window.createChart('chartSite', 'pie', Object.keys(site), Object.values(site), ['#8b5cf6', '#06b6d4']);
+  
+  window.createChart('chartTime', 'bar', Object.keys(timeSlot).sort(), Object.values(timeSlot), palette, false);
+  window.createChart('chartAge', 'bar', ["0-14", "15-34", "35-59", "60+"], ["0-14", "15-34", "35-59", "60+"].map(k => ageGroup[k] || 0), [palette[2], palette[0], palette[3], palette[1]], false);
+  window.createChart('chartProvince', 'bar', topDist.labels, topDist.data, palette, true);
 };
 
 window.exportDashboardPDF = function () {
@@ -903,44 +1088,80 @@ window.fetchReportData = function () {
 
 window._fetchReportData = async function (sDate, eDate) {
   try {
-    // 1. Fetch Visits
-    const { data: visits, error: vError } = await supabaseClient.from('Visits')
-      .select('*')
-      .gte('Date', sDate + 'T00:00:00Z')
-      .lte('Date', eDate + 'T23:59:59Z')
-      .order('Date', { ascending: false });
+    // 1. Fetch Visits with range (Paginated)
+    let visitsInRange = [];
+    let startRange = 0;
+    while (true) {
+      const { data: chunk, error: vError } = await supabaseClient.from('Visits')
+        .select('*')
+        .gte('Date', sDate + 'T00:00:00Z')
+        .lte('Date', eDate + 'T23:59:59Z')
+        .order('Date', { ascending: false })
+        .range(startRange, startRange + 999);
+      if (vError) throw vError;
+      if (!chunk || chunk.length === 0) break;
+      visitsInRange = visitsInRange.concat(chunk);
+      if (chunk.length < 1000) break;
+      startRange += 1000;
+      if (visitsInRange.length >= 10000) break;
+    }
 
-    if (vError) throw vError;
+    // 2. Recover NULL or Invalid/Missing dates
+    const { data: visitsNull, error: nullError } = await supabaseClient.from('Visits').select('*').is('Date', null).limit(1000);
+    if (nullError) console.error("NULL date fetch error:", nullError);
+    
+    // 3. Recover ANY other missing rows by fetching the latest 2000 (just to be safe)
+    const { data: visitsLatest } = await supabaseClient.from('Visits').select('*').order('Visit_ID', { ascending: false }).limit(2000);
+
+    // Merge them all
+    let rawVisits = [...(visitsInRange || []), ...(visitsNull || []), ...(visitsLatest || [])];
+    
+    // De-duplicate by ID
+    const seenV = new Set();
+    let visits = rawVisits.filter(v => {
+      if (!v.Visit_ID) return false;
+      if (seenV.has(v.Visit_ID)) return false;
+      seenV.add(v.Visit_ID);
+      return true;
+    });
+    
+    console.log(`Diagnostic: Range[${visitsInRange.length}] Null[${visitsNull?.length || 0}] Latest[${visitsLatest?.length || 0}] -> Combined[${visits.length}]`);
+
     if (!visits || visits.length === 0) return window.renderReportPage([]);
 
-    // 2. Fetch unique Patients involved
+    // 2. Fetch unique Patients involved (Paginated)
     const pIds = [...new Set(visits.map(v => v.Patient_ID).filter(id => !!id))];
     let pMap = {};
-
     if (pIds.length > 0) {
-      const { data: patients, error: pError } = await supabaseClient.from('Patients')
-        .select('Patient_ID, First_Name, Last_Name, Gender, Age')
-        .in('Patient_ID', pIds);
-
-      if (!pError && patients) {
+      let pStart = 0;
+      while (true) {
+        const { data: patients, error: pError } = await supabaseClient.from('Patients')
+          .select('Patient_ID, First_Name, Last_Name, Gender, Age')
+          .in('Patient_ID', pIds)
+          .range(pStart, pStart + 999);
+        if (pError || !patients || patients.length === 0) break;
         patients.forEach(p => pMap[p.Patient_ID] = p);
+        if (patients.length < 1000) break;
+        pStart += 1000;
       }
     }
 
-    // 3. Fetch all-time visits for these patients to determine isNew
+    // 3. Fetch all-time visits for these patients for isNew logic (Paginated)
     let firstVisitMap = {};
     if (pIds.length > 0) {
-      const { data: allVisits, error: avError } = await supabaseClient.from('Visits')
-        .select('Visit_ID, Patient_ID, Date')
-        .in('Patient_ID', pIds)
-        .order('Date', { ascending: true });
-
-      if (!avError && allVisits) {
+      let avStart = 0;
+      while (true) {
+        const { data: allVisits, error: avError } = await supabaseClient.from('Visits')
+          .select('Visit_ID, Patient_ID, Date')
+          .in('Patient_ID', pIds)
+          .order('Date', { ascending: true })
+          .range(avStart, avStart + 999);
+        if (avError || !allVisits || allVisits.length === 0) break;
         allVisits.forEach(v => {
-          if (!firstVisitMap[v.Patient_ID]) {
-            firstVisitMap[v.Patient_ID] = v.Visit_ID;
-          }
+          if (!firstVisitMap[v.Patient_ID]) firstVisitMap[v.Patient_ID] = v.Visit_ID;
         });
+        if (allVisits.length < 1000) break;
+        avStart += 1000;
       }
     }
 
@@ -985,8 +1206,8 @@ window.renderReportPage = function (res) {
     let bc = r.category === 'GN' ? 'ທົ່ວໄປ (GN)' : '<span class="text-danger fw-bold">ປະກັນ/ອົງກອນ</span>';
     let acts = `<button class="btn btn-sm btn-outline-primary fw-bold shadow-sm" onclick="window.viewReportDetail(${i})"><i class="fas fa-eye me-1"></i> View</button>`;
     h += `<tr>
-                <td>${r.date}</td>
-                <td>${r.time}</td>
+                <td data-order="${r.Date}">${r.date}</td>
+                <td data-order="${r.Date}">${r.time}</td>
                 <td class="text-primary fw-bold">${r.id}</td>
                 <td class="fw-bold">${r.name}</td>
                 <td>${r.gender}</td>
@@ -1252,6 +1473,7 @@ window.initPatientTable = async function () {
       let safeName = fullname.replace(/'/g, "\\'").replace(/"/g, "&quot;");
 
       let acts = `<div class="d-flex gap-1 flex-nowrap justify-content-center">
+                          <button class="btn btn-sm btn-outline-info shadow-sm fw-bold btn-timeline" data-pid="${r.Patient_ID}" title="ປະຫວັດ"><i class="fas fa-history"></i></button>
                           <button class="btn btn-sm btn-info text-white shadow-sm fw-bold" title="ເບິ່ງລາຍລະອຽດ" onclick="window.viewPatientDetail('${r.Patient_ID}')"><i class="fas fa-eye me-1"></i> View</button>
                           <button class="btn btn-sm btn-warning text-dark shadow-sm fw-bold" onclick="window.sendToTriageFlow('${r.Patient_ID}', '${safeName}')"><i class="fas fa-share me-1"></i> Triage</button>
                           <button class="btn btn-sm btn-primary shadow-sm" title="ແກ້ໄຂ" onclick="window.editPatient('${r.Patient_ID}')"><i class="fas fa-edit"></i></button>
@@ -1732,18 +1954,31 @@ window.calculateBMI = function () {
   }
 };
 
-window._fetchTriageQueue = async function () {
+window._fetchTriageQueue = async function (sDate, eDate) {
   try {
-    let today = new Date().toISOString().split('T')[0];
-    // 1. Fetch Visits
-    const { data: visits, error: vError } = await supabaseClient.from('Visits')
-      .select('*')
-      .gte('Date', today + 'T00:00:00Z')
-      .lte('Date', today + 'T23:59:59Z')
-      .order('Date', { ascending: true });
+    if (!sDate) sDate = new Date().toISOString().split('T')[0];
+    if (!eDate) eDate = sDate;
 
-    if (vError) throw vError;
-    if (!visits || visits.length === 0) return [];
+    // 1. Fetch Visits (Paginated)
+    let visits = [];
+    let startRange = 0;
+    while (true) {
+      const { data: chunk, error: vError } = await supabaseClient.from('Visits')
+        .select('*')
+        .gte('Date', sDate + 'T00:00:00Z')
+        .lte('Date', eDate + 'T23:59:59Z')
+        .order('Date', { ascending: true })
+        .range(startRange, startRange + 999);
+      
+      if (vError) throw vError;
+      if (!chunk || chunk.length === 0) break;
+      visits = visits.concat(chunk);
+      if (chunk.length < 1000) break;
+      startRange += 1000;
+      if (visits.length >= 10000) break; // Hard safety cap
+    }
+
+    if (visits.length === 0) return [];
 
     // 2. Fetch unique Patient IDs with photo
     const pIds = [...new Set(visits.map(v => v.Patient_ID).filter(id => !!id))];
@@ -1786,14 +2021,29 @@ window._fetchTriageQueue = async function () {
   }
 };
 
-window._fetchOpdQueue = async function () {
-  let today = new Date().toISOString().split('T')[0];
-  const { data, error } = await supabaseClient.from('Visits').select('*')
-    .gte('Date', today + 'T00:00:00Z')
-    .lte('Date', today + 'T23:59:59Z')
-    .order('Date', { ascending: true });
+window._fetchOpdQueue = async function (sDate, eDate) {
+  if (!sDate) sDate = new Date().toISOString().split('T')[0];
+  if (!eDate) eDate = sDate;
 
-  if (error || !data) return [];
+  let visits = [];
+  let startRange = 0;
+  while (true) {
+    const { data: chunk, error } = await supabaseClient.from('Visits').select('*')
+      .gte('Date', sDate + 'T00:00:00Z')
+      .lte('Date', eDate + 'T23:59:59Z')
+      .order('Date', { ascending: true })
+      .range(startRange, startRange + 999);
+
+    if (error) { console.error("OPD Fetch Error:", error); break; }
+    if (!chunk || chunk.length === 0) break;
+    visits = visits.concat(chunk);
+    if (chunk.length < 1000) break;
+    startRange += 1000;
+    if (visits.length >= 10000) break; // Hard safety cap
+  }
+
+  if (visits.length === 0) return [];
+  const data = visits;
   const pIds = [...new Set(data.map(v => v.Patient_ID).filter(id => !!id))];
   
   let pMap = {};
@@ -1831,9 +2081,11 @@ window._fetchOpdQueue = async function () {
 };
 
 window.loadTriageQueue = async function () {
+  let sDate = $('#triageStartDate').val();
+  let eDate = $('#triageEndDate').val();
   if ($.fn.DataTable.isDataTable('#triageTable')) $('#triageTable').DataTable().destroy();
   $('#triageTableBody').html('<tr><td colspan="6" class="text-center py-4"><div class="spinner-border text-danger spinner-border-sm"></div> ກຳລັງໂຫຼດ...</td></tr>');
-  const q = await window._fetchTriageQueue();
+  const q = await window._fetchTriageQueue(sDate, eDate);
   currentTriageData = q || [];
   if ($.fn.DataTable.isDataTable('#triageTable')) $('#triageTable').DataTable().destroy();
   let h = '';
@@ -1853,7 +2105,8 @@ window.loadTriageQueue = async function () {
       // Add Call Button
       btnHtml += `<button class="btn btn-sm btn-dark shadow-sm me-1" onclick="window.triggerPublicCall('${r.visitId}', '${r.patientId}', 'ຊັກປະຫວັດ (Triage)')" title="ເອີ້ນຄິວ"><i class="fas fa-volume-up"></i></button>`;
       
-      btnHtml += `<button class="btn btn-sm btn-outline-danger shadow-sm me-1" onclick="window.deleteVisitFlow('${r.visitId}')" title="ລຶບ"><i class="fas fa-trash"></i></button>
+      btnHtml += `<button class="btn btn-sm btn-outline-info shadow-sm me-1 btn-timeline" data-pid="${r.patientId}" title="ປະຫວັດການກວດ"><i class="fas fa-history"></i></button>
+                         <button class="btn btn-sm btn-outline-danger shadow-sm me-1" onclick="window.deleteVisitFlow('${r.visitId}')" title="ລຶບ"><i class="fas fa-trash"></i></button>
                          <button class="btn btn-sm btn-secondary text-white shadow-sm" onclick="window.printOPDCard('triage', ${i})" title="ພິມໃບ OPD"><i class="fas fa-file-medical"></i></button>`;
       h += `<tr class="${isCalling ? 'table-danger' : ''}">
                     <td class="text-muted">${r.date}</td>
@@ -1962,19 +2215,16 @@ window.openTriage = function (i) {
   $('#triageForm')[0].reset();
   $('input[name="v_bp"]').removeClass('border-danger text-danger bg-danger border-warning text-dark bg-warning bg-opacity-10 border-success text-success fw-bold');
 
-  if (r.status !== 'Triage' && r.status !== 'Calling Triage') {
-    $('input[name="v_bp"]').val(r.bp || '').trigger('input');
-    $('input[name="v_temp"]').val(r.temp || '');
-    $('input[name="v_weight"]').val(r.weight || '');
-    $('input[name="v_height"]').val(r.height || '');
-    $('input[name="v_pulse"]').val(r.pulse || '');
-    $('input[name="v_spo2"]').val(r.spo2 || '');
-    $('textarea[name="v_symptoms"]').val(r.symptoms || '');
-    $('select[name="v_department"]').val(r.department || '');
-    window.calculateBMI();
-  } else {
-    $('#v_bmi').val('');
-  }
+  // Always populate fields if data exists (to support editing old records)
+  $('input[name="v_bp"]').val(r.bp || '').trigger('input');
+  $('input[name="v_temp"]').val(r.temp || '');
+  $('input[name="v_weight"]').val(r.weight || '');
+  $('input[name="v_height"]').val(r.height || '');
+  $('input[name="v_pulse"]').val(r.pulse || '');
+  $('input[name="v_spo2"]').val(r.spo2 || '');
+  $('textarea[name="v_symptoms"]').val(r.symptoms || '');
+  $('select[name="v_department"]').val(r.department || '');
+  window.calculateBMI();
 
   // Clear "Calling" status if opening
   if (r.status === 'Calling Triage') {
@@ -1997,10 +2247,12 @@ window.deleteVisitFlow = async function (id) {
 };
 
 window.loadQueue = async function () {
+  let sDate = $('#opdStartDate').val();
+  let eDate = $('#opdEndDate').val();
   if ($.fn.DataTable.isDataTable('#queueTable')) $('#queueTable').DataTable().destroy();
   $('#queueTableBody').html('<tr><td colspan="6" class="text-center py-4"><div class="spinner-border text-info spinner-border-sm"></div> ກຳລັງໂຫຼດ...</td></tr>');
 
-  const q = await window._fetchOpdQueue();
+  const q = await window._fetchOpdQueue(sDate, eDate);
   queueDataStore = q || [];
   if ($.fn.DataTable.isDataTable('#queueTable')) $('#queueTable').DataTable().destroy();
   let h = '';
@@ -2014,17 +2266,20 @@ window.loadQueue = async function () {
       
       if (r.status === 'Waiting OPD' || r.status === 'Calling OPD') {
         b = isCalling ? '<span class="badge bg-danger animate__animated animate__flash animate__infinite"><i class="fas fa-volume-up"></i> ກຳລັງເອີ້ນ...</span>' : '<span class="badge bg-warning text-dark"><i class="fas fa-user-clock"></i> ລໍຖ້າກວດ</span>';
-        a = `<button class="btn btn-sm btn-info text-white fw-bold me-1" onclick="window.openEMR(${i})"><i class="fas fa-stethoscope"></i> ເປີດກວດ</button>
+        a = `<button class="btn btn-sm btn-outline-info shadow-sm me-1 btn-timeline" data-pid="${r.patientId}" title="ປະຫວັດການກວດ"><i class="fas fa-history"></i></button>
+                      <button class="btn btn-sm btn-info text-white fw-bold me-1" onclick="window.openEMR(${i})"><i class="fas fa-stethoscope"></i> ເປີດກວດ</button>
                       <button class="btn btn-sm btn-dark text-white me-1" onclick="window.triggerPublicCall('${r.visitId}', '${r.patientId}', '${r.department || 'ຫ້ອງກວດ (OPD)'}')" title="ເອີ້ນຄິວ"><i class="fas fa-volume-up"></i></button>
                       <button class="btn btn-sm btn-secondary text-white" onclick="window.printOPDCard('opd', ${i})"><i class="fas fa-file-medical"></i> ພິມ</button>`;
       } else if (r.status === 'Waiting Lab' || r.status === 'Calling Lab') {
         b = isCalling ? '<span class="badge bg-danger animate__animated animate__flash animate__infinite"><i class="fas fa-volume-up"></i> ກຳລັງເອີ້ນ...</span>' : '<span class="badge bg-primary"><i class="fas fa-flask"></i> ລໍຖ້າຜົນແລັບ</span>';
-        a = `<button class="btn btn-sm btn-primary text-white fw-bold me-1" onclick="window.openEMR(${i})"><i class="fas fa-edit"></i> ອ່ານຜົນແລັບ</button>
+        a = `<button class="btn btn-sm btn-outline-info shadow-sm me-1 btn-timeline" data-pid="${r.patientId}" title="ປະຫວັດການກວດ"><i class="fas fa-history"></i></button>
+                      <button class="btn btn-sm btn-primary text-white fw-bold me-1" onclick="window.openEMR(${i})"><i class="fas fa-edit"></i> ອ່ານຜົນແລັບ</button>
                       <button class="btn btn-sm btn-dark text-white me-1" onclick="window.triggerPublicCall('${r.visitId}', '${r.patientId}', '${r.department || 'ຫ້ອງກວດ (OPD)'}')" title="ເອີ້ນຄິວ"><i class="fas fa-volume-up"></i></button>
                       <button class="btn btn-sm btn-secondary text-white" onclick="window.printOPDCard('opd', ${i})"><i class="fas fa-file-medical"></i> ພິມ</button>`;
       } else {
         b = `<span class="badge bg-success"><i class="fas fa-check-circle"></i> ປິດຈົບ (${r.dischargeStatus || 'ກວດສຳເລັດ'})</span>`;
-        a = `<button class="btn btn-sm btn-success text-white fw-bold me-1" onclick="window.viewEMR(${i})" title="ເບິ່ງລາຍລະອຽດການກວດ"><i class="fas fa-eye"></i></button>
+        a = `<button class="btn btn-sm btn-outline-info shadow-sm me-1 btn-timeline" data-pid="${r.patientId}" title="ປະຫວັດການກວດ"><i class="fas fa-history"></i></button>
+                     <button class="btn btn-sm btn-success text-white fw-bold me-1" onclick="window.viewEMR(${i})" title="ເບິ່ງລາຍລະອຽດການກວດ"><i class="fas fa-eye"></i></button>
                      <button class="btn btn-sm btn-primary text-white fw-bold me-1" onclick="window.openEMR(${i})" title="ແກ້ໄຂການກວດ"><i class="fas fa-edit"></i></button>
                      <button class="btn btn-sm btn-secondary text-white" onclick="window.printOPDCard('opd', ${i})"><i class="fas fa-print"></i></button>`;
       }
@@ -4215,6 +4470,107 @@ window.speakQueue = function (cn, dept) {
   };
 
   window.speechSynthesis.speak(localMsg);
+};
+
+window.showPatientTimeline = async function (patientId) {
+  if (!patientId) return;
+  $('#patientTimelineModal').modal('show');
+  $('#timelineContent').html('<div class="text-center py-5"><div class="spinner-border text-primary"></div><p class="mt-2 text-muted">ກຳລັງໂຫຼດປະຫວັດ...</p></div>');
+
+  try {
+    const { data: p } = await supabaseClient.from('Patients').select('*').eq('Patient_ID', patientId).single();
+    if (p) {
+        $('#timeline_p_name').text(`${p.First_Name} ${p.Last_Name}`);
+        $('#timeline_p_id').text(p.Patient_ID);
+        $('#timeline_p_info').text(`${p.Gender} | ${p.Age} ປີ | ${p.Province || '-'}`);
+        if (p.Photo_URL) {
+            $('#timeline_p_photo').attr('src', p.Photo_URL).show();
+            $('#timeline_p_placeholder').hide();
+        } else {
+            $('#timeline_p_photo').hide();
+            $('#timeline_p_placeholder').show();
+        }
+    }
+
+    let visits = [];
+    let startRange = 0;
+    while (true) {
+      const { data: chunk, error } = await supabaseClient.from('Visits')
+        .select('*')
+        .eq('Patient_ID', patientId)
+        .order('Date', { ascending: false })
+        .range(startRange, startRange + 999);
+      if (error) break;
+      if (!chunk || chunk.length === 0) break;
+      visits = visits.concat(chunk);
+      if (chunk.length < 1000) break;
+      startRange += 1000;
+      if (visits.length > 5000) break;
+    }
+
+    if (visits.length === 0) {
+      $('#timelineContent').html('<div class="text-center py-5 text-muted"><i class="fas fa-folder-open fa-3x mb-3"></i><p>ບໍ່ພົບປະຫວັດການກວດ</p></div>');
+      return;
+    }
+
+    let h = '';
+    visits.forEach(v => {
+      let d = new Date(v.Date);
+      let dateStr = d.toLocaleDateString('en-GB') + ' ' + d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+      
+      let meds = [];
+      try { if (v.Prescription_JSON) meds = JSON.parse(v.Prescription_JSON); } catch(e) {}
+      
+      let labs = [];
+      try { if (v.Lab_Orders_JSON) labs = JSON.parse(v.Lab_Orders_JSON); } catch(e) {}
+
+      let vitals = [];
+      if (v.BP) vitals.push(`BP: ${v.BP}`);
+      if (v.Temp) vitals.push(`T: ${v.Temp}°C`);
+      if (v.Weight) vitals.push(`W: ${v.Weight}kg`);
+
+      h += `
+        <div class="timeline-item">
+            <div class="timeline-dot"></div>
+            <div class="timeline-date">${dateStr}</div>
+            <div class="timeline-card">
+                <div class="timeline-title">
+                    <span><i class="fas fa-stethoscope text-primary me-2"></i>${v.Department || 'OPD'}</span>
+                    <span class="badge ${(v.Status || '').includes('ສຳເລັດ') ? 'bg-success' : 'bg-warning'}">${v.Status}</span>
+                </div>
+                <div class="timeline-body">
+                    ${v.Symptoms ? `<div class="mb-2"><b>CC:</b> ${v.Symptoms}</div>` : ''}
+                    ${vitals.length > 0 ? `<div class="mb-2"><span class="timeline-tag timeline-tag-vitals"><i class="fas fa-heartbeat me-1"></i>${vitals.join(' | ')}</span></div>` : ''}
+                    ${v.Diagnosis ? `<div class="mb-2"><span class="timeline-tag timeline-tag-dx"><i class="fas fa-user-md me-1"></i>Dx: ${v.Diagnosis}</span></div>` : ''}
+                    
+                    ${meds.length > 0 ? `
+                        <div class="mt-2">
+                            <div class="small fw-bold text-success mb-1"><i class="fas fa-pills me-1"></i>ລາຍການຢາ:</div>
+                            <div class="d-flex flex-wrap gap-1">
+                                ${meds.map(m => `<span class="timeline-tag timeline-tag-med">${m.name} (${m.qty} ${m.unit})</span>`).join('')}
+                            </div>
+                        </div>
+                    ` : ''}
+
+                    ${labs.length > 0 ? `
+                        <div class="mt-2">
+                            <div class="small fw-bold text-primary mb-1"><i class="fas fa-flask me-1"></i>ລາຍການ Lab:</div>
+                            <div class="d-flex flex-wrap gap-1">
+                                ${labs.map(l => `<span class="timeline-tag timeline-tag-lab">${l.name || l}</span>`).join('')}
+                            </div>
+                        </div>
+                    ` : ''}
+
+                    ${v.Advice ? `<div class="mt-2 small text-muted font-italic"><b>Advice:</b> ${v.Advice}</div>` : ''}
+                </div>
+            </div>
+        </div>`;
+    });
+    $('#timelineContent').html(h);
+  } catch (err) {
+    console.error("Timeline Error:", err);
+    $('#timelineContent').html('<div class="text-center py-5 text-danger"><p>ຂໍ້ຜິດພາດໃນການໂຫຼດປະຫວັດ</p></div>');
+  }
 };
 
 

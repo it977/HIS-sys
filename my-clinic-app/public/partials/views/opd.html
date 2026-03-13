@@ -4,7 +4,17 @@
       <h3 class="fw-bold m-0 text-dark"><i class="fas fa-user-md text-info me-2"></i>ຫ້ອງກວດແພດ (OPD)</h3>
       <p class="text-muted mb-0 mt-1" style="font-size:11.5px;">ຄິວຄົນເຈັບທີ່ລໍຖ້າກວດ ແລະ ສະຖານະການດູແລ</p>
     </div>
-    <button class="btn btn-outline-info fw-bold shadow-sm" onclick="window.loadQueue()"><i class="fas fa-sync-alt me-1"></i> ໂຫຼດຄິວ</button>
+    <div class="d-flex align-items-center gap-2">
+      <div class="d-flex align-items-center bg-white border rounded px-2 py-1 shadow-sm">
+        <i class="far fa-calendar-alt text-info me-2"></i>
+        <input type="date" id="opdStartDate" class="form-control form-control-sm border-0 p-0" style="width:115px;">
+        <span class="mx-2 text-muted">-</span>
+        <input type="date" id="opdEndDate" class="form-control form-control-sm border-0 p-0" style="width:115px;">
+      </div>
+      <button class="btn btn-info text-white fw-bold shadow-sm px-3" onclick="window.loadQueue()">
+        <i class="fas fa-search me-1"></i> ຄົ້ນຫາ
+      </button>
+    </div>
   </div>
   <div class="card card-outline card-info shadow-sm">
     <div class="card-body table-responsive p-0">
