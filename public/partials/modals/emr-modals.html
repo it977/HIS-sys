@@ -95,7 +95,7 @@
 
 <!-- EMR Lab Modal -->
 <div class="modal fade" id="emrLabModal" tabindex="-1">
-  <div class="modal-dialog modal-md">
+  <div class="modal-dialog modal-lg">
     <div class="modal-content border-0 shadow">
       <div class="modal-header bg-primary text-white">
         <h5 class="modal-title fw-bold"><i class="fas fa-flask me-2"></i>ເລືອກລາຍການ Lab</h5>
@@ -119,7 +119,7 @@
 
 <!-- EMR Drug Modal -->
 <div class="modal fade" id="emrDrugModal" tabindex="-1">
-  <div class="modal-dialog modal-md">
+  <div class="modal-dialog modal-xl">
     <div class="modal-content border-0 shadow">
       <div class="modal-header bg-success text-white">
         <h5 class="modal-title fw-bold"><i class="fas fa-pills me-2"></i>ເພີ່ມລາຍການຢາ</h5>
@@ -128,9 +128,10 @@
       <div class="modal-body p-4">
         <div class="mb-3"><label class="form-label fw-bold required">ຊື່ຢາ</label><select class="form-select" id="emrAddDrugSelect" style="width:100%;"><option value="">-- ເລືອກຢາ --</option></select></div>
         <div class="row g-3 mb-3">
-          <div class="col-md-4"><label class="form-label fw-bold">ຈຳນວນ (Qty)</label><input type="number" class="form-control" id="emrAddDrugQty" min="1" value="1"></div>
-          <div class="col-md-4"><label class="form-label fw-bold">ໜ່ວຍ (Unit)</label><select class="form-select dyn-DrugUnit" id="emrAddDrugUnit"><option value="">-- ໜ່ວຍ --</option></select></div>
-          <div class="col-md-4"><label class="form-label fw-bold">ວິທີໃຊ້ (Usage)</label><select class="form-select dyn-DrugUsage" id="emrAddDrugUsage"><option value="">-- ວິທີໃຊ້ --</option></select></div>
+          <div class="col-md-3"><label class="form-label fw-bold">ຈຳນວນ (Qty)</label><input type="number" class="form-control" id="emrAddDrugQty" min="1" value="1"></div>
+          <div class="col-md-3"><label class="form-label fw-bold">ໜ່ວຍ (Unit)</label><select class="form-select dyn-DrugUnit" id="emrAddDrugUnit"><option value="">-- ໜ່ວຍ --</option></select></div>
+          <div class="col-md-3"><label class="form-label fw-bold text-success">ໃຊ້ຄັ້ງລະ</label><input type="text" class="form-control border-success" id="emrAddDrugDose" placeholder="1"></div>
+          <div class="col-md-3"><label class="form-label fw-bold">ວິທີໃຊ້ (Usage)</label><select class="form-select dyn-DrugUsage" id="emrAddDrugUsage"><option value="">-- ວິທີໃຊ້ --</option></select></div>
         </div>
       </div>
       <div class="modal-footer py-2">

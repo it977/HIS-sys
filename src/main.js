@@ -144,6 +144,29 @@ $(document).ready(async function () {
     });
 
     $('#emrAddDrugSelect').select2({ dropdownParent: $('#emrDrugModal'), placeholder: "-- ເລືອກຢາ --", allowClear: true });
+    
+    // Smart drug unit detection
+    $('#emrAddDrugSelect').on('change', function() {
+      const val = $(this).val();
+      if (!val) return;
+      const drug = (window.drugsMasterList || []).find(d => d.name === val);
+      if (!drug) return;
+      const text = (drug.name + ' ' + drug.desc).toLowerCase();
+      let unit = "";
+      let dose = "1";
+      
+      if (/inj|ສັກ|iv|im|amp|vial/i.test(text)) {
+        unit = "Dose";
+      } else if (/tab|cap|ເມັດ|mg/i.test(text)) {
+        unit = "ເມັດ (Tab)";
+      } else if (/syr|susp|ນ້ຳ|ml/i.test(text)) {
+        unit = "ມິນລິລິດ (ml)";
+        dose = "1 ບ່ວງ";
+      }
+      
+      if (unit) $('#emrAddDrugUnit').val(unit);
+      if (dose) $('#emrAddDrugDose').val(dose);
+    });
   }
 
   $('#pv_vaccine, #pv_date').on('change', window.calculateNextVacDate);
@@ -352,7 +375,7 @@ window.getLocalStr = function (dObj) {
   return dObj.getFullYear() + '-' + String(dObj.getMonth() + 1).padStart(2, '0') + '-' + String(dObj.getDate()).padStart(2, '0');
 };
 
-window.initApp = function () {
+window.initApp = async function () {
   try {
     $('#login-section').hide();
     $('#app-content').show();
@@ -374,7 +397,12 @@ window.initApp = function () {
     if (typeof ChartDataLabels !== 'undefined') Chart.register(ChartDataLabels);
 
     window.toggleLoading(true);
-    Promise.all([
+
+    // 1. Seed Defaults First (Await completion)
+    await window.seedMasterDefaults();
+
+    // 2. Fetch all other data in parallel
+    await Promise.all([
       supabaseClient.from('MasterData').select('ID,Category,Value').order('Category').then(({ data }) => {
         const map = {};
         (data || []).forEach(r => { if (!map[r.Category]) map[r.Category] = []; map[r.Category].push({ id: r.ID, value: r.Value }); });
@@ -406,20 +434,24 @@ window.initApp = function () {
         }
       }),
       new Promise((resolve) => { window.preloadDropdownDataCallback(resolve); })
-    ]).then(() => {
-      window.checkAlerts();
-      window.toggleLoading(false);
-      if (currentUser.role === 'admin' || perms.includes('dashboard') || perms.includes('all')) window.loadView('dashboard');
-      else if (perms.includes('patients')) window.loadView('patients');
-      else if (perms.includes('triage')) window.loadView('triage');
-      else if (perms.includes('opd')) window.loadView('opd');
-      $('body').on('click', '.btn-timeline', function() {
-        let pid = $(this).attr('data-pid');
-        if (pid) window.showPatientTimeline(pid);
-      });
+    ]);
+
+    window.checkAlerts();
+    window.toggleLoading(false);
+    
+    if (currentUser.role === 'admin' || perms.includes('dashboard') || perms.includes('all')) window.loadView('dashboard');
+    else if (perms.includes('patients')) window.loadView('patients');
+    else if (perms.includes('triage')) window.loadView('triage');
+    else if (perms.includes('opd')) window.loadView('opd');
+    
+    $('body').on('click', '.btn-timeline', function() {
+      let pid = $(this).attr('data-pid');
+      if (pid) window.showPatientTimeline(pid);
     });
+
   } catch (e) {
     console.error("InitApp Error:", e);
+    window.toggleLoading(false);
     Swal.fire('ແຈ້ງເຕືອນ', 'ເກີດຂໍ້ຜິດພາດໃນການໂຫຼດໜ້າຈໍ.', 'error');
   }
 };
@@ -1874,6 +1906,7 @@ window.removeEMRLab = function (i) { currentEMRLabs.splice(i, 1); window.renderE
 
 window.openEMRDrugModal = function () {
   $('#emrAddDrugQty').val(1);
+  $('#emrAddDrugDose').val('1');
   $('#emrAddDrugUnit,#emrAddDrugUsage').prop('selectedIndex', 0);
   $('#emrAddDrugSelect').val(null).trigger('change');
   if (document.activeElement) document.activeElement.blur();
@@ -1886,6 +1919,7 @@ window.addDrugToEMRList = function () {
   currentEMRDrugs.push({
     name: d[0].text,
     qty: $('#emrAddDrugQty').val() + ' ' + $('#emrAddDrugUnit').val(),
+    dose: $('#emrAddDrugDose').val(),
     usage: $('#emrAddDrugUsage').val()
   });
   window.renderEMRDrugTable();
@@ -1905,6 +1939,7 @@ window.renderEMRDrugTable = function () {
                                 <span class="fw-bold text-success mb-1" style="font-size: 13.5px;"><i class="fas fa-capsules me-1 opacity-75"></i>${x.name}</span>
                                 <div class="d-flex align-items-center gap-2">
                                     <span class="badge bg-light text-dark border border-secondary border-opacity-25 px-2 py-1"><i class="fas fa-cubes me-1 opacity-50"></i>${x.qty}</span>
+                                    <span class="badge border border-success text-success bg-success-subtle px-2 py-1 small">ໃຊ້ຄັ້ງລະ: ${x.dose || '1'}</span>
                                     <span class="small text-muted"><i class="fas fa-info-circle me-1 opacity-50"></i>${x.usage}</span>
                                 </div>
                             </div>
@@ -3422,6 +3457,57 @@ window.loadMasterDataGlobalCallback = function (data) {
   if (document.getElementById('masterCategory')) window.loadMasterList();
 };
 
+window.seedMasterDefaults = async function () {
+  const usageDefaults = [
+    "ac (ກ່ອນອາຫານ 30 ນາທີ)", "pc (ຫຼັງອາຫານ 15-30 ນາທີ)", "am (ຕອນເຊົ້າ)", "pm (ຕອນແລງ)", "hs (ກ່ອນນອນ)",
+    "bid (ວັນລະ 2 ຄັ້ງ ເຊົ້າ-ແລງ)", "tid (ວັນລະ 3 ຄັ້ງ ເຊົ້າ-ສວຍ-ແລງ)", "qid (ວັນລະ 4 ຄັ້ງ ເຊົ້າ-ສວຍ-ແລງ-ກ່ອນນອນ)",
+    "q4h (ທຸກໆ 4 ຊົ່ວໂມງ)", "prn (ກິນເວລາເຈັບ/ເປັນໄຂ້)", "po (ຢາກິນ)", "iv (ສີດເຂົ້າເສັ້ນເລືອດ)",
+    "im (ສີດເຂົ້າກ້າມ)", "od (ວັນລະ 1 ຄັ້ງ)", "stat (ກິນທັນທີ)"
+  ];
+  const unitDefaults = ["ເມັດ (Tab)", "ແຄັບຊູນ (Cap)", "ມິນລິລິດ (ml)", "ກຣາມ (g)", "ຫຼອດ (Amp)", "ຕຸກ (Bottle)", "ຊອງ (Sachet)", "Dose", "ບ່ວງ (Spoon)"];
+
+  try {
+    const { data: existingUsage } = await supabaseClient.from('MasterData').select('ID').eq('Category', 'DrugUsage').limit(1);
+    if (!existingUsage || existingUsage.length === 0) {
+      console.log("Seeding DrugUsage defaults...");
+      const rows = usageDefaults.map(v => ({ Category: 'DrugUsage', Value: v }));
+      await supabaseClient.from('MasterData').insert(rows);
+    }
+
+    const { data: existingUnit } = await supabaseClient.from('MasterData').select('ID').eq('Category', 'DrugUnit').limit(1);
+    if (!existingUnit || existingUnit.length === 0) {
+      console.log("Seeding DrugUnit defaults...");
+      const rows = unitDefaults.map(v => ({ Category: 'DrugUnit', Value: v }));
+      await supabaseClient.from('MasterData').insert(rows);
+    }
+  } catch (err) {
+    console.error("Seeding error:", err);
+  }
+};
+
+window.resetMasterDefaults = async function () {
+  const c = $('#masterCategory').val();
+  if (c !== 'DrugUsage' && c !== 'DrugUnit') {
+    return Swal.fire('ແຈ້ງເຕືອນ', 'ຟັງຊັນນີ້ໃຊ້ໄດ້ສະເພາະກັບ ວິທີໃຊ້ ແລະ ຫົວໜ່ວຍຢາ ເທົ່ານັ້ນ', 'info');
+  }
+
+  const r = await Swal.fire({
+    title: 'ຢືນຢັນການ Reset?',
+    text: "ລະບົບຈະເພີ່ມຂໍ້ມູນມາດຕະຖານເຂົ້າໄປໃໝ່ (ຂໍ້ມູນເດີມທີ່ທ່ານເພີ່ມເອງຈະຍັງຢູ່)",
+    icon: 'warning',
+    showCancelButton: true,
+    confirmButtonText: 'ຕົກລົງ',
+    cancelButtonText: 'ຍົກເລີກ'
+  });
+
+  if (r.isConfirmed) {
+    Swal.fire({ title: 'ກຳລັງ Reset...', didOpen: () => Swal.showLoading() });
+    await window.seedMasterDefaults();
+    await window.loadMasterDataGlobal();
+    Swal.fire('ສຳເລັດ!', 'ເພີ່ມຂໍ້ມູນມາດຕະຖານໃຫ້ແລ້ວ', 'success');
+  }
+};
+
 window.loadMasterDataGlobal = async function () {
   try {
     const { data, error } = await supabaseClient.from('MasterData').select('*');
@@ -3452,7 +3538,10 @@ window.loadMasterList = function () {
     masterDataStore[c].forEach(i => {
       h += `<li class="list-group-item d-flex justify-content-between align-items-center border-0 border-bottom mb-1 bg-transparent">
                     <span class="fw-bold text-dark">${i.value}</span> 
-                    <button class="btn btn-sm btn-outline-danger shadow-sm rounded-circle" style="width:30px;height:30px;padding:0;" onclick="window.delMaster(${i.id})"><i class="fas fa-trash"></i></button>
+                    <div class="d-flex gap-2">
+                      <button class="btn btn-sm btn-outline-warning shadow-sm rounded-circle" style="width:30px;height:30px;padding:0;" onclick="window.editMaster(${i.id}, '${i.value.replace(/'/g, "\\'")}')" title="ແກ້ໄຂ"><i class="fas fa-edit"></i></button>
+                      <button class="btn btn-sm btn-outline-danger shadow-sm rounded-circle" style="width:30px;height:30px;padding:0;" onclick="window.delMaster(${i.id})" title="ລຶບ"><i class="fas fa-trash"></i></button>
+                    </div>
                   </li>`;
     });
   }
@@ -3480,6 +3569,31 @@ window.delMaster = async function (id) {
     if (error) {
       Swal.fire('Error', error.message, 'error');
     } else {
+      window.loadMasterDataGlobal();
+    }
+  }
+};
+
+window.editMaster = async function (id, oldVal) {
+  const { value: newVal } = await Swal.fire({
+    title: 'ແກ້ໄຂຂໍ້ມູນ',
+    input: 'text',
+    inputValue: oldVal,
+    showCancelButton: true,
+    confirmButtonText: 'ບັນທຶກ',
+    cancelButtonText: 'ຍົກເລີກ',
+    inputValidator: (value) => {
+      if (!value) return 'ກະລຸນາປ້ອນຂໍ້ມູນ!';
+    }
+  });
+
+  if (newVal && newVal !== oldVal) {
+    Swal.fire({ title: 'ກຳລັງບັນທຶກ...', didOpen: () => Swal.showLoading() });
+    const { error } = await supabaseClient.from('MasterData').update({ Value: newVal }).eq('ID', id);
+    if (error) {
+      Swal.fire('ຜິດພາດ!', error.message, 'error');
+    } else {
+      Swal.fire('ສຳເລັດ!', 'ແກ້ໄຂຂໍ້ມູນແລ້ວ', 'success');
       window.loadMasterDataGlobal();
     }
   }
