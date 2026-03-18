@@ -736,8 +736,8 @@ window.fetchDashboardData = async function () {
   $('#dash-total, #dash-new, #dash-old, #dash-inscorp').html('<i class="fas fa-spinner fa-spin"></i>');
 
   try {
-    // 1. Fetch Visits with range (Paginated)
-    let dataInRange = [];
+    // 1. Fetch Visits with range (Strict Filtering)
+    let data = [];
     let startRange = 0;
     while (true) {
       const { data: chunk, error } = await supabaseClient
@@ -746,48 +746,27 @@ window.fetchDashboardData = async function () {
         .gte('Date', sDate + 'T00:00:00Z')
         .lte('Date', eDate + 'T23:59:59Z')
         .range(startRange, startRange + 999);
-      if (error) { console.error('Dashboard Range Error:', error); break; }
+      
+      if (error) { 
+        console.error('Dashboard Range Error:', error); 
+        break; 
+      }
       if (!chunk || chunk.length === 0) break;
-      dataInRange = dataInRange.concat(chunk);
+      
+      data = data.concat(chunk);
       if (chunk.length < 1000) break;
       startRange += 1000;
     }
 
-    // 2. Recover NULL or Invalid/Missing dates (Paginated)
-    let dataNull = [];
-    let startNull = 0;
-    while (true) {
-      const { data: chunk, error } = await supabaseClient.from('Visits').select('*').is('Date', null).range(startNull, startNull + 999);
-      if (error || !chunk || chunk.length === 0) break;
-      dataNull = dataNull.concat(chunk);
-      if (chunk.length < 1000) break;
-      startNull += 1000;
-      if (dataNull.length > 5000) break;
-    }
-
-    // 3. Recover ANY other missing rows by fetching Latest (Paginated)
-    let dataLatest = [];
-    let startLatest = 0;
-    while (true) {
-      const { data: chunk, error } = await supabaseClient.from('Visits').select('*').order('Visit_ID', { ascending: false }).range(startLatest, startLatest + 999);
-      if (error || !chunk || chunk.length === 0) break;
-      dataLatest = dataLatest.concat(chunk);
-      if (chunk.length < 1000 || dataLatest.length >= 2000) break; // Keep latest 2000 as buffer
-      startLatest += 1000;
-    }
-
-    // Merge them all
-    let rawData = [...(dataInRange || []), ...(dataNull || []), ...(dataLatest || [])];
-    
-    // De-duplicate
+    // De-duplicate by Visit_ID for extra safety
     const seenData = new Set();
-    let data = rawData.filter(v => {
+    data = data.filter(v => {
       if (!v.Visit_ID || seenData.has(v.Visit_ID)) return false;
       seenData.add(v.Visit_ID);
       return true;
     });
 
-    console.log(`Dashboard Diagnostic: Range[${dataInRange.length}] Null[${dataNull.length}] Latest[${dataLatest.length}] -> Combined[${data.length}]`);
+    console.log(`Dashboard Data Loaded: ${data.length} records for range ${sDate} to ${eDate}`);
 
     // 2. Fetch unique Patients involved (Paginated)
     const pIds = [...new Set(data.map(v => v.Patient_ID).filter(id => !!id))];
@@ -806,7 +785,10 @@ window.fetchDashboardData = async function () {
       }
     }
 
-    // 3. Fetch all-time visits for these patients for isNew logic (Paginated)
+    // 3. Mark "New" vs "Returning"
+    // Heuristic: If we don't have all-time visit history, we consider a visit 'isNew' 
+    // if the patient was created within our current dash range (simplified approach).
+    // Better: Fetch first visit date for these patients.
     let firstVisitMap = {};
     if (pIds.length > 0) {
       let avStart = 0;
@@ -980,14 +962,11 @@ window.renderDashboardCharts = function (visits) {
     let specialistVal = v.Mapped_Specialist || v.MappedSpecialist || v["Specialist"] || "";
     let visitType = v.Visit_Type || v.VisitType || "";
     let docName = v.Doctor_Name || v.DoctorName || v["Doctor Name"] || "ບໍ່ລະບຸຊື່ແພດ";
-    
-    if (!revenueVal && visitType.toLowerCase().includes('package')) {
-      revenueVal = visitType;
-    }
 
     if (servicesStr) servicesStr.split(',').forEach(s => { let n = s.trim(); if(n) services[n] = (services[n] || 0) + 1; });
-    if (revenueVal) revenue[revenueVal] = (revenue[revenueVal] || 0) + 1;
-    if (specialistVal) specialist[specialistVal] = (specialist[specialistVal] || 0) + 1;
+    
+    if (revenueVal) revenueVal.split(',').forEach(r => { let n = r.trim(); if(n) revenue[n] = (revenue[n] || 0) + 1; });
+    if (specialistVal) specialistVal.split(',').forEach(s => { let n = s.trim(); if(n) specialist[n] = (specialist[n] || 0) + 1; });
     
     // Heuristic: only count doctors if they have a specialist assigned (to filter out nurses)
     if (docName && docName !== "ບໍ່ລະບຸຊື່ແພດ" && specialistVal && specialistVal !== "-") {
@@ -2391,6 +2370,23 @@ window.handleSiteChange = function () {
   let h = '';
   options.forEach(opt => h += `<option value="${opt}">${opt}</option>`);
   typeSelect.html(h);
+};
+
+window.handleServiceSelectionChange = function () {
+  let selectedServices = $('#emrService').val() || [];
+  let specialists = new Set();
+  let revenues = new Set();
+
+  selectedServices.forEach(svcName => {
+    let match = servicesDataStore.find(s => s.Services_List === svcName);
+    if (match) {
+      if (match.Mapped_Specialist) specialists.add(match.Mapped_Specialist);
+      if (match.Revenue_Group) revenues.add(match.Revenue_Group);
+    }
+  });
+
+  $('#emrSpecialist').val(Array.from(specialists).join(', '));
+  $('#emrRevenue').val(Array.from(revenues).join(', '));
 };
 
 window.openEMR = function (i) {
