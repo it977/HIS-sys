@@ -1959,41 +1959,52 @@ window._fetchTriageQueue = async function (sDate, eDate) {
 
     if (visits.length === 0) return [];
 
-    // 2. Fetch unique Patient IDs with photo
+    // 2. Fetch unique Patient IDs with photo (optional backup)
     const pIds = [...new Set(visits.map(v => v.Patient_ID).filter(id => !!id))];
     let pMap = {};
     if (pIds.length > 0) {
-      const { data: patients, error: pError } = await supabaseClient.from('Patients')
-        .select('Patient_ID, Age, Photo_URL')
-        .in('Patient_ID', pIds);
-      if (!pError && patients) {
-        patients.forEach(p => pMap[p.Patient_ID] = p);
+      for (let i = 0; i < pIds.length; i += 100) {
+        const chunkIds = pIds.slice(i, i + 100);
+        const { data: patients, error: pError } = await supabaseClient.from('Patients')
+          .select('Patient_ID, Age, Photo_URL, Gender')
+          .in('Patient_ID', chunkIds);
+        if (!pError && patients) {
+          patients.forEach(p => pMap[p.Patient_ID] = p);
+        }
       }
     }
 
     // 3. Determine isNew
     let firstVisitMap = {};
     if (pIds.length > 0) {
-      const { data: allVs } = await supabaseClient.from('Visits').select('Visit_ID, Patient_ID, Date').in('Patient_ID', pIds).order('Date', { ascending: true });
-      (allVs || []).forEach(v => { if (!firstVisitMap[v.Patient_ID]) firstVisitMap[v.Patient_ID] = v.Visit_ID; });
+      for (let i = 0; i < pIds.length; i += 100) {
+        const chunkIds = pIds.slice(i, i + 100);
+        const { data: allVs } = await supabaseClient.from('Visits').select('Visit_ID, Patient_ID, Date').in('Patient_ID', chunkIds).order('Date', { ascending: true });
+        (allVs || []).forEach(v => { if (!firstVisitMap[v.Patient_ID]) firstVisitMap[v.Patient_ID] = v.Visit_ID; });
+      }
     }
 
-    // 4. Merge
-    return visits.map((r, i) => {
-      let dObj = new Date(r.Date);
-      let p = pMap[r.Patient_ID];
-      return {
-        rowIdx: r.Visit_ID, visitId: r.Visit_ID,
-        date: dObj.toLocaleDateString('en-GB'), time: dObj.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }),
-        patientId: r.Patient_ID, patientName: r.Patient_Name,
-        status: r.Status, department: r.Department || 'OPD',
-        isNew: (firstVisitMap[r.Patient_ID] === r.Visit_ID),
-        age: p?.Age || 0,
-        photoUrl: p?.Photo_URL || '',
-        bp: r.BP, temp: r.Temp, weight: r.Weight, height: r.Height,
-        bmi: r.BMI, pulse: r.Pulse, spo2: r.SpO2, symptoms: r.Symptoms
-      };
-    });
+    // 4. Merge & Filter
+    return visits
+      .filter(r => !!r.Patient_ID) // Filter out junk/null Patient_ID
+      .map((r, i) => {
+        let dObj = new Date(r.Date);
+        let p = pMap[r.Patient_ID];
+        return {
+          rowIdx: r.Visit_ID, visitId: r.Visit_ID,
+          date: r.Date ? dObj.toLocaleDateString('en-GB') : '-', 
+          time: r.Date ? dObj.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) : '-',
+          patientId: r.Patient_ID, patientName: r.Patient_Name,
+          status: r.Status, department: r.Department || 'OPD',
+          isNew: (firstVisitMap[r.Patient_ID] === r.Visit_ID),
+          // Prefer record data (Visits), fallback to patient profile
+          age: r.Age || p?.Age || 0,
+          gender: r.Gender || p?.Gender || '',
+          photoUrl: p?.Photo_URL || '',
+          bp: r.BP, temp: r.Temp, weight: r.Weight, height: r.Height,
+          bmi: r.BMI, pulse: r.Pulse, spo2: r.SpO2, symptoms: r.Symptoms
+        };
+      });
   } catch (err) {
     console.error('Triage Fetch Error:', err);
     return [];
@@ -2001,62 +2012,107 @@ window._fetchTriageQueue = async function (sDate, eDate) {
 };
 
 window._fetchOpdQueue = async function (sDate, eDate) {
-  if (!sDate) sDate = new Date().toISOString().split('T')[0];
-  if (!eDate) eDate = sDate;
+  try {
+    if (!sDate) sDate = new Date().toISOString().split('T')[0];
+    if (!eDate) eDate = sDate;
 
-  let visits = [];
-  let startRange = 0;
-  while (true) {
-    const { data: chunk, error } = await supabaseClient.from('Visits').select('*')
-      .gte('Date', sDate + 'T00:00:00Z')
-      .lte('Date', eDate + 'T23:59:59Z')
-      .order('Date', { ascending: true })
-      .range(startRange, startRange + 999);
+    // 1. Fetch Visits with range (Paginated)
+    let visitsInRange = [];
+    let startRange = 0;
+    while (true) {
+      const { data: chunk, error } = await supabaseClient.from('Visits').select('*')
+        .gte('Date', sDate + 'T00:00:00Z')
+        .lte('Date', eDate + 'T23:59:59Z')
+        .order('Date', { ascending: true })
+        .range(startRange, startRange + 999);
 
-    if (error) { console.error("OPD Fetch Error:", error); break; }
-    if (!chunk || chunk.length === 0) break;
-    visits = visits.concat(chunk);
-    if (chunk.length < 1000) break;
-    startRange += 1000;
-    if (visits.length >= 10000) break; // Hard safety cap
+      if (error) { console.error("OPD Fetch Range Error:", error); break; }
+      if (!chunk || chunk.length === 0) break;
+      visitsInRange = visitsInRange.concat(chunk);
+      if (chunk.length < 1000) break;
+      startRange += 1000;
+      if (visitsInRange.length >= 5000) break; // Safety cap
+    }
+
+    // 2. Fallbacks (only if range is empty)
+    let rawVisits = visitsInRange || [];
+    if (rawVisits.length === 0) {
+      // Recover NULL or Invalid/Missing dates
+      const { data: visitsNull } = await supabaseClient.from('Visits').select('*').is('Date', null).limit(100);
+      
+      // Recover ONLY active patients (Waiting/Calling) who might be "lost" or just passed Triage
+      // We don't want to show 'Closed' records in the fallback as it clutters the view.
+      const { data: visitsActive } = await supabaseClient.from('Visits')
+        .select('*')
+        .in('Status', ['Waiting OPD', 'Calling OPD', 'Waiting Lab', 'Calling Lab'])
+        .order('created_at', { ascending: false })
+        .limit(200);
+
+      rawVisits = [...(visitsNull || []), ...(visitsActive || [])];
+    }
+    
+    // De-duplicate by Visit_ID
+    const seenV = new Set();
+    const data = rawVisits.filter(v => {
+      if (!v.Visit_ID || seenV.has(v.Visit_ID)) return false;
+      if (!v.Patient_ID) return false; 
+      seenV.add(v.Visit_ID);
+      return true;
+    });
+
+    if (data.length === 0) return [];
+
+    const pIds = [...new Set(data.map(v => v.Patient_ID).filter(id => !!id))];
+    
+    let pMap = {};
+    if (pIds.length > 0) {
+      for (let i = 0; i < pIds.length; i += 100) {
+        const chunkIds = pIds.slice(i, i + 100);
+        const { data: patients } = await supabaseClient.from('Patients')
+          .select('Patient_ID, Age, Photo_URL, Gender')
+          .in('Patient_ID', chunkIds);
+        if (patients) patients.forEach(p => pMap[p.Patient_ID] = p);
+      }
+    }
+
+    let firstVisitMap = {};
+    if (pIds.length > 0) {
+      for (let i = 0; i < pIds.length; i += 100) {
+        const chunkIds = pIds.slice(i, i + 100);
+        const { data: allVs } = await supabaseClient.from('Visits')
+          .select('Visit_ID, Patient_ID, Date')
+          .in('Patient_ID', chunkIds)
+          .order('Date', { ascending: true });
+        (allVs || []).forEach(v => { if (!firstVisitMap[v.Patient_ID]) firstVisitMap[v.Patient_ID] = v.Visit_ID; });
+      }
+    }
+
+    return data.map((r, i) => {
+      let dObj = new Date(r.Date);
+      let p = pMap[r.Patient_ID];
+      return {
+        rowIdx: r.Visit_ID, visitId: r.Visit_ID,
+        date: r.Date ? dObj.toLocaleDateString('en-GB') : '-', 
+        time: r.Date ? dObj.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) : '-',
+        patientId: r.Patient_ID, patientName: r.Patient_Name,
+        status: r.Status, department: r.Department || 'OPD',
+        isNew: (firstVisitMap[r.Patient_ID] === r.Visit_ID),
+        // Prefer record data (Visits), fallback to patient profile
+        age: r.Age || p?.Age || 0,
+        gender: r.Gender || p?.Gender || '',
+        photoUrl: p?.Photo_URL || '',
+        dischargeStatus: r.Discharge_Status, doctor: r.Doctor_Name,
+        nurse: r.Nurse_Name,
+        symptoms: r.Symptoms, bp: r.BP, temp: r.Temp, weight: r.Weight, height: r.Height,
+        pe: r.Physical_Exam, diagnosis: r.Diagnosis, advice: r.Advice, followup: r.Follow_Up,
+        labOrdersStr: r.Lab_Orders_JSON, prescriptionStr: r.Prescription_JSON,
+        site: r.Site, type: r.Visit_Type, services: r.Services_List
+      };
+    });
+  } catch (err) {
+    console.error("OPD Overall Fetch Error:", err);
+    return [];
   }
-
-  if (visits.length === 0) return [];
-  const data = visits;
-  const pIds = [...new Set(data.map(v => v.Patient_ID).filter(id => !!id))];
-  
-  let pMap = {};
-  if (pIds.length > 0) {
-    const { data: patients } = await supabaseClient.from('Patients')
-      .select('Patient_ID, Age, Photo_URL')
-      .in('Patient_ID', pIds);
-    if (patients) patients.forEach(p => pMap[p.Patient_ID] = p);
-  }
-
-  let firstVisitMap = {};
-  if (pIds.length > 0) {
-    const { data: allVs } = await supabaseClient.from('Visits').select('Visit_ID, Patient_ID, Date').in('Patient_ID', pIds).order('Date', { ascending: true });
-    (allVs || []).forEach(v => { if (!firstVisitMap[v.Patient_ID]) firstVisitMap[v.Patient_ID] = v.Visit_ID; });
-  }
-
-  return data.map((r, i) => {
-    let dObj = new Date(r.Date);
-    let p = pMap[r.Patient_ID];
-    return {
-      rowIdx: r.Visit_ID, visitId: r.Visit_ID,
-      date: dObj.toLocaleDateString('en-GB'), time: dObj.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }),
-      patientId: r.Patient_ID, patientName: r.Patient_Name,
-      status: r.Status, department: r.Department || 'OPD',
-      isNew: (firstVisitMap[r.Patient_ID] === r.Visit_ID),
-      age: p?.Age || 0,
-      photoUrl: p?.Photo_URL || '',
-      dischargeStatus: r.Discharge_Status, doctor: r.Doctor_Name,
-      symptoms: r.Symptoms, bp: r.BP, temp: r.Temp, weight: r.Weight, height: r.Height,
-      pe: r.Physical_Exam, diagnosis: r.Diagnosis, advice: r.Advice, followup: r.Follow_Up,
-      labOrdersStr: r.Lab_Orders_JSON, prescriptionStr: r.Prescription_JSON,
-      site: r.Site, type: r.Visit_Type, services: r.Services_List
-    };
-  });
 };
 
 window.loadTriageQueue = async function () {
@@ -2070,8 +2126,9 @@ window.loadTriageQueue = async function () {
   let h = '';
   if (q && q.length > 0) {
     q.forEach((r, i) => {
-      let isCalling = r.status === 'Calling Triage';
-      let sb = r.status === 'Triage' || isCalling ? '<span class="badge bg-warning text-dark"><i class="fas fa-hourglass-half"></i> ລໍຖ້າວັດແທກ</span>' : `<span class="badge bg-success"><i class="fas fa-check-circle"></i> ໄປ ${r.department} ແລ້ວ</span>`;
+      const status = r.status || '';
+      let isCalling = status === 'Calling Triage';
+      let sb = status === 'Triage' || isCalling ? '<span class="badge bg-warning text-dark"><i class="fas fa-hourglass-half"></i> ລໍຖ້າວັດແທກ</span>' : `<span class="badge bg-success"><i class="fas fa-check-circle"></i> ໄປ ${r.department} ແລ້ວ</span>`;
       if (isCalling) sb = '<span class="badge bg-danger animate__animated animate__flash animate__infinite"><i class="fas fa-volume-up"></i> ກຳລັງເອີ້ນ...</span>';
       
       let nb = r.isNew ? '<span class="badge bg-success ms-2">ໃໝ່</span>' : '<span class="badge bg-secondary ms-2">ເກົ່າ</span>';
@@ -2159,6 +2216,7 @@ window.viewTriage = function (i) {
                         <div>
                             <div class="fw-bold fs-6">${r.patientId}</div>
                             <div class="small opacity-75"><i class="fas fa-clock me-1"></i>${r.date} ${r.time}</div>
+                            <div class="small mt-1"><span class="badge bg-light text-dark">${r.gender || '-'}</span> <span class="badge bg-info">${r.age} ປີ</span></div>
                         </div>
                     </div>
                     <div class="text-end">
@@ -2226,56 +2284,63 @@ window.deleteVisitFlow = async function (id) {
 };
 
 window.loadQueue = async function () {
-  let sDate = $('#opdStartDate').val();
-  let eDate = $('#opdEndDate').val();
-  if ($.fn.DataTable.isDataTable('#queueTable')) $('#queueTable').DataTable().destroy();
-  $('#queueTableBody').html('<tr><td colspan="6" class="text-center py-4"><div class="spinner-border text-info spinner-border-sm"></div> ກຳລັງໂຫຼດ...</td></tr>');
+  try {
+    let sDate = $('#opdStartDate').val();
+    let eDate = $('#opdEndDate').val();
+    if ($.fn.DataTable.isDataTable('#queueTable')) $('#queueTable').DataTable().destroy();
+    $('#queueTableBody').html('<tr><td colspan="6" class="text-center py-4"><div class="spinner-border text-info spinner-border-sm"></div> ກຳລັງໂຫຼດ...</td></tr>');
 
-  const q = await window._fetchOpdQueue(sDate, eDate);
-  queueDataStore = q || [];
-  if ($.fn.DataTable.isDataTable('#queueTable')) $('#queueTable').DataTable().destroy();
-  let h = '';
-  if (q && q.length > 0) {
-    q.forEach((r, i) => {
-      // Skip patients still in Triage
-      if (r.status === 'Triage' || r.status === 'Calling Triage') return;
+    const q = await window._fetchOpdQueue(sDate, eDate);
+    queueDataStore = q || [];
+    if ($.fn.DataTable.isDataTable('#queueTable')) $('#queueTable').DataTable().destroy();
+    let h = '';
+    if (q && q.length > 0) {
+      q.forEach((r, i) => {
+        const status = r.status || '';
+        // Skip patients still in Triage
+        if (status === 'Triage' || status === 'Calling Triage') return;
 
-      let b = '', a = '';
-      let isCalling = r.status.startsWith('Calling');
-      
-      if (r.status === 'Waiting OPD' || r.status === 'Calling OPD') {
-        b = isCalling ? '<span class="badge bg-danger animate__animated animate__flash animate__infinite"><i class="fas fa-volume-up"></i> ກຳລັງເອີ້ນ...</span>' : '<span class="badge bg-warning text-dark"><i class="fas fa-user-clock"></i> ລໍຖ້າກວດ</span>';
-        a = `<button class="btn btn-sm btn-outline-info shadow-sm me-1 btn-timeline" data-pid="${r.patientId}" title="ປະຫວັດການກວດ"><i class="fas fa-history"></i></button>
-                      <button class="btn btn-sm btn-info text-white fw-bold me-1" onclick="window.openEMR(${i})"><i class="fas fa-stethoscope"></i> ເປີດກວດ</button>
-                      <button class="btn btn-sm btn-dark text-white me-1" onclick="window.triggerPublicCall('${r.visitId}', '${r.patientId}', '${r.department || 'ຫ້ອງກວດ (OPD)'}')" title="ເອີ້ນຄິວ"><i class="fas fa-volume-up"></i></button>
-                      <button class="btn btn-sm btn-secondary text-white" onclick="window.printOPDCard('opd', ${i})"><i class="fas fa-file-medical"></i> ພິມ</button>`;
-      } else if (r.status === 'Waiting Lab' || r.status === 'Calling Lab') {
-        b = isCalling ? '<span class="badge bg-danger animate__animated animate__flash animate__infinite"><i class="fas fa-volume-up"></i> ກຳລັງເອີ້ນ...</span>' : '<span class="badge bg-primary"><i class="fas fa-flask"></i> ລໍຖ້າຜົນແລັບ</span>';
-        a = `<button class="btn btn-sm btn-outline-info shadow-sm me-1 btn-timeline" data-pid="${r.patientId}" title="ປະຫວັດການກວດ"><i class="fas fa-history"></i></button>
-                      <button class="btn btn-sm btn-primary text-white fw-bold me-1" onclick="window.openEMR(${i})"><i class="fas fa-edit"></i> ອ່ານຜົນແລັບ</button>
-                      <button class="btn btn-sm btn-dark text-white me-1" onclick="window.triggerPublicCall('${r.visitId}', '${r.patientId}', '${r.department || 'ຫ້ອງກວດ (OPD)'}')" title="ເອີ້ນຄິວ"><i class="fas fa-volume-up"></i></button>
-                      <button class="btn btn-sm btn-secondary text-white" onclick="window.printOPDCard('opd', ${i})"><i class="fas fa-file-medical"></i> ພິມ</button>`;
-      } else {
-        b = `<span class="badge bg-success"><i class="fas fa-check-circle"></i> ປິດຈົບ (${r.dischargeStatus || 'ກວດສຳເລັດ'})</span>`;
-        a = `<button class="btn btn-sm btn-outline-info shadow-sm me-1 btn-timeline" data-pid="${r.patientId}" title="ປະຫວັດການກວດ"><i class="fas fa-history"></i></button>
-                     <button class="btn btn-sm btn-success text-white fw-bold me-1" onclick="window.viewEMR(${i})" title="ເບິ່ງລາຍລະອຽດການກວດ"><i class="fas fa-eye"></i></button>
-                     <button class="btn btn-sm btn-primary text-white fw-bold me-1" onclick="window.openEMR(${i})" title="ແກ້ໄຂການກວດ"><i class="fas fa-edit"></i></button>
-                     <button class="btn btn-sm btn-secondary text-white" onclick="window.printOPDCard('opd', ${i})"><i class="fas fa-print"></i></button>`;
-      }
-      let nb = r.isNew ? '<span class="badge bg-success ms-2">ໃໝ່</span>' : '<span class="badge bg-secondary ms-2">ເກົ່າ</span>';
-      let dateTimeStr = (r.date ? r.date + ' ' : '') + r.time;
-      h += `<tr class="${isCalling ? 'table-danger' : ''}">
-                    <td class="text-muted small">${dateTimeStr}</td>
-                    <td class="text-dark fw-bold">${r.patientId}</td>
-                    <td><div class="fw-bold text-primary">${r.patientName} ${nb}</div></td>
-                    <td><span class="badge bg-light text-dark border px-2 py-1">${r.department}</span></td>
-                    <td>${b}</td>
-                    <td class="text-center"><div class="d-flex gap-1 justify-content-center">${a}</div></td>
-                  </tr>`;
-    });
+        let b = '', a = '';
+        let isCalling = status.startsWith('Calling');
+        
+        if (status === 'Waiting OPD' || status === 'Calling OPD') {
+          b = isCalling ? '<span class="badge bg-danger animate__animated animate__flash animate__infinite"><i class="fas fa-volume-up"></i> ກຳລັງເອີ້ນ...</span>' : '<span class="badge bg-warning text-dark"><i class="fas fa-user-clock"></i> ລໍຖ້າກວດ</span>';
+          a = `<button class="btn btn-sm btn-outline-info shadow-sm me-1 btn-timeline" data-pid="${r.patientId}" title="ປະຫວັດການກວດ"><i class="fas fa-history"></i></button>
+                        <button class="btn btn-sm btn-info text-white fw-bold me-1" onclick="window.openEMR(${i})"><i class="fas fa-stethoscope"></i> ເປີດກວດ</button>
+                        <button class="btn btn-sm btn-dark text-white me-1" onclick="window.triggerPublicCall('${r.visitId}', '${r.patientId}', '${r.department || 'ຫ້ອງກວດ (OPD)'}')" title="ເອີ້ນຄິວ"><i class="fas fa-volume-up"></i></button>
+                        <button class="btn btn-sm btn-secondary text-white" onclick="window.printOPDCard('opd', ${i})"><i class="fas fa-file-medical"></i> ພິມ</button>`;
+        } else if (status === 'Waiting Lab' || status === 'Calling Lab') {
+          b = isCalling ? '<span class="badge bg-danger animate__animated animate__flash animate__infinite"><i class="fas fa-volume-up"></i> ກຳລັງເອີ້ນ...</span>' : '<span class="badge bg-primary"><i class="fas fa-flask"></i> ລໍຖ້າຜົນແລັບ</span>';
+          a = `<button class="btn btn-sm btn-outline-info shadow-sm me-1 btn-timeline" data-pid="${r.patientId}" title="ປະຫວັດການກວດ"><i class="fas fa-history"></i></button>
+                        <button class="btn btn-sm btn-primary text-white fw-bold me-1" onclick="window.openEMR(${i})"><i class="fas fa-edit"></i> ອ່ານຜົນແລັບ</button>
+                        <button class="btn btn-sm btn-dark text-white me-1" onclick="window.triggerPublicCall('${r.visitId}', '${r.patientId}', '${r.department || 'ຫ້ອງກວດ (OPD)'}')" title="ເອີ້ນຄິວ"><i class="fas fa-volume-up"></i></button>
+                        <button class="btn btn-sm btn-secondary text-white" onclick="window.printOPDCard('opd', ${i})"><i class="fas fa-file-medical"></i> ພິມ</button>`;
+        } else {
+          b = `<span class="badge bg-success"><i class="fas fa-check-circle"></i> ປິດຈົບ (${r.dischargeStatus || 'ກວດສຳເລັດ'})</span>`;
+          a = `<button class="btn btn-sm btn-outline-info shadow-sm me-1 btn-timeline" data-pid="${r.patientId}" title="ປະຫວັດການກວດ"><i class="fas fa-history"></i></button>
+                       <button class="btn btn-sm btn-success text-white fw-bold me-1" onclick="window.viewEMR(${i})" title="ເບິ່ງລາຍລະອຽດການກວດ"><i class="fas fa-eye"></i></button>
+                       <button class="btn btn-sm btn-primary text-white fw-bold me-1" onclick="window.openEMR(${i})" title="ແກ້ໄຂການກວດ"><i class="fas fa-edit"></i></button>
+                       <button class="btn btn-sm btn-secondary text-white" onclick="window.printOPDCard('opd', ${i})"><i class="fas fa-print"></i></button>`;
+        }
+        let nb = r.isNew ? '<span class="badge bg-success ms-2">ໃໝ່</span>' : '<span class="badge bg-secondary ms-2">ເກົ່າ</span>';
+        let dateTimeStr = (r.date ? r.date + ' ' : '') + r.time;
+        h += `<tr class="${isCalling ? 'table-danger' : ''}">
+                      <td class="text-muted small">${dateTimeStr}</td>
+                      <td class="text-dark fw-bold">${r.patientId}</td>
+                      <td><div class="fw-bold text-primary">${r.patientName} ${nb}</div></td>
+                      <td><span class="badge bg-light text-dark border px-2 py-1">${r.department}</span></td>
+                      <td>${b}</td>
+                      <td class="text-center"><div class="d-flex gap-1 justify-content-center">${a}</div></td>
+                    </tr>`;
+      });
+    }
+    $('#queueTableBody').html(h);
+    $('#queueTable').DataTable({ responsive: true, pageLength: 10, language: { search: "ຄົ້ນຫາ:", emptyTable: "ບໍ່ມີຄິວລໍຖ້າ" } });
+  } catch (err) {
+    console.error("Critical loadQueue Error:", err);
+    let msg = err.message || "Unknown error";
+    $('#queueTableBody').html(`<tr><td colspan="6" class="text-center py-4 text-danger">ເກີດຂໍ້ຜິດພາດໃນການໂຫຼດຂໍ້ມູນ: <br><small>${msg}</small></td></tr>`);
   }
-  $('#queueTableBody').html(h);
-  $('#queueTable').DataTable({ responsive: true, pageLength: 10, language: { search: "ຄົ້ນຫາ:", emptyTable: "ບໍ່ມີຄິວລໍຖ້າ" } });
 };
 
 window.viewEMR = function (i) {
@@ -2310,12 +2375,12 @@ window.viewEMR = function (i) {
                     </div>
                     <div>
                         <b><i class="fas fa-user text-primary"></i> ຄົນເຈັບ:</b> ${q.patientName} <br>
-                        <small class="text-muted">(${q.patientId})</small>
+                        <small class="text-muted">(${q.patientId}) - ${q.gender || '-'}, ${q.age} ປີ</small>
                     </div>
                 </div>
                 <div class="col-6 text-end"><b><i class="far fa-clock text-info"></i> ເວລາ:</b> ${q.time}</div>
             </div>
-            <p><b><i class="fas fa-user-md text-primary"></i> ແພດຜູ້ກວດ:</b> <span class="text-primary fw-bold">${q.doctor || '-'}</span></p>
+            <p><b><i class="fas fa-user-md text-primary"></i> ແພດຜູ້ກວດ:</b> <span class="text-primary fw-bold">${q.doctor || '-'}</span> ${q.nurse ? `<span class="ms-3"><b><i class="fas fa-user-nurse text-info"></i> ພະຍາບານ:</b> ${q.nurse}</span>` : ''}</p>
             <p><b><i class="fas fa-comment-medical text-danger"></i> ອາການເບື້ອງຕົ້ນ (CC):</b><br> ${q.symptoms || '-'}</p>
             <div class="bg-light p-2 rounded mb-3 border">
                 <b><i class="fas fa-heartbeat text-danger"></i> Vitals:</b> 
