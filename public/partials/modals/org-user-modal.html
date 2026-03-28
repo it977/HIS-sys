@@ -1,0 +1,68 @@
+<!-- Org Modal -->
+<div class="modal fade" id="orgModal" tabindex="-1" data-bs-backdrop="static">
+  <div class="modal-dialog">
+    <div class="modal-content border-0 shadow">
+      <div class="modal-header bg-primary text-white">
+        <h5 class="modal-title fw-bold"><i class="fas fa-building me-2"></i>ຈັດການອົງກອນ / ປະກັນໄພ</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body p-4">
+        <form id="orgForm" onsubmit="window.submitOrgForm(event)">
+          <input type="hidden" id="o_rowIdx">
+          <div class="mb-3"><label class="form-label fw-bold required">Org Code (ລະຫັດອົງກອນ)</label><input type="text" class="form-control" id="o_orgCode" required placeholder="ຕົວຢ່າງ: ORG001"></div>
+          <div class="mb-3"><label class="form-label fw-bold">Customer ID</label><input type="text" class="form-control" id="o_cusId" placeholder="CUS-XXX"></div>
+          <div class="mb-3"><label class="form-label fw-bold required">ຊື່ຜູ້ຕິດຕໍ່</label><input type="text" class="form-control" id="o_name" required></div>
+          <div class="mb-3"><label class="form-label fw-bold required">ຊື່ອົງກອນ (Org Name)</label><input type="text" class="form-control" id="o_orgName" required></div>
+          <div class="mb-4"><label class="form-label fw-bold text-danger">ສ່ວນຫຼຸດ (Discount)</label><textarea class="form-control border-warning" id="o_discount" rows="2" placeholder="ຕົວຢ່າງ: ຫຼຸດ 10% ທຸກລາຍການ"></textarea></div>
+          <button type="submit" class="btn btn-primary w-100 fw-bold"><i class="fas fa-save me-2"></i>ບັນທຶກ</button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- User Modal -->
+<div class="modal fade" id="addUserModal" tabindex="-1" data-bs-backdrop="static">
+  <div class="modal-dialog">
+    <div class="modal-content border-0 shadow">
+      <div class="modal-header bg-warning text-dark">
+        <h5 class="modal-title fw-bold" id="userModalTitle"><i class="fas fa-user-plus me-2"></i>ເພີ່ມຜູ້ໃຊ້ລະບົບ</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body p-4">
+        <form id="addUserForm" onsubmit="window.submitUserForm(event)">
+          <input type="hidden" id="u_id">
+          <div class="mb-3"><label class="form-label fw-bold required">ຊື່ພະນັກງານ</label><input type="text" class="form-control" id="u_name" required></div>
+          <div class="mb-3"><label class="form-label fw-bold required">ອີເມວ (Email)</label><input type="email" class="form-control" id="u_email" required></div>
+          <div class="mb-3">
+            <label class="form-label fw-bold">ລະຫັດຜ່ານ <span class="text-muted small fw-normal">(ຖ້າແກ້ໄຂ ປ່ອຍວ່າງໄດ້)</span></label>
+            <input type="password" class="form-control" id="u_pass" placeholder="ລະຫັດຜ່ານ...">
+          </div>
+          <div class="mb-3">
+            <label class="form-label fw-bold required">ສິດ (Role)</label>
+            <select class="form-select" id="u_role" required onchange="window.togglePermissionsBox()">
+              <option value="admin">Admin (ສິດທັງໝົດ)</option>
+              <option value="doctor">Doctor</option>
+              <option value="nurse">Nurse</option>
+              <option value="staff">Staff</option>
+            </select>
+          </div>
+          <div class="mb-4 border rounded p-3 bg-light" id="permBox" style="display:none;">
+            <label class="form-label fw-bold text-muted mb-2"><i class="fas fa-key me-1"></i>ໜ້າທີ່ທີ່ອະນຸຍາດ:</label>
+            <div class="row g-2">
+              <div class="col-6"><div class="form-check"><input class="form-check-input permission-check" type="checkbox" value="dashboard" id="perm_dash"><label class="form-check-label" for="perm_dash">Dashboard</label></div></div>
+              <div class="col-6"><div class="form-check"><input class="form-check-input permission-check" type="checkbox" value="report" id="perm_rep"><label class="form-check-label" for="perm_rep">Report</label></div></div>
+              <div class="col-6"><div class="form-check"><input class="form-check-input permission-check" type="checkbox" value="patients" id="perm_pat"><label class="form-check-label" for="perm_pat">ທະບຽນຄົນເຈັບ</label></div></div>
+              <div class="col-6"><div class="form-check"><input class="form-check-input permission-check" type="checkbox" value="triage" id="perm_tri"><label class="form-check-label" for="perm_tri">Triage</label></div></div>
+              <div class="col-6"><div class="form-check"><input class="form-check-input permission-check" type="checkbox" value="opd" id="perm_opd"><label class="form-check-label" for="perm_opd">OPD (ຫ້ອງກວດ)</label></div></div>
+              <div class="col-6"><div class="form-check"><input class="form-check-input permission-check" type="checkbox" value="appointments" id="perm_apt"><label class="form-check-label" for="perm_apt">ນັດໝາຍ</label></div></div>
+              <div class="col-6"><div class="form-check"><input class="form-check-input permission-check" type="checkbox" value="vaccines" id="perm_vac"><label class="form-check-label" for="perm_vac">ວັກຊີນ</label></div></div>
+              <div class="col-6"><div class="form-check"><input class="form-check-input permission-check" type="checkbox" value="settings" id="perm_set"><label class="form-check-label" for="perm_set">ຕັ້ງຄ່າ</label></div></div>
+            </div>
+          </div>
+          <button type="submit" class="btn btn-warning w-100 fw-bold text-dark"><i class="fas fa-save me-2"></i>ບັນທຶກຜູ້ໃຊ້</button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>

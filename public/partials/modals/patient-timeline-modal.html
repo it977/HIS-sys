@@ -1,0 +1,42 @@
+<!-- Patient Timeline Modal -->
+<div class="modal fade" id="patientTimelineModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-scrollable">
+    <div class="modal-content border-0 shadow-lg">
+      <div class="modal-header bg-dark text-white py-3">
+        <h5 class="modal-title fw-bold"><i class="fas fa-history me-2 text-warning"></i>ປະຫວັດການຮັບບໍລິການ (Patient Timeline)</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body p-0" style="background-color: #f1f5f9;">
+        <div class="p-4">
+            <!-- Patient Mini Profile -->
+            <div class="d-flex align-items-center gap-3 mb-4 p-3 bg-white rounded shadow-sm border-start border-4 border-primary">
+                <div id="timeline_p_photo_wrapper" style="width: 60px; height: 60px; border-radius: 50%; overflow: hidden; background: #e2e8f0; display: flex; align-items: center; justify-content: center; border: 2px solid #fff; box-shadow: 0 0 10px rgba(0,0,0,0.1);">
+                    <img id="timeline_p_photo" src="" style="display:none; width: 100%; height: 100%; object-fit: cover;">
+                    <i class="fas fa-user text-muted fa-2x" id="timeline_p_placeholder"></i>
+                </div>
+                <div>
+                    <h5 id="timeline_p_name" class="fw-bold mb-0 text-dark">-</h5>
+                    <div class="text-muted small">
+                        <span id="timeline_p_id" class="me-2"></span>
+                        <span id="timeline_p_info" class="badge bg-primary bg-opacity-10 text-primary"></span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Timeline Container -->
+            <div class="timeline-container px-2">
+                <div id="timelineContent">
+                    <div class="text-center py-5">
+                        <div class="spinner-border text-primary"></div>
+                        <p class="mt-2 text-muted">ກຳລັງໂຫຼດປະຫວັດ...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+      </div>
+      <div class="modal-footer bg-white border-0 py-3">
+        <button type="button" class="btn btn-secondary fw-bold px-4 shadow-sm" data-bs-dismiss="modal">ປິດໜ້າຕ່າງ</button>
+      </div>
+    </div>
+  </div>
+</div>

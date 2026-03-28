@@ -1,0 +1,178 @@
+<!-- Patient Card Print Area -->
+<div id="print-area" class="print-container">
+  <div class="patient-card">
+    <div class="patient-card-info">
+      <div style="margin-bottom: 6px;"><span style="color:#64748b; font-size: 10px;">ຊື່ ແລະ ນາມສະກຸນ:</span><br><strong id="printName" style="font-size: 14px; color: #0284c7; line-height: 1.2;"></strong></div>
+      <div style="margin-bottom: 4px;"><span style="color:#64748b; font-size: 10px;">ວ/ດ/ປ:</span> <strong id="printDob" style="font-size: 12px; color: #334155;"></strong></div>
+      <div><span style="color:#64748b; font-size: 10px;">ເບີໂທ:</span> <strong id="printPhone" style="font-size: 12px; color: #334155;"></strong></div>
+    </div>
+    <div class="patient-card-qr" style="text-align: center;">
+      <div id="qrcodeDisplay" style="margin: 0 auto 5px auto; padding: 2px; background: #fff; border-radius: 4px;"></div>
+      <div id="printID" style="font-weight: 900; font-size: 14px; color: #000;"></div>
+    </div>
+  </div>
+</div>
+
+<!-- OPD Print Area -->
+<div id="opd-print-area" class="print-container">
+  <div class="opd-page">
+    <img id="print-opd-header-1" class="opd-header-img" />
+    <div class="opd-header-title">ຂໍ້ມູນການລົງທະບຽນ</div>
+    <div class="opd-sub-title">(OPD Card)</div>
+    <table class="opd-table-noborder">
+      <tr>
+        <td width="50%"><b>ID ປະກັນ :</b> <span style="display:inline-block; width:150px; border:1px solid #000; height:20px; vertical-align: middle;"></span></td>
+        <td width="50%" style="text-align:right;"><b>CN:</b> <span id="popd_cn" style="font-weight:bold; font-size: 16px; border-bottom:1px dotted #000; padding:0 20px;"></span></td>
+      </tr>
+      <tr>
+        <td><b>ID ອົງກອນ :</b> <span id="popd_orgid" style="border-bottom:1px dotted #000; padding:0 20px;"></span></td>
+        <td style="text-align:right;"><b>Date Time:</b> <span id="popd_datetime" style="border-bottom:1px dotted #000; padding:0 20px;"></span></td>
+      </tr>
+      <tr>
+        <td><b>ຊື່ອົງກອນ :</b> <span id="popd_orgname" style="border-bottom:1px dotted #000; padding:0 20px;"></span></td>
+        <td style="text-align:right;"><b>Vital_ID:</b> <span id="popd_vid" style="border-bottom:1px dotted #000; padding:0 20px;"></span></td>
+      </tr>
+      <tr><td colspan="2"><b>ພະແນກ :</b> <span id="popd_dept" style="border-bottom:1px dotted #000; padding:0 20px;"></span></td></tr>
+    </table>
+    <div class="opd-section-title">ຂໍ້ມູນຜູ້ມາຮັບບໍລິການ/Client's Profile</div>
+    <table class="opd-table-noborder">
+      <tr>
+        <td width="40%"><b>ຊື່/Name:</b> <span id="popd_name" style="border-bottom:1px dotted #000;"></span></td>
+        <td width="40%"><b>ນາມສະກຸນ /Surname:</b> <span id="popd_surname" style="border-bottom:1px dotted #000;"></span></td>
+        <td width="20%"><b>ອາຍຸ /Age:</b> <span id="popd_age" style="border-bottom:1px dotted #000;"></span></td>
+      </tr>
+      <tr>
+        <td><b>ວ/ດ/ປ ເກີດ/D.O.B:</b> <span id="popd_dob" style="border-bottom:1px dotted #000;"></span></td>
+        <td colspan="2"><b>ເພດ /Gender:</b> <span id="popd_gender" style="border-bottom:1px dotted #000;"></span></td>
+      </tr>
+      <tr>
+        <td><b>ສັນຊາດ/Nationality:</b> <span id="popd_nation" style="border-bottom:1px dotted #000;"></span></td>
+        <td colspan="2"><b>ອາຊີບ /Occupation:</b> <span id="popd_job" style="border-bottom:1px dotted #000;"></span></td>
+      </tr>
+      <tr>
+        <td><b>ທີ່ຢູ່ ບ້ານ/Address:</b> <span id="popd_village" style="border-bottom:1px dotted #000;"></span></td>
+        <td><b>ເມືອງ /District:</b> <span id="popd_district" style="border-bottom:1px dotted #000;"></span></td>
+        <td><b>ແຂວງ /Province:</b> <span id="popd_prov" style="border-bottom:1px dotted #000;"></span></td>
+      </tr>
+      <tr><td colspan="3"><b>ເບີໂທລະສັບ/Tel:</b> <span id="popd_phone" style="border-bottom:1px dotted #000;"></span></td></tr>
+      <tr><td colspan="3"><b>ສາເຫດມາໂຮງໝໍ/Chief complaint:</b> <span id="popd_cc" style="border-bottom:1px dotted #000; padding:0 50px;"></span></td></tr>
+    </table>
+    <div class="opd-section-title">ອາການຊີວິດ/Vital sign:</div>
+    <table class="opd-table-noborder">
+      <tr>
+        <td width="33%"><b>BT:</b> <span id="popd_temp" style="border-bottom:1px dotted #000; padding:0 20px;"></span></td>
+        <td width="33%"><b>BP:</b> <span id="popd_bp" style="border-bottom:1px dotted #000; padding:0 20px;"></span></td>
+        <td width="34%"><b>PR:</b> <span id="popd_pr" style="border-bottom:1px dotted #000; padding:0 20px;"></span></td>
+      </tr>
+      <tr>
+        <td><b>RR:</b> <span style="display:inline-block; border-bottom:1px dotted #000; width:50px;"></span></td>
+        <td><b>SpO2:</b> <span id="popd_spo2" style="border-bottom:1px dotted #000; padding:0 20px;"></span></td>
+        <td><b>Weight:</b> <span id="popd_w" style="border-bottom:1px dotted #000; padding:0 20px;"></span></td>
+      </tr>
+      <tr>
+        <td><b>High:</b> <span id="popd_h" style="border-bottom:1px dotted #000; padding:0 20px;"></span></td>
+        <td colspan="2"><b>Nutrition status:</b> <span id="popd_bmi" style="border-bottom:1px dotted #000; padding:0 20px;"></span></td>
+      </tr>
+    </table>
+    <div style="border-top: 1px solid #000; margin-top: auto; padding-top: 15px;">
+      <table class="opd-table-noborder">
+        <tr><td colspan="2"><b>ປະຫວັດການແພ້/Allergy:</b> <span id="popd_allergy" style="border-bottom:1px dotted #000; color:red; padding:0 20px; font-weight:bold;"></span></td></tr>
+        <tr>
+          <td width="50%"><b>ອື່ນໆ/Other:</b> <span style="display:inline-block; border-bottom:1px dotted #000; width:70%;"></span></td>
+          <td width="50%"><b>ອາການແພ້/Symptoms:</b> <span style="display:inline-block; border-bottom:1px dotted #000; width:50%;"></span></td>
+        </tr>
+        <tr><td colspan="2"><b>ປະຫວັດພະຍາດປະຈໍາໂຕ :</b> <span id="popd_disease" style="border-bottom:1px dotted #000; padding:0 20px;"></span></td></tr>
+        <tr><td colspan="2"><b>ລາຍລະອຽດພະຍາດ:</b> <span style="display:inline-block; border-bottom:1px dotted #000; width:80%;"></span></td></tr>
+        <tr><td colspan="2"><b>ຢາ ໃຊ້ປະຈໍາ:</b> <span style="display:inline-block; border-bottom:1px dotted #000; width:80%;"></span></td></tr>
+        <tr>
+          <td width="50%"><b>ວົງເງິນຄຸ້ມຄອງ :</b> <span style="display:inline-block; border-bottom:1px dotted #000; width:60%;"></span></td>
+          <td width="50%"><b>ສ່ວນຫຼຸດ :</b> <span style="display:inline-block; border-bottom:1px dotted #000; width:60%;"></span></td>
+        </tr>
+        <tr><td></td><td style="text-align:center; padding-top:50px;"><b>ຜູ້ບັນທຶກຂໍ້ມູນ</b><br><br>.....................................</td></tr>
+      </table>
+    </div>
+    <img id="print-opd-footer-1" class="opd-footer-img" />
+  </div>
+
+  <div class="opd-page opd-page2">
+    <img id="print-opd-header-2" class="opd-header-img" />
+    <div class="opd-header-title" style="margin:4px 0 3px 0;">ໃບບັນທຶກອາການ ແລະ ການປິ່ນປົວ</div>
+    <table class="opd-table-stretch opd2-main-table" style="width:100%;">
+      <thead>
+        <tr>
+          <th width="35%" style="text-align:center;">History and physical exam</th>
+          <th width="45%" style="text-align:center;">Treatment</th>
+          <th width="20%" style="text-align:center;">other</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr class="opd2-row"><td></td><td></td><td></td></tr>
+        <tr class="opd2-row"><td></td><td></td><td></td></tr>
+        <tr class="opd2-row"><td></td><td></td><td></td></tr>
+        <tr class="opd2-row"><td></td><td></td><td></td></tr>
+        <tr class="opd2-row"><td></td><td></td><td></td></tr>
+        <tr class="opd2-row"><td></td><td></td><td></td></tr>
+        <tr class="opd2-row"><td></td><td></td><td></td></tr>
+        <tr class="opd2-row"><td></td><td></td><td></td></tr>
+        <tr class="opd2-row"><td></td><td></td><td></td></tr>
+        <tr class="opd2-row"><td></td><td></td><td></td></tr>
+        <tr class="opd2-row"><td></td><td></td><td></td></tr>
+        <tr class="opd2-row"><td></td><td></td><td></td></tr>
+        <tr class="opd2-row"><td></td><td></td><td></td></tr>
+        <tr class="opd2-row"><td></td><td></td><td></td></tr>
+        <tr class="opd2-row"><td></td><td></td><td></td></tr>
+        <tr class="opd2-row"><td></td><td></td><td></td></tr>
+        <tr class="opd2-row"><td></td><td></td><td></td></tr>
+        <tr class="opd2-row"><td></td><td></td><td></td></tr>
+        <tr class="opd2-row"><td></td><td></td><td></td></tr>
+      </tbody>
+      <tbody>
+        <tr class="opd2-dx-row"><td><b>Dx:</b></td><td><b>Follow up:</b></td><td><b>Dr.:</b></td></tr>
+      </tbody>
+    </table>
+    <div class="opd-header-title" style="margin:8px 0 3px 0;">ໃບຕິດຕາມອາການ ແລະ ຫັດຖະການ</div>
+    <table class="opd-table-stretch opd2-followup-table" style="width:100%;">
+      <thead>
+        <tr>
+          <th width="10%" style="text-align:center;">Time</th>
+          <th width="30%" style="text-align:center;">ອາການ</th>
+          <th width="45%" style="text-align:center;">ຫັດຖະການ</th>
+          <th width="15%" style="text-align:center;">ຜູ້ບັນທຶກ</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr class="opd2-followup-row"><td></td><td></td><td></td><td></td></tr>
+        <tr class="opd2-followup-row"><td></td><td></td><td></td><td></td></tr>
+        <tr class="opd2-followup-row"><td></td><td></td><td></td><td></td></tr>
+        <tr class="opd2-followup-row"><td></td><td></td><td></td><td></td></tr>
+        <tr class="opd2-followup-row"><td></td><td></td><td></td><td></td></tr>
+        <tr class="opd2-followup-row"><td></td><td></td><td></td><td></td></tr>
+        <tr class="opd2-followup-row"><td></td><td></td><td></td><td></td></tr>
+        <tr class="opd2-followup-row"><td></td><td></td><td></td><td></td></tr>
+      </tbody>
+    </table>
+    <img id="print-opd-footer-2" class="opd-footer-img" />
+  </div>
+</div>
+
+<!-- Vaccine Appointment Print Area -->
+<div id="vac-print-area" class="print-container">
+  <div style="width: 85mm; padding: 15px; border: 2px solid #10b981; border-radius: 8px; background: #fff; margin: 0 auto; font-family: 'Noto Sans Lao', sans-serif;">
+    <div style="text-align: center; border-bottom: 2px dashed #10b981; padding-bottom: 10px; margin-bottom: 10px;">
+      <h4 style="margin: 0; color: #10b981; font-weight: bold; font-size: 16px;">ບັດນັດໝາຍສັກວັກຊີນ</h4>
+      <p style="margin: 5px 0 0 0; font-size: 12px; color: #64748b;" id="pVacHospName">HIS Clinic</p>
+    </div>
+    <div style="font-size: 13px; line-height: 1.6; color: #333;">
+      <p style="margin: 0;"><b>ລະຫັດ (CN):</b> <span id="pVacCN" style="color: #0ea5e9; font-weight: bold;"></span></p>
+      <p style="margin: 0;"><b>ຊື່ຄົນເຈັບ:</b> <span id="pVacName"></span></p>
+      <p style="margin: 0;"><b>ຊື່ວັກຊີນ:</b> <span id="pVacTitle" style="color: #10b981; font-weight: bold;"></span></p>
+      <p style="margin: 0;"><b>ໂດສທີ (Dose):</b> <span id="pVacDose"></span></p>
+      <p style="margin: 0;"><b>ວັນທີສັກຫຼ້າສຸດ:</b> <span id="pVacGiven"></span></p>
+      <div style="background: #fef2f2; border: 1px solid #fca5a5; padding: 8px; border-radius: 5px; margin-top: 12px; text-align: center;">
+        <p style="margin: 0; font-size: 11px; color: #ef4444; font-weight: bold;">ວັນທີນັດໝາຍເຂັມຕໍ່ໄປ</p>
+        <h3 style="margin: 5px 0 0 0; color: #dc2626; font-size: 16px; font-weight: 900;" id="pVacNextDate">-</h3>
+      </div>
+      <p style="margin: 15px 0 0 0; font-size: 11px; text-align: center; color: #64748b;">ກະລຸນານຳບັດນີ້ມາພ້ອມທຸກຄັ້ງທີ່ມາຮັບບໍລິການ</p>
+    </div>
+  </div>
+</div>

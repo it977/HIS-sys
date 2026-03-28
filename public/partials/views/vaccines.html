@@ -1,0 +1,23 @@
+<div id="view-vaccines" style="display:none;">
+  <div class="d-flex justify-content-between align-items-center mb-4 pb-3" style="border-bottom:2px solid var(--border-color);">
+    <div>
+      <h3 class="fw-bold m-0 text-dark"><i class="fas fa-syringe text-success me-2"></i>ປະຫວັດການສັກວັກຊີນ</h3>
+      <p class="text-muted mb-0 mt-1" style="font-size:11.5px;">ບັນທຶກ ແລະ ຕິດຕາມການສັກວັກຊີນຄົນເຈັບ</p>
+    </div>
+    <button class="btn btn-success shadow-sm fw-bold" onclick="window.openPatientVacModal()"><i class="fas fa-plus-circle me-1"></i> ບັນທຶກການສັກວັກຊີນ</button>
+  </div>
+  <div class="card card-outline card-success">
+    <div class="card-body table-responsive">
+      <table id="patientVacTable" class="table table-hover align-middle w-100">
+        <thead class="bg-light">
+          <tr>
+            <th>ວັນທີສັກ</th><th>ຄົນເຈັບ</th><th>ຊື່ວັກຊີນ</th><th>Lot No.</th>
+            <th>ໂດສ (Dose)</th><th>ຜູ້ສັກ</th><th>ນັດໝາຍຕໍ່ໄປ</th>
+            <th class="text-center">ສະຖານະ</th><th class="text-center">ຈັດການ</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </div>
+</div>

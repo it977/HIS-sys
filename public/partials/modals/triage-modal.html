@@ -1,0 +1,72 @@
+<!-- Triage Modal -->
+<div class="modal fade" id="triageModal" tabindex="-1" data-bs-backdrop="static">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content border-0 shadow">
+      <div class="modal-header bg-danger text-white d-flex align-items-center">
+        <div class="d-flex align-items-center gap-3">
+          <div class="triage-photo-wrapper" style="width: 50px; height: 50px; border-radius: 50%; overflow: hidden; background: rgba(255,255,255,0.2); border: 2px solid rgba(255,255,255,0.5); display: flex; align-items: center; justify-content: center;">
+            <img id="v_p_photo" src="" style="display:none; width: 100%; height: 100%; object-fit: cover;">
+            <i class="fas fa-user text-white-50" id="v_p_photo_placeholder"></i>
+          </div>
+          <div>
+            <h5 class="modal-title fw-bold mb-0"><i class="fas fa-stethoscope me-2"></i>ວັດແທກ Vital Signs</h5>
+            <div class="small mt-1 opacity-75">
+              <span id="vPatientId" class="me-2 text-white"></span>
+              <span id="vPatientName" class="fw-bold text-white"></span>
+            </div>
+          </div>
+        </div>
+        <button type="button" class="btn-close btn-close-white ms-auto" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body p-4">
+        <form id="triageForm" onsubmit="window.submitTriageForm(event)">
+          <input type="hidden" id="vRowIdx" name="visitId">
+          <div class="row g-3">
+            <div class="col-md-6">
+              <label class="form-label fw-bold">ຄວາມດັນໂລຫິດ (BP) mmHg</label>
+              <input type="text" class="form-control border-2" name="v_bp" placeholder="120/80" autocomplete="off">
+              <div class="small text-muted mt-1"><i class="fas fa-info-circle me-1"></i>ຕົວຢ່າງ: 120/80</div>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label fw-bold">ອຸນຫະພູມ (Temp) °C</label>
+              <input type="number" class="form-control" name="v_temp" step="0.1" min="30" max="45" placeholder="36.5">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label fw-bold">ນ້ຳໜັກ (Weight) kg</label>
+              <input type="number" class="form-control" id="v_weight" name="v_weight" step="0.1" min="1" max="300" placeholder="60" oninput="window.calculateBMI()">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label fw-bold">ສ່ວນສູງ (Height) cm</label>
+              <input type="number" class="form-control" id="v_height" name="v_height" step="0.1" min="30" max="250" placeholder="165" oninput="window.calculateBMI()">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label fw-bold">BMI</label>
+              <input type="text" class="form-control bg-light fw-bold" id="v_bmi" name="v_bmi" readonly placeholder="ຄຳນວນອັດຕະໂນມັດ">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label fw-bold">ຊີບຈອນ (Pulse) bpm</label>
+              <input type="number" class="form-control" name="v_pulse" min="20" max="300" placeholder="80">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label fw-bold">SpO2 %</label>
+              <input type="number" class="form-control" name="v_spo2" step="0.1" min="50" max="100" placeholder="98">
+            </div>
+            <div class="col-12">
+              <label class="form-label fw-bold required">ຫ້ອງກວດ (Department)</label>
+              <select class="form-select dyn-Department" name="v_department" required>
+                <option value="">-- ເລືອກຫ້ອງກວດ --</option>
+              </select>
+            </div>
+            <div class="col-12">
+              <label class="form-label fw-bold">ອາການ / ຈຸດປະສົງ (Chief Complaint)</label>
+              <textarea class="form-control" name="v_symptoms" rows="3" placeholder="ອາການ ຫຼື ຈຸດປະສົງທີ່ມາໃຊ້ບໍລິການ..."></textarea>
+            </div>
+          </div>
+          <button type="submit" class="btn btn-danger w-100 fw-bold mt-4 py-2 shadow-sm">
+            <i class="fas fa-save me-2"></i>ບັນທຶກ ແລະ ສົ່ງເຂົ້າຫ້ອງກວດ
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>

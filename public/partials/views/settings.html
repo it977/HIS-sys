@@ -1,0 +1,54 @@
+<div id="view-settings" style="display:none;">
+  <div class="mb-4">
+    <h3 class="fw-bold m-0 text-dark"><i class="fas fa-cogs text-secondary me-2"></i>ຕັ້ງຄ່າຂໍ້ມູນລະບົບ (Master Data)</h3>
+    <p class="text-muted mb-0 mt-1" style="font-size:11.5px;">ຕັ້ງຄ່າໂຮງໝໍ, ຂໍ້ມູນ Master ແລະ ລາຍຊື່ຕ່າງໆ</p>
+  </div>
+  <div class="card card-outline card-primary mb-4">
+    <div class="card-body">
+      <form id="settingsForm" onsubmit="window.submitSettingsForm(event)">
+        <div class="row align-items-end mb-3">
+          <div class="col-md-6 mb-3 mb-md-0"><label class="form-label text-muted">ຊື່ໂຮງໝໍ/ຄລີນິກ</label><input type="text" class="form-control" id="setHospitalName" required></div>
+          <div class="col-md-6 mb-3 mb-md-0"><label class="form-label text-muted">Logo URL (ລິ້ງຮູບໂລໂກ້)</label><input type="url" class="form-control" id="setLogoUrl" placeholder="https://..."></div>
+        </div>
+        <div class="row align-items-end mb-3">
+          <div class="col-md-6 mb-3 mb-md-0"><label class="form-label text-muted">ລິ້ງຮູບຫົວເຈ້ຍ OPD (Header A4)</label><input type="url" class="form-control" id="setOpdHeaderUrl" placeholder="https://..."></div>
+          <div class="col-md-6 mb-3 mb-md-0"><label class="form-label text-muted">ລິ້ງຮູບທ້າຍເຈ້ຍ OPD (Footer A4)</label><input type="url" class="form-control" id="setOpdFooterUrl" placeholder="https://..."></div>
+        </div>
+        <button type="submit" class="btn btn-primary shadow-sm px-5"><i class="fas fa-save me-1"></i> ບັນທຶກຕັ້ງຄ່າ</button>
+      </form>
+    </div>
+  </div>
+  <div class="card card-outline card-success">
+    <div class="card-body bg-light">
+      <div class="row">
+        <div class="col-md-4 mb-3">
+          <select class="form-select form-select-lg border-success fw-bold shadow-sm" id="masterCategory" onchange="window.loadMasterList()">
+            <option value="Department">ຫ້ອງກວດ (Department)</option>
+            <option value="Shift">ກະເວນ (Shift)</option>
+            <option value="Doctor">ລາຍຊື່ແພດ (Doctor)</option>
+            <option value="Title">ຄຳນຳໜ້າ (Title)</option>
+            <option value="Gender">ເພດ (Gender)</option>
+            <option value="Nationality">ສັນຊາດ (Nationality)</option>
+            <option value="Occupation">ອາຊີບ (Occupation)</option>
+            <option value="BloodType">ໝວດເລືອດ (Blood Type)</option>
+            <option value="InsCompany">ບໍລິສັດປະກັນໄພ</option>
+            <option value="Channel">ຊ່ອງທາງຮູ້ຈັກ</option>
+            <option value="Site">ສະຖານທີ່ (Site)</option>
+            <option value="PatientType_InSite">ປະເພດຄົນເຈັບ (In-site)</option>
+            <option value="PatientType_Onsite">ປະເພດຄົນເຈັບ (On-site)</option>
+            <option value="DrugUnit">ຫົວໜ່ວຍຢາ (Drug Unit)</option>
+            <option value="DrugUsage">ວິທີກິນ/ໃຊ້ (Drug Usage)</option>
+          </select>
+        </div>
+        <div class="col-md-8 mb-3">
+          <div class="input-group input-group-lg shadow-sm">
+            <input type="text" id="newMasterVal" class="form-control" placeholder="ພິມຂໍ້ມູນໃໝ່ທີ່ຕ້ອງການເພີ່ມ...">
+            <button class="btn btn-success fw-bold px-4" onclick="window.addMaster()"><i class="fas fa-plus me-1"></i> ເພີ່ມ</button>
+            <button class="btn btn-outline-secondary fw-bold px-3" onclick="window.resetMasterDefaults()" title="ດຶງຂໍ້ມູນມາດຕະຖານຄືນໃໝ່"><i class="fas fa-sync-alt me-1"></i> Reset</button>
+          </div>
+        </div>
+      </div>
+      <ul class="list-group mt-2 shadow-sm" id="masterListUl"></ul>
+    </div>
+  </div>
+</div>

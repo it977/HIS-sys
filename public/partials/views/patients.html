@@ -1,0 +1,28 @@
+<div id="view-patients" style="display:none;">
+  <div class="d-flex flex-wrap justify-content-between align-items-center mb-4 gap-2 pb-3" style="border-bottom:2px solid var(--border-color);">
+    <div>
+      <h3 class="fw-bold m-0 text-dark"><i class="fas fa-address-book text-primary me-2"></i>ລົງທະບຽນຄົນເຈັບ (Registration)</h3>
+      <p class="text-muted mb-0 mt-1" style="font-size:11.5px;">ຂໍ້ມູນຄົນເຈັບທັງໝົດ — ຄົ້ນຫາ, ເພີ່ມ, ແກ້ໄຂ</p>
+    </div>
+    <div>
+      <input type="file" id="patientExcelInput" accept=".xlsx, .xls, .csv" style="display: none;" onchange="window.handlePatientExcelUpload(event)">
+      <button class="btn btn-success shadow-sm fw-bold me-2" onclick="document.getElementById('patientExcelInput').click()"><i class="fas fa-file-excel me-1"></i> ອັບໂຫຼດ Excel</button>
+      <button class="btn btn-outline-dark fw-bold shadow-sm me-2" onclick="window.openQRScanner()"><i class="fas fa-qrcode me-1"></i> ສະແກນບັດ QR</button>
+      <button class="btn btn-primary shadow-sm fw-bold" onclick="window.openNewPatientModal()"><i class="fas fa-user-plus me-1"></i> ລົງທະບຽນຄົນເຈັບໃໝ່</button>
+    </div>
+  </div>
+  <div class="card card-outline card-primary">
+    <div class="card-body table-responsive">
+      <table id="patientTable" class="table table-hover w-100 align-middle">
+        <thead class="bg-light">
+          <tr>
+            <th>ວັນທີ</th><th>ເວລາ</th><th>ID</th><th>ຊື່ ແລະ ນາມສະກຸນ</th>
+            <th>ເພດ</th><th>ອາຍຸ</th><th>ເບີໂທ</th><th>ທີ່ຢູ່</th>
+            <th class="text-danger">ອາການແພ້</th><th class="text-center">ຈັດການ</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </div>
+</div>

@@ -1,0 +1,128 @@
+<div id="view-dashboard">
+  <div class="d-flex flex-wrap justify-content-between align-items-center mb-4 gap-2 pb-3"
+    style="border-bottom:2px solid var(--border-color);">
+    <div>
+      <h3 class="fw-bold m-0 text-dark"><i class="fas fa-chart-line text-primary me-2"></i>Executive Dashboard</h3>
+      <p class="text-muted mb-0 mt-1" style="font-size:11.5px;">ພາບລວມການດຳເນີນງານ — ອັບເດດແບບ Real-time</p>
+    </div>
+    <div class="d-flex flex-wrap gap-2 align-items-center bg-white p-2 rounded shadow-sm border">
+      <div class="btn-group">
+        <button class="btn btn-sm btn-primary active" id="btnDashToday" onclick="window.setDashRange('today')">ມື້ນີ້</button>
+        <button class="btn btn-sm btn-outline-primary" id="btnDashWeek" onclick="window.setDashRange('week')">ອາທິດນີ້</button>
+        <button class="btn btn-sm btn-outline-primary" id="btnDashMonth" onclick="window.setDashRange('month')">ເດືອນນີ້</button>
+        <button class="btn btn-sm btn-outline-primary" id="btnDashYear" onclick="window.setDashRange('year')">ປີນີ້</button>
+      </div>
+      <div class="input-group input-group-sm ms-2" style="width: auto;">
+        <span class="input-group-text bg-light">ຈາກ</span>
+        <input type="date" id="dashStartDate" class="form-control" onchange="window.fetchDashboardData()">
+        <span class="input-group-text bg-light">ຫາ</span>
+        <input type="date" id="dashEndDate" class="form-control" onchange="window.fetchDashboardData()">
+      </div>
+      <div class="dropdown ms-2">
+        <button class="btn btn-sm btn-success dropdown-toggle fw-bold" type="button" data-bs-toggle="dropdown"><i class="fas fa-download me-1"></i> Export</button>
+        <ul class="dropdown-menu dropdown-menu-end">
+          <li><a class="dropdown-item" href="#" onclick="window.exportDashboardPDF()"><i class="fas fa-file-pdf text-danger me-2"></i> ລາຍງານ PDF</a></li>
+        </ul>
+      </div>
+    </div>
+  </div>
+  <p class="text-muted small text-end mt-n3 mb-3" id="dashRefreshTime">ອັບເດດລ່າສຸດ: -</p>
+  <div id="dashboardPrintArea">
+    <div class="row g-3 mb-4">
+      <div class="col-lg-3 col-6">
+        <div class="small-box bg-hospital-total text-white">
+          <div class="inner"><p class="mb-1">TOTAL VISITS</p><h3 id="dash-total">0</h3><p class="mb-0">ລວມທັງໝົດ</p></div>
+          <div class="icon"><i class="fas fa-users"></i></div>
+        </div>
+      </div>
+      <div class="col-lg-3 col-6">
+        <div class="small-box bg-hospital-new text-white">
+          <div class="inner"><p class="mb-1">NEW PATIENTS</p><h3 id="dash-new">0</h3><p class="mb-0">ຄົນເຈັບໃໝ່</p></div>
+          <div class="icon"><i class="fas fa-user-plus"></i></div>
+        </div>
+      </div>
+      <div class="col-lg-3 col-6">
+        <div class="small-box bg-hospital-returning text-white">
+          <div class="inner"><p class="mb-1">RETURNING</p><h3 id="dash-old">0</h3><p class="mb-0">ຄົນເຈັບເກົ່າ</p></div>
+          <div class="icon"><i class="fas fa-user-check"></i></div>
+        </div>
+      </div>
+      <div class="col-lg-3 col-6">
+        <div class="small-box bg-hospital-inscorp text-white">
+          <div class="inner"><p class="mb-1">INS / CORP</p><h3 id="dash-inscorp">0</h3><p class="mb-0">ປະກັນໄພ/ອົງກອນ</p></div>
+          <div class="icon"><i class="fas fa-shield-alt"></i></div>
+        </div>
+      </div>
+    </div>
+    <div class="row g-3 mb-3">
+      <div class="col-md-12">
+        <div class="card shadow-sm border-0 rounded-3">
+          <div class="card-header bg-white border-0 pt-3 pb-0"><h6 class="fw-bold m-0 text-primary"><i class="fas fa-list-ol me-2"></i>Top 8 ບໍລິການຍອດຮິດ (Most Used Services)</h6></div>
+          <div class="card-body p-3" style="position:relative;height:350px;"><canvas id="chartTopServices"></canvas></div>
+        </div>
+      </div>
+    </div>
+    <div class="row g-3 mb-3">
+      <div class="col-md-6">
+        <div class="card shadow-sm border-0 rounded-3">
+          <div class="card-header bg-white border-0 pt-3 pb-0"><h6 class="fw-bold text-success"><i class="fas fa-coins me-2"></i>ລາຍຮັບແຍກຕາມກຸ່ມ (Revenue Groups)</h6></div>
+          <div class="card-body p-3" style="position:relative;height:350px;"><canvas id="chartRevenue"></canvas></div>
+        </div>
+      </div>
+      <div class="col-md-6">
+        <div class="card shadow-sm border-0 rounded-3">
+          <div class="card-header bg-white border-0 pt-3 pb-0"><h6 class="fw-bold text-info"><i class="fas fa-user-md me-2"></i>ແຍກຕາມແພດສະເພາະທາງ (Specialists)</h6></div>
+          <div class="card-body p-3" style="position:relative;height:350px;"><canvas id="chartSpecialist"></canvas></div>
+        </div>
+      </div>
+    </div>
+    <div class="row g-3 mb-3">
+      <div class="col-md-4">
+        <div class="card shadow-sm h-100">
+          <div class="card-header border-0 pb-0"><h6 class="fw-bold text-center">ເພດ (Gender)</h6></div>
+          <div class="card-body px-2 py-2" style="position:relative;height:240px;"><canvas id="chartGender"></canvas></div>
+        </div>
+      </div>
+      <div class="col-md-4">
+        <div class="card shadow-sm h-100">
+          <div class="card-header border-0 pb-0"><h6 class="fw-bold text-center">ປະເພດ (OPD/IPD)</h6></div>
+          <div class="card-body px-2 py-2" style="position:relative;height:240px;"><canvas id="chartDept"></canvas></div>
+        </div>
+      </div>
+      <div class="col-md-4">
+        <div class="card shadow-sm h-100">
+          <div class="card-header border-0 pb-0"><h6 class="fw-bold text-center">ສະຖານທີ່ (Site)</h6></div>
+          <div class="card-body px-2 py-2" style="position:relative;height:240px;"><canvas id="chartSite"></canvas></div>
+        </div>
+      </div>
+    </div>
+    <div class="row g-3 mb-3">
+      <div class="col-md-6">
+        <div class="card shadow-sm h-100">
+          <div class="card-header border-0"><h6 class="fw-bold m-0">ຊ່ວງເວລາຮັບບໍລິການ (Time Slot)</h6></div>
+          <div class="card-body" style="position:relative;height:250px;"><canvas id="chartTime"></canvas></div>
+        </div>
+      </div>
+      <div class="col-md-6">
+        <div class="card shadow-sm h-100">
+          <div class="card-header border-0"><h6 class="fw-bold m-0">ຊ່ວງອາຍຸ (Age Group)</h6></div>
+          <div class="card-body" style="position:relative;height:250px;"><canvas id="chartAge"></canvas></div>
+        </div>
+      </div>
+    </div>
+    <div class="row g-3 mb-3">
+      <div class="col-md-6">
+        <div class="card shadow-sm border-0 rounded-3">
+          <div class="card-header bg-white border-0 pt-3 pb-0"><h6 class="fw-bold text-center"><i class="fas fa-map-marker-alt me-2"></i>Top 5 ເມືອງທີ່ມາໃຊ້ບໍລິການ</h6></div>
+          <div class="card-body p-3" style="position:relative;height:300px;"><canvas id="chartProvince"></canvas></div>
+        </div>
+      </div>
+      <div class="col-md-6">
+        <div class="card shadow-sm border-0 rounded-3">
+          <div class="card-header bg-white border-0 pt-3 pb-0"><h6 class="fw-bold text-dark"><i class="fas fa-user-doctor me-2"></i>ລາຍຊື່ແພດກວດຫຼາຍທີ່ສຸດ (Top 5 Doctors)</h6></div>
+          <div class="card-body p-3" style="position:relative;height:300px;"><canvas id="chartMarketing"></canvas></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

@@ -1,0 +1,82 @@
+<!-- QR Scanner Modal -->
+<div class="modal fade" id="qrScannerModal" tabindex="-1">
+  <div class="modal-dialog modal-sm">
+    <div class="modal-content border-0 shadow">
+      <div class="modal-header bg-dark text-white py-2">
+        <h6 class="modal-title fw-bold mb-0"><i class="fas fa-qrcode me-2"></i>ສະແກນບັດ QR</h6>
+        <button type="button" class="btn-close btn-close-white" onclick="window.closeQRScanner()"></button>
+      </div>
+      <div class="modal-body p-3">
+        <div id="reader" style="width:100%; border-radius:8px; overflow:hidden;"></div>
+        <p class="text-center text-muted small mt-2 mb-0"><i class="fas fa-camera me-1"></i>ຊີ້ກ້ອງໄປທີ່ QR Code ຂອງຄົນເຈັບ</p>
+      </div>
+      <div class="modal-footer py-2">
+        <button type="button" class="btn btn-secondary btn-sm w-100" onclick="window.closeQRScanner()"><i class="fas fa-times me-1"></i>ປິດ / ຍົກເລີກ</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Appointment Modal -->
+<div class="modal fade" id="apptModal" tabindex="-1" data-bs-backdrop="static">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content border-0 shadow">
+      <div class="modal-header bg-warning text-dark">
+        <h5 class="modal-title fw-bold"><i class="fas fa-calendar-plus me-2"></i>ນັດໝາຍໃໝ່</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body p-4">
+        <form id="apptForm" onsubmit="window.submitApptForm(event)">
+          <input type="hidden" id="a_id">
+          <input type="hidden" id="a_target_id">
+          <input type="hidden" id="a_target_name">
+          <div class="mb-3">
+            <label class="form-label fw-bold">ປະເພດລູກຄ້າ</label>
+            <div class="d-flex gap-4">
+              <div class="form-check">
+                <input class="form-check-input" type="radio" name="customerType" id="typePatient" value="patient" checked onchange="window.toggleApptCustomerType()">
+                <label class="form-check-label fw-bold text-primary" for="typePatient"><i class="fas fa-user me-1"></i>ຄົນເຈັບ (Patient)</label>
+              </div>
+              <div class="form-check">
+                <input class="form-check-input" type="radio" name="customerType" id="typeOrg" value="org" onchange="window.toggleApptCustomerType()">
+                <label class="form-check-label fw-bold text-success" for="typeOrg"><i class="fas fa-building me-1"></i>ອົງກອນ (Organization)</label>
+              </div>
+            </div>
+          </div>
+          <div class="mb-3" id="boxApptPatient">
+            <label class="form-label fw-bold required">ຄົນເຈັບ</label>
+            <select class="form-select" id="a_patient" style="width:100%;"><option value="">-- ຄົ້ນຫາ ແລະ ເລືອກຄົນເຈັບ --</option></select>
+          </div>
+          <div class="mb-3" id="boxApptOrg" style="display:none;">
+            <label class="form-label fw-bold required">ອົງກອນ</label>
+            <select class="form-select" id="a_org" style="width:100%;"><option value="">-- ຄົ້ນຫາ ແລະ ເລືອກອົງກອນ --</option></select>
+          </div>
+          <div class="row g-3 mb-3">
+            <div class="col-md-6"><label class="form-label fw-bold required">ວັນທີນັດ</label><input type="date" class="form-control" id="a_date" required></div>
+            <div class="col-md-6"><label class="form-label fw-bold">ເວລານັດ</label><input type="time" class="form-control" id="a_time"></div>
+          </div>
+          <div class="row g-3 mb-3">
+            <div class="col-md-6">
+              <label class="form-label fw-bold required">ປະເພດການນັດ</label>
+              <select class="form-select" id="a_type" required>
+                <option value="General">General (ທົ່ວໄປ)</option>
+                <option value="Vaccine">Vaccine (ວັກຊີນ)</option>
+                <option value="Checkup">Checkup (ກວດສຸຂະພາບ)</option>
+                <option value="Follow-up">Follow-up (ຕິດຕາມ)</option>
+              </select>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label fw-bold">ແພດຜູ້ຮັບຜິດຊອບ</label>
+              <select class="form-select dyn-Doctor" id="a_doctor"><option value="">-- ເລືອກແພດ --</option></select>
+            </div>
+          </div>
+          <div class="mb-4">
+            <label class="form-label fw-bold">ເຫດຜົນ / ລາຍລະອຽດ</label>
+            <textarea class="form-control" id="a_reason" rows="2" placeholder="ລາຍລະອຽດການນັດ..."></textarea>
+          </div>
+          <button type="submit" class="btn btn-warning w-100 fw-bold text-dark py-2 shadow-sm"><i class="fas fa-save me-2"></i>ບັນທຶກການນັດໝາຍ</button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
