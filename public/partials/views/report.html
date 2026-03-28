@@ -14,11 +14,10 @@
       </div>
       <div class="input-group input-group-sm ms-2" style="width: auto;">
         <span class="input-group-text bg-light">ຈາກ</span>
-        <input type="date" id="repStartDate" class="form-control">
+        <input type="date" id="repStartDate" class="form-control" onchange="window.fetchReportData()">
         <span class="input-group-text bg-light">ຫາ</span>
-        <input type="date" id="repEndDate" class="form-control">
+        <input type="date" id="repEndDate" class="form-control" onchange="window.fetchReportData()">
       </div>
-      <button class="btn btn-sm btn-danger ms-2 fw-bold shadow-sm" onclick="window.searchReport()"><i class="fas fa-search me-1"></i> ຄົ້ນຫາ</button>
       <button class="btn btn-sm btn-success ms-2 fw-bold shadow-sm" onclick="window.exportReportExcel()"><i class="fas fa-file-excel me-1"></i> Excel</button>
     </div>
   </div>

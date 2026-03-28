@@ -1083,16 +1083,6 @@ window.setReportRange = function (type) {
   }
   $('#repStartDate').val(window.getLocalStr(start));
   $('#repEndDate').val(window.getLocalStr(end));
-  window.searchReport();
-};
-
-window.searchReport = function () {
-  let sDate = $('#repStartDate').val();
-  let eDate = $('#repEndDate').val();
-  if (!sDate || !eDate) {
-    Swal.fire('ແຈ້ງເຕືອນ', 'ກະລຸນາເລືອກວັນທີທີ່ຕ້ອງການຄົ້ນຫາ', 'warning');
-    return;
-  }
   window.fetchReportData();
 };
 
@@ -1109,7 +1099,7 @@ window.fetchReportData = function () {
 
 window._fetchReportData = async function (sDate, eDate) {
   try {
-    // 1. Fetch Visits with range (Paginated) - STRICT filtering
+    // 1. Fetch Visits with range (Paginated)
     let visitsInRange = [];
     let startRange = 0;
     while (true) {
@@ -1127,43 +1117,26 @@ window._fetchReportData = async function (sDate, eDate) {
       if (visitsInRange.length >= 10000) break;
     }
 
-    // Debug: Show raw data
-    console.log("Raw visits in range:", visitsInRange.map(v => ({
-      Visit_ID: v.Visit_ID,
-      Patient_ID: v.Patient_ID,
-      Patient_Name: v.Patient_Name,
-      Date: v.Date,
-      Status: v.Status
-    })));
+    // 2. Recover NULL or Invalid/Missing dates
+    const { data: visitsNull, error: nullError } = await supabaseClient.from('Visits').select('*').is('Date', null).limit(1000);
+    if (nullError) console.error("NULL date fetch error:", nullError);
+    
+    // 3. Recover ANY other missing rows by fetching the latest 2000 (just to be safe)
+    const { data: visitsLatest } = await supabaseClient.from('Visits').select('*').order('Visit_ID', { ascending: false }).limit(2000);
 
-    // Only use visits within the selected date range
-    let rawVisits = visitsInRange || [];
-
-    // De-duplicate by Visit_ID + Patient_ID combination to avoid losing records
-    const seenV = new Map();
-    let visits = [];
-    rawVisits.forEach((v, idx) => {
-      // Create unique key from Visit_ID and Patient_ID
-      let key = v.Visit_ID || `null_visit_${idx}`;
-      if (v.Patient_ID) {
-        key = `${key}_${v.Patient_ID}`;
-      }
-      
-      if (!seenV.has(key)) {
-        seenV.set(key, true);
-        visits.push(v);
-      } else {
-        console.log("Duplicate skipped:", key, v);
-      }
+    // Merge them all
+    let rawVisits = [...(visitsInRange || []), ...(visitsNull || []), ...(visitsLatest || [])];
+    
+    // De-duplicate by ID
+    const seenV = new Set();
+    let visits = rawVisits.filter(v => {
+      if (!v.Visit_ID) return false;
+      if (seenV.has(v.Visit_ID)) return false;
+      seenV.add(v.Visit_ID);
+      return true;
     });
-
-    console.log(`Report Data Loaded: ${visits.length} records for range ${sDate} to ${eDate}`);
-    console.log("Filtered visits:", visits.map(v => ({
-      Visit_ID: v.Visit_ID,
-      Patient_ID: v.Patient_ID,
-      Patient_Name: v.Patient_Name,
-      Date: v.Date
-    })));
+    
+    console.log(`Diagnostic: Range[${visitsInRange.length}] Null[${visitsNull?.length || 0}] Latest[${visitsLatest?.length || 0}] -> Combined[${visits.length}]`);
 
     if (!visits || visits.length === 0) return window.renderReportPage([]);
 
@@ -1203,33 +1176,18 @@ window._fetchReportData = async function (sDate, eDate) {
       }
     }
 
-    // 4. Merge data - Use Visit data directly, fallback to Patient data if available
+    // 4. Merge data
     const processed = visits.map(r => {
-      let dObj = r.Date ? new Date(r.Date) : null;
+      let dObj = new Date(r.Date);
       let p = pMap[r.Patient_ID];
-      
-      // Use Patient_ID from Visit, or fallback to Patient table
-      let patientId = r.Patient_ID || (p ? p.Patient_ID : '-');
-      
-      // Use Patient_Name from Visit first, then fallback to Patient table
-      let patientName = r.Patient_Name;
-      if (!patientName && p) {
-        patientName = `${p.First_Name || ''} ${p.Last_Name || ''}`.trim() || '-';
-      }
-      if (!patientName) patientName = '-';
-      
-      // Use Gender/Age from Visit first, then fallback to Patient table
-      let gender = r.Gender || (p ? p.Gender : '-');
-      let age = r.Age || (p ? p.Age : '-');
-
       return {
-        ...r,
-        date: dObj ? dObj.toLocaleDateString('en-GB') : '-',
-        time: dObj ? dObj.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) : '-',
-        id: patientId,
-        name: patientName,
-        gender: gender,
-        age: age,
+        ...r, // Keep original record for "View" detail
+        date: dObj.toLocaleDateString('en-GB'),
+        time: dObj.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }),
+        id: r.Patient_ID,
+        name: r.Patient_Name || (p ? `${p.First_Name} ${p.Last_Name}` : '-'),
+        gender: p?.Gender || '-',
+        age: p?.Age || '-',
         type: r.Type || 'OPD',
         status: (firstVisitMap[r.Patient_ID] === r.Visit_ID) ? 'ໃໝ່' : 'ເກົ່າ',
         category: r.Category || 'GN'
@@ -1913,10 +1871,6 @@ window.executeTriageSave = async function (fd) {
     window.logAction('Save', 'Triage saved - Visit ' + fd.visitId, 'Triage');
     Swal.fire('ສຳເລັດ!', 'ສົ່ງເຂົ້າຫ້ອງກວດແລ້ວ', 'success');
     window.loadTriageQueue();
-    // Refresh OPD queue to show updated vital signs
-    if ($('#view-opd').is(':visible')) {
-      window.loadQueue();
-    }
   }
 };
 
@@ -2586,7 +2540,6 @@ window.openEMR = function (i) {
   }
 
   $('#emrWeight').text(q.weight ? q.weight + " kg" : "-");
-  $('#emrHeight').text(q.height ? q.height + " cm" : "-");
   $('#emrPE').val(q.pe || '');
   $('#emrDiagnosis').val(q.diagnosis || '');
   $('#emrAdvice').val(q.advice || '');
