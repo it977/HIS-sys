@@ -1099,7 +1099,7 @@ window.fetchReportData = function () {
 
 window._fetchReportData = async function (sDate, eDate) {
   try {
-    // 1. Fetch Visits with range (Paginated)
+    // 1. Fetch Visits with range (Paginated) - ONLY valid dates
     let visitsInRange = [];
     let startRange = 0;
     while (true) {
@@ -1107,6 +1107,7 @@ window._fetchReportData = async function (sDate, eDate) {
         .select('*')
         .gte('Date', sDate + 'T00:00:00Z')
         .lte('Date', eDate + 'T23:59:59Z')
+        .not('Date', 'is', null)
         .order('Date', { ascending: false })
         .range(startRange, startRange + 999);
       if (vError) throw vError;
@@ -1117,26 +1118,11 @@ window._fetchReportData = async function (sDate, eDate) {
       if (visitsInRange.length >= 10000) break;
     }
 
-    // 2. Recover NULL or Invalid/Missing dates
-    const { data: visitsNull, error: nullError } = await supabaseClient.from('Visits').select('*').is('Date', null).limit(1000);
-    if (nullError) console.error("NULL date fetch error:", nullError);
+    // Do NOT fetch NULL dates - they are invalid data
+    // Filter out any records with invalid Patient_ID or Date
+    let visits = visitsInRange.filter(v => v.Visit_ID && v.Patient_ID && v.Date);
     
-    // 3. Recover ANY other missing rows by fetching the latest 2000 (just to be safe)
-    const { data: visitsLatest } = await supabaseClient.from('Visits').select('*').order('Visit_ID', { ascending: false }).limit(2000);
-
-    // Merge them all
-    let rawVisits = [...(visitsInRange || []), ...(visitsNull || []), ...(visitsLatest || [])];
-    
-    // De-duplicate by ID
-    const seenV = new Set();
-    let visits = rawVisits.filter(v => {
-      if (!v.Visit_ID) return false;
-      if (seenV.has(v.Visit_ID)) return false;
-      seenV.add(v.Visit_ID);
-      return true;
-    });
-    
-    console.log(`Diagnostic: Range[${visitsInRange.length}] Null[${visitsNull?.length || 0}] Latest[${visitsLatest?.length || 0}] -> Combined[${visits.length}]`);
+    console.log(`Diagnostic: Visits loaded: ${visits.length}`);
 
     if (!visits || visits.length === 0) return window.renderReportPage([]);
 
