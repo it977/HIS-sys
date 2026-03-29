@@ -1830,57 +1830,44 @@ window.submitTriageForm = function (e) {
   const fd = {};
   new FormData($('#triageForm')[0]).forEach((v, k) => fd[k] = v);
   
-  // ✅ Validate Required Fields: BP, Department, Height
+  // ⚠️ BP, Department, Height are now OPTIONAL (not required)
   let bp = fd.v_bp || "";
   let dept = fd.v_department || "";
   let height = fd.v_height || "";
   
-  // Check BP Required
-  if (!bp || !bp.includes('/')) {
-    Swal.fire('ແຈ້ງເຕືອນ', 'ກະລຸນາປ້ອນຄວາມດັນເລືອດ (BP) ໃນຮູບແບບ 120/80', 'warning');
-    $('input[name="v_bp"]').focus();
-    return;
-  }
-  
-  // Check Department Required
-  if (!dept) {
-    Swal.fire('ແຈ້ງເຕືອນ', 'ກະລຸນາເລືອກຫ້ອງກວດ (Department)', 'warning');
-    $('select[name="v_department"]').focus();
-    return;
-  }
-  
-  // Check Height Required
-  if (!height || parseInt(height) <= 0) {
-    Swal.fire('ແຈ້ງເຕືອນ', 'ກະລຸນາປ້ອນລະດັບຄວາມສູງ (Height) ເປັນ cm', 'warning');
-    $('input[name="v_height"]').focus();
-    return;
-  }
-  
-  let a = false;
-  let m = "";
-
-  if (bp.includes('/')) {
+  // Only validate BP format if provided
+  if (bp && bp.includes('/')) {
     let [s, d] = bp.split('/').map(Number);
     if (!isNaN(s) && !isNaN(d)) {
-      if (s >= 140 || d >= 90) { a = true; m = `ຄວາມດັນສູງ (${bp})`; }
-      else if (s <= 90 || d <= 60) { a = true; m = `ຄວາມດັນຕ່ຳ (${bp})`; }
+      if (s >= 140 || d >= 90) {
+        Swal.fire({
+          title: 'ແຈ້ງເຕືອນຄວາມດັນ!',
+          html: `<h4 class="text-danger fw-bold mb-3">ຄວາມດັນສູງ (${bp})</h4><p>ບັນທຶກຕໍ່ໄປແທ້ບໍ່?</p>`,
+          icon: 'warning',
+          showCancelButton: true,
+          confirmButtonColor: '#ef4444',
+          confirmButtonText: 'ບັນທຶກ'
+        }).then(r => {
+          if (r.isConfirmed) window.executeTriageSave(fd);
+        });
+        return;
+      } else if (s <= 90 || d <= 60) {
+        Swal.fire({
+          title: 'ແຈ້ງເຕືອນຄວາມດັນ!',
+          html: `<h4 class="text-warning fw-bold mb-3">ຄວາມດັນຕ່ຳ (${bp})</h4><p>ບັນທຶກຕໍ່ໄປແທ້ບໍ່?</p>`,
+          icon: 'warning',
+          showCancelButton: true,
+          confirmButtonColor: '#ef4444',
+          confirmButtonText: 'ບັນທຶກ'
+        }).then(r => {
+          if (r.isConfirmed) window.executeTriageSave(fd);
+        });
+        return;
+      }
     }
   }
-
-  if (a) {
-    Swal.fire({
-      title: 'ແຈ້ງເຕືອນຄວາມດັນ!',
-      html: `<h4 class="text-danger fw-bold mb-3">${m}</h4><p>ບັນທຶກຕໍ່ໄປແທ້ບໍ່?</p>`,
-      icon: 'warning',
-      showCancelButton: true,
-      confirmButtonColor: '#ef4444',
-      confirmButtonText: 'ບັນທຶກ'
-    }).then(r => {
-      if (r.isConfirmed) window.executeTriageSave(fd);
-    });
-  } else {
-    window.executeTriageSave(fd);
-  }
+  
+  window.executeTriageSave(fd);
 };
 
 window.executeTriageSave = async function (fd) {
@@ -2568,6 +2555,21 @@ window.openEMR = function (i) {
   }
 
   $('#emrWeight').text(q.weight ? q.weight + " kg" : "-");
+  
+  // Add Height and BMI display
+  let heightText = q.height ? q.height + " cm" : "-";
+  let bmiText = "-";
+  if (q.weight && q.height) {
+    let w = parseFloat(q.weight);
+    let h = parseFloat(q.height) / 100; // convert to meters
+    if (w > 0 && h > 0) {
+      let bmi = w / (h * h);
+      bmiText = bmi.toFixed(1);
+    }
+  }
+  $('#emrHeight').text(heightText);
+  $('#emrBmi').text(bmiText);
+  
   $('#emrPE').val(q.pe || '');
   $('#emrDiagnosis').val(q.diagnosis || '');
   $('#emrAdvice').val(q.advice || '');
