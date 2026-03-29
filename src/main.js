@@ -3394,16 +3394,65 @@ window.openEditUserModal = function (id, n, e, r, p) {
   $('#u_role').val(r);
   $('#u_pass').prop('required', false);
   $('#userModalTitle').html('<i class="fas fa-user-edit me-2"></i>ແກ້ໄຂຜູ້ໃຊ້ລະບົບ');
-  let pa = p.split(',');
-  $('.permission-check').each(function () {
-    $(this).prop('checked', pa.includes($(this).val()));
-  });
+  
+  // Reset all checkboxes first
+  $('.permission-check').prop('checked', false);
+  
+  // Set permissions
+  if (p && p !== 'all') {
+    let pa = p.split(',');
+    $('.permission-check').each(function () {
+      $(this).prop('checked', pa.includes($(this).val()));
+    });
+  } else if (p === 'all') {
+    $('.permission-check').prop('checked', true);
+  }
+  
   window.togglePermissionsBox();
   $('#addUserModal').modal('show');
 };
 
 window.togglePermissionsBox = function () {
-  $('#permBox').css('display', $('#u_role').val() === 'admin' ? 'none' : 'block');
+  let role = $('#u_role').val();
+  
+  // Hide permissions for Admin (has all permissions)
+  if (role === 'admin') {
+    $('#permBox').hide();
+    $('.permission-check').prop('checked', true);
+    return;
+  }
+  
+  $('#permBox').show();
+  
+  // Preset permissions by role
+  const rolePermissions = {
+    'doctor': 'dashboard,report,patients,triage,opd,labs,drugs,appointments,vaccines,activity_log',
+    'nurse': 'dashboard,patients,triage,appointments,vaccines',
+    'lab': 'dashboard,report,labs',
+    'pharmacy': 'dashboard,report,drugs',
+    'reception': 'dashboard,patients,appointments,orgs',
+    'cashier': 'dashboard,report,patients',
+    'staff': 'dashboard,patients',
+    '': '' // No role selected
+  };
+  
+  // Auto-select permissions based on role
+  let perms = rolePermissions[role] || '';
+  $('.permission-check').prop('checked', false);
+  
+  if (perms) {
+    perms.split(',').forEach(perm => {
+      $(`.permission-check[value="${perm}"]`).prop('checked', true);
+    });
+  }
+};
+
+window.selectAllPermissions = function () {
+  $('.permission-check').prop('checked', true);
+};
+
+window.deselectAllPermissions = function () {
+  $('.permission-check').prop('checked', false);
 };
 
 window.deleteUserRow = async function (id) {
