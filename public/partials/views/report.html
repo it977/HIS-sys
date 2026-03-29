@@ -18,6 +18,9 @@
         <span class="input-group-text bg-light">ຫາ</span>
         <input type="date" id="repEndDate" class="form-control" onchange="window.fetchReportData()">
       </div>
+      <div class="input-group input-group-sm ms-2" style="width: 250px;">
+        <input type="text" id="repSearchInput" class="form-control" placeholder="🔍 ຄົ້ນຫາ ຊື່, CN..." onkeyup="window.searchReportTable()">
+      </div>
       <button class="btn btn-sm btn-success ms-2 fw-bold shadow-sm" onclick="window.exportReportExcel()"><i class="fas fa-file-excel me-1"></i> Excel</button>
     </div>
   </div>

@@ -1227,6 +1227,14 @@ window.renderReportPage = function (res) {
   $('#reportTable').DataTable({ responsive: true, pageLength: 15, order: [[0, "desc"], [1, "desc"]], language: { search: "ຄົ້ນຫາ:", lengthMenu: "ສະແດງ _MENU_", info: "ສະແດງ _START_ ຫາ _END_ ຈາກ _TOTAL_ ລາຍການ", paginate: { previous: "ກ່ອນໜ້າ", next: "ຕໍ່ໄປ" } } });
 };
 
+window.searchReportTable = function () {
+  let query = $('#repSearchInput').val().toLowerCase();
+  if (!$.fn.DataTable.isDataTable('#reportTable')) return;
+  
+  let table = $('#reportTable').DataTable();
+  table.search(query).draw();
+};
+
 window.exportReportExcel = function () {
   if (!currentReportData || currentReportData.length === 0) return Swal.fire('ແຈ້ງເຕືອນ', 'ບໍ່ມີຂໍ້ມູນສຳລັບ Export', 'warning');
   const exportArr = currentReportData.map(r => ({ "ວັນທີ": r.date, "ເວລາ": r.time, "ລະຫັດ": r.id, "ຊື່ ແລະ ນາມສະກຸນ": r.name, "ເພດ": r.gender, "ອາຍຸ": r.age, "ປະເພດ": r.type, "ສະຖານະ": r.status, "ໝວດໝູ່": r.category }));
@@ -1821,7 +1829,33 @@ window.submitTriageForm = function (e) {
   if (e) e.preventDefault();
   const fd = {};
   new FormData($('#triageForm')[0]).forEach((v, k) => fd[k] = v);
+  
+  // ✅ Validate Required Fields: BP, Department, Height
   let bp = fd.v_bp || "";
+  let dept = fd.v_department || "";
+  let height = fd.v_height || "";
+  
+  // Check BP Required
+  if (!bp || !bp.includes('/')) {
+    Swal.fire('ແຈ້ງເຕືອນ', 'ກະລຸນາປ້ອນຄວາມດັນເລືອດ (BP) ໃນຮູບແບບ 120/80', 'warning');
+    $('input[name="v_bp"]').focus();
+    return;
+  }
+  
+  // Check Department Required
+  if (!dept) {
+    Swal.fire('ແຈ້ງເຕືອນ', 'ກະລຸນາເລືອກຫ້ອງກວດ (Department)', 'warning');
+    $('select[name="v_department"]').focus();
+    return;
+  }
+  
+  // Check Height Required
+  if (!height || parseInt(height) <= 0) {
+    Swal.fire('ແຈ້ງເຕືອນ', 'ກະລຸນາປ້ອນລະດັບຄວາມສູງ (Height) ເປັນ cm', 'warning');
+    $('input[name="v_height"]').focus();
+    return;
+  }
+  
   let a = false;
   let m = "";
 
