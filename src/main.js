@@ -1178,18 +1178,26 @@ window._fetchReportData = async function (sDate, eDate) {
 
     // 4. Merge data
     const processed = visits.map(r => {
+      // Handle invalid/missing dates
       let dObj = new Date(r.Date);
+      let isValidDate = !isNaN(dObj.getTime());
+      let dateStr = isValidDate ? dObj.toLocaleDateString('en-GB') : '-';
+      let timeStr = isValidDate ? dObj.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) : '-';
+      
+      // Handle null Patient ID
       let p = pMap[r.Patient_ID];
+      let idStr = r.Patient_ID || '-';
+      
       return {
         ...r, // Keep original record for "View" detail
-        date: dObj.toLocaleDateString('en-GB'),
-        time: dObj.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }),
-        id: r.Patient_ID,
+        date: dateStr,
+        time: timeStr,
+        id: idStr,
         name: r.Patient_Name || (p ? `${p.First_Name} ${p.Last_Name}` : '-'),
         gender: p?.Gender || '-',
         age: p?.Age || '-',
         type: r.Type || 'OPD',
-        status: (firstVisitMap[r.Patient_ID] === r.Visit_ID) ? 'ໃໝ່' : 'ເກົ່າ',
+        status: (r.Patient_ID && firstVisitMap[r.Patient_ID] === r.Visit_ID) ? 'ໃໝ່' : 'ເກົ່າ',
         category: r.Category || 'GN'
       };
     });
