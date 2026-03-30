@@ -33,7 +33,7 @@ let currentEMRDrugs = [];
 // ==========================================
 async function loadPartials() {
   const views = [
-    'dashboard', 'report', 'patients', 'triage', 'opd', 'ipd',
+    'dashboard', 'report', 'patients', 'triage', 'opd', 'ipd', 'patient-settings',
     'appointments', 'vaccines', 'vaccine_master', 'drugs',
     'labs', 'services', 'locations', 'users', 'orgs', 'settings', 'activity_log', 'public-queue'
   ];
@@ -229,7 +229,7 @@ $(document).ready(async function () {
       e.preventDefault();
       
       // Handle settings sub-menus
-      if (id === 'nav-patients-settings') { window.loadView('patients'); return; }
+      if (id === 'nav-patients-settings') { window.loadView('patient-settings'); return; }
       if (id === 'nav-triage-settings') { window.loadView('triage'); return; }
       if (id === 'nav-opd-settings') { window.loadView('opd'); return; }
       if (id === 'nav-ipd-settings') { window.loadView('ipd'); return; }
@@ -505,7 +505,7 @@ window.loadView = function (v) {
   }
 
   // Switch Views
-  let views = ['dashboard', 'report', 'patients', 'settings', 'orgs', 'triage', 'opd', 'ipd', 'users', 'services', 'locations', 'appointments', 'vaccines', 'vaccine_master', 'drugs', 'labs', 'activity_log', 'public-queue'];
+  let views = ['dashboard', 'report', 'patients', 'settings', 'orgs', 'triage', 'opd', 'ipd', 'patient-settings', 'users', 'services', 'locations', 'appointments', 'vaccines', 'vaccine_master', 'drugs', 'labs', 'activity_log', 'public-queue'];
   views.forEach(n => {
     if (n === v) $('#view-' + n).show();
     else $('#view-' + n).hide();
@@ -6116,8 +6116,100 @@ window.submitIPDDischarge = async function (e) {
 };
 
 // ==========================================
-// IPD VISIT HISTORY (Doctor/Nurse Visits)
+// PATIENT SETTINGS FUNCTIONS
 // ==========================================
+
+// Open Master Data Modal
+window.openMasterModal = function (category) {
+  $('#masterCategory').val(category);
+  window.loadMasterList();
+  window.loadView('settings');
+  // Switch to Master Data tab
+  setTimeout(() => {
+    $('#master-tab').tab('show');
+    if (category === 'Title' || category === 'Gender' || category === 'BloodType' || 
+        category === 'Nationality' || category === 'Occupation' || category === 'Shift') {
+      $('#hospital-tab').tab('show');
+      if (category === 'Title' || category === 'Gender' || category === 'BloodType') {
+        $('#registration-tab').tab('show');
+      } else if (category === 'Nationality' || category === 'Occupation') {
+        $('#registration-tab').tab('show');
+      } else if (category === 'Shift') {
+        $('#registration-tab').tab('show');
+      }
+    }
+  }, 100);
+};
+
+// Save Patient Settings
+window.savePatientSettings = function () {
+  Swal.fire({
+    title: 'ກຳລັງບັນທຶກ...',
+    didOpen: () => Swal.showLoading()
+  });
+  
+  // Save settings to localStorage or database
+  const settings = {
+    titles: $('#patientTitle').val() || [],
+    genders: $('#patientGender').val() || [],
+    bloodTypes: $('#patientBloodType').val() || [],
+    provinces: $('#patientProvince').val() || [],
+    districts: $('#patientDistrict').val() || [],
+    nationalities: $('#patientNationality').val() || [],
+    occupations: $('#patientOccupation').val() || [],
+    shifts: $('#patientShift').val() || []
+  };
+  
+  // Save to localStorage for now
+  localStorage.setItem('patientSettings', JSON.stringify(settings));
+  
+  setTimeout(() => {
+    Swal.fire('ສຳເລັດ!', 'ບັນທຶກການຕັ້ງຄ່າແລ້ວ', 'success');
+    window.logAction('Save', 'Patient Settings saved', 'Settings');
+  }, 500);
+};
+
+// Reset Patient Settings
+window.resetPatientSettings = function () {
+  Swal.fire({
+    title: 'ຢືນຢັນການຣີເຊັດ?',
+    text: 'ການຕັ້ງຄ່າທັງໝົດຈະຖືກຣີເຊັດເປັນຄ່າເລີ່ມຕົ້ນ',
+    icon: 'warning',
+    showCancelButton: true,
+    confirmButtonText: 'ຣີເັດ',
+    cancelButtonText: 'ຍົກເລີກ'
+  }).then((result) => {
+    if (result.isConfirmed) {
+      // Reset all selects to default
+      $('#patientTitle').val([]);
+      $('#patientGender').val([]);
+      $('#patientBloodType').val([]);
+      $('#patientProvince').val([]);
+      $('#patientDistrict').val([]);
+      $('#patientNationality').val([]);
+      $('#patientOccupation').val([]);
+      $('#patientShift').val([]);
+      
+      Swal.fire('ຣີເັດແລ້ວ', '', 'success');
+    }
+  });
+};
+
+// Load Patient Settings
+window.loadPatientSettings = function () {
+  const saved = localStorage.getItem('patientSettings');
+  if (saved) {
+    const settings = JSON.parse(saved);
+    $('#patientTitle').val(settings.titles || []);
+    $('#patientGender').val(settings.genders || []);
+    $('#patientBloodType').val(settings.bloodTypes || []);
+    $('#patientProvince').val(settings.provinces || []);
+    $('#patientDistrict').val(settings.districts || []);
+    $('#patientNationality').val(settings.nationalities || []);
+    $('#patientOccupation').val(settings.occupations || []);
+    $('#patientShift').val(settings.shifts || []);
+  }
+};
 
 // Open Visit Modal
 window.openIPDVisit = function (admissionId, patientName) {
