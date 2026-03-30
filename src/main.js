@@ -33,7 +33,7 @@ let currentEMRDrugs = [];
 // ==========================================
 async function loadPartials() {
   const views = [
-    'dashboard', 'report', 'patients', 'triage', 'opd',
+    'dashboard', 'report', 'patients', 'triage', 'opd', 'ipd',
     'appointments', 'vaccines', 'vaccine_master', 'drugs',
     'labs', 'services', 'locations', 'users', 'orgs', 'settings', 'activity_log', 'public-queue'
   ];
@@ -497,7 +497,7 @@ window.loadView = function (v) {
   }
 
   // Switch Views
-  let views = ['dashboard', 'report', 'patients', 'settings', 'orgs', 'triage', 'opd', 'users', 'services', 'locations', 'appointments', 'vaccines', 'vaccine_master', 'drugs', 'labs', 'activity_log', 'public-queue'];
+  let views = ['dashboard', 'report', 'patients', 'settings', 'orgs', 'triage', 'opd', 'ipd', 'users', 'services', 'locations', 'appointments', 'vaccines', 'vaccine_master', 'drugs', 'labs', 'activity_log', 'public-queue'];
   views.forEach(n => {
     if (n === v) $('#view-' + n).show();
     else $('#view-' + n).hide();
@@ -537,6 +537,14 @@ window.loadView = function (v) {
       $('#opdEndDate').val(window.getLocalStr(today));
     }
     window.loadQueue();
+  }
+  if (v === 'ipd') {
+    if (!$('#ipdStartDate').val()) {
+      let today = new Date();
+      $('#ipdStartDate').val(window.getLocalStr(today));
+      $('#ipdEndDate').val(window.getLocalStr(today));
+    }
+    window.loadIPDPatients();
   }
   if (v === 'users') window.loadUsers();
   if (v === 'services') window.loadServicesMasterView();
@@ -1502,38 +1510,59 @@ window.initPatientTable = async function () {
       // ໃຊ້ຊື່ Column ຕາມໃນ CSV ຂອງເຈົ້າ (First_Name, Last_Name, ແລະ ອື່ນໆ)
       let fullname = `${r.First_Name || ''} ${r.Last_Name || ''}`.trim();
       let safeName = fullname.replace(/'/g, "\\'").replace(/"/g, "&quot;");
+      
+      // ໃຊ້ Age ຈາກຖານຂໍ້ມູນໂດຍກົງ
+      let age = r.Age || 0;
+      
+      // ຖ້າ Age ເປັນ 0 ຫຼື ບໍ່ມີ ໃຫ້ຄິດໄລ່ຈາກ DOB
+      if ((!age || age === 0 || age === '0') && r.Date_of_Birth) {
+        const dob = new Date(r.Date_of_Birth);
+        if (!isNaN(dob.getTime())) {
+          const today = new Date();
+          age = today.getFullYear() - dob.getFullYear();
+          const m = today.getMonth() - dob.getMonth();
+          if (m < 0 || (m === 0 && today.getDate() < dob.getDate())) {
+            age--;
+          }
+        }
+      }
+      
+      // ຖ້າຍັງເປັນ 0 ໃຫ້ສະແດງ "-"
+      if (!age || age === 0 || age === '0') {
+        age = '-';
+      }
 
       // Build action buttons based on permissions
       let acts = `<div class="d-flex gap-1 flex-nowrap justify-content-center">`;
-      
+
       // Timeline button (always show)
       acts += `<button class="btn btn-sm btn-outline-info shadow-sm fw-bold btn-timeline" data-pid="${r.Patient_ID}" title="ປະຫວັດ"><i class="fas fa-history"></i></button>`;
-      
+
       // View button
       if (window.can('patients', 'view')) {
         acts += `<button class="btn btn-sm btn-info text-white shadow-sm fw-bold" title="ເບິ່ງລາຍລະອຽດ" onclick="window.viewPatientDetail('${r.Patient_ID}')"><i class="fas fa-eye me-1"></i> View</button>`;
       }
-      
+
       // Triage button
       if (window.can('patients', 'triage')) {
         acts += `<button class="btn btn-sm btn-warning text-dark shadow-sm fw-bold" onclick="window.sendToTriageFlow('${r.Patient_ID}', '${safeName}')"><i class="fas fa-share me-1"></i> Triage</button>`;
       }
-      
+
       // Edit button
       if (window.can('patients', 'edit')) {
         acts += `<button class="btn btn-sm btn-primary shadow-sm" title="ແກ້ໄຂ" onclick="window.editPatient('${r.Patient_ID}')"><i class="fas fa-edit"></i></button>`;
       }
-      
+
       // Print QR button
       if (window.can('patients', 'print_qr')) {
         acts += `<button class="btn btn-sm btn-dark text-white shadow-sm" title="ພິມບັດ QR" onclick="window.printQRCard('${r.Patient_ID}')"><i class="fas fa-qrcode"></i></button>`;
       }
-      
+
       // Delete button
       if (window.can('patients', 'delete')) {
         acts += `<button class="btn btn-sm btn-danger shadow-sm" title="ລຶບ" onclick="window.delPatient('${r.Patient_ID}')"><i class="fas fa-trash"></i></button>`;
       }
-      
+
       acts += `</div>`;
 
       h += `<tr>
@@ -1542,7 +1571,7 @@ window.initPatientTable = async function () {
                     <td class="text-primary fw-bold">${r.Patient_ID || '-'}</td>
                     <td class="fw-bold">${fullname}</td>
                     <td>${r.Gender || '-'}</td>
-                    <td>${r.Age || 0} ປີ</td>
+                    <td>${age} ປີ</td>
                     <td class="text-muted">${r.Phone_Number || '-'}</td>
                     <td class="small text-muted">${r.District || ''} ${r.Province || ''}</td>
                     <td class="text-danger fw-bold small">${r.Drug_Allergy || '-'}</td>
@@ -3421,6 +3450,21 @@ window.loadUsers = async function () {
   }
 };
 
+// Load users when users tab is shown
+$(document).on('shown.bs.tab', '#users-tab', function () {
+  window.loadUsers();
+});
+
+// Load activity log when log tab is shown
+$(document).on('shown.bs.tab', '#log-tab', function () {
+  if (!$('#logStartDate').val()) {
+    const today = new Date().toISOString().split('T')[0];
+    $('#logStartDate').val(today);
+    $('#logEndDate').val(today);
+  }
+  window.loadActivityLog();
+});
+
 window.openAddUserModal = function () {
   $('#addUserForm')[0].reset();
   $('#u_id').val('');
@@ -3540,6 +3584,15 @@ window.applyButtonPermissions = function () {
   if (!window.can('opd', 'delete')) $('.btn-opd-delete').hide();
   if (!window.can('opd', 'print')) $('.btn-opd-print, .btn-print-opd').hide();
   
+  // IPD buttons
+  if (!window.can('ipd', 'view')) $('.btn-ipd-view, .btn-view-ipd').hide();
+  if (!window.can('ipd', 'admit')) $('.btn-ipd-admit, #btnIPDAdmission').hide();
+  if (!window.can('ipd', 'progress')) $('.btn-ipd-progress').hide();
+  if (!window.can('ipd', 'medication')) $('.btn-ipd-medication').hide();
+  if (!window.can('ipd', 'vitals')) $('.btn-ipd-vitals').hide();
+  if (!window.can('ipd', 'nursing')) $('.btn-ipd-nursing').hide();
+  if (!window.can('ipd', 'discharge')) $('.btn-ipd-discharge').hide();
+  
   // Labs buttons
   if (!window.can('labs', 'view')) $('.btn-labs-view').hide();
   if (!window.can('labs', 'add')) $('.btn-labs-add').hide();
@@ -3623,6 +3676,7 @@ window.resetToRoleDefaults = function () {
       patients: { view: true, add: true, edit: true, delete: true, triage: true, print_qr: true },
       triage: { view: true, edit: true, delete: true, call: true },
       opd: { view: true, edit: true, delete: true, print: true },
+      ipd: { view: true, admit: true, progress: true, medication: true, vitals: true, nursing: true, discharge: true },
       labs: { view: true, add: true, edit: true, delete: true },
       drugs: { view: true, add: true, edit: true, delete: true },
       appointments: { view: true, add: true, edit: true, delete: true }
@@ -3631,6 +3685,7 @@ window.resetToRoleDefaults = function () {
       patients: { view: true, add: true, edit: true, delete: false, triage: true, print_qr: true },
       triage: { view: true, edit: true, delete: false, call: true },
       opd: { view: true, edit: true, delete: false, print: true },
+      ipd: { view: true, admit: true, progress: true, medication: true, vitals: false, nursing: false, discharge: true },
       labs: { view: true, add: true, edit: true, delete: false },
       drugs: { view: true, add: true, edit: true, delete: false },
       appointments: { view: true, add: true, edit: true, delete: false }
@@ -3639,6 +3694,7 @@ window.resetToRoleDefaults = function () {
       patients: { view: true, add: false, edit: false, delete: false, triage: true, print_qr: false },
       triage: { view: true, edit: true, delete: false, call: true },
       opd: { view: false, edit: false, delete: false, print: false },
+      ipd: { view: true, admit: false, progress: false, medication: false, vitals: true, nursing: true, discharge: false },
       labs: { view: false, add: false, edit: false, delete: false },
       drugs: { view: false, add: false, edit: false, delete: false },
       appointments: { view: true, add: true, edit: false, delete: false }
@@ -3647,6 +3703,7 @@ window.resetToRoleDefaults = function () {
       patients: { view: true, add: false, edit: false, delete: false, triage: false, print_qr: false },
       triage: { view: false, edit: false, delete: false, call: false },
       opd: { view: false, edit: false, delete: false, print: false },
+      ipd: { view: false, admit: false, progress: false, medication: false, vitals: false, nursing: false, discharge: false },
       labs: { view: true, add: true, edit: true, delete: false },
       drugs: { view: false, add: false, edit: false, delete: false },
       appointments: { view: false, add: false, edit: false, delete: false }
@@ -3655,6 +3712,7 @@ window.resetToRoleDefaults = function () {
       patients: { view: true, add: false, edit: false, delete: false, triage: false, print_qr: false },
       triage: { view: false, edit: false, delete: false, call: false },
       opd: { view: false, edit: false, delete: false, print: false },
+      ipd: { view: false, admit: false, progress: false, medication: true, vitals: false, nursing: false, discharge: false },
       labs: { view: false, add: false, edit: false, delete: false },
       drugs: { view: true, add: true, edit: true, delete: false },
       appointments: { view: false, add: false, edit: false, delete: false }
@@ -3663,6 +3721,7 @@ window.resetToRoleDefaults = function () {
       patients: { view: true, add: true, edit: false, delete: false, triage: false, print_qr: true },
       triage: { view: false, edit: false, delete: false, call: false },
       opd: { view: false, edit: false, delete: false, print: false },
+      ipd: { view: true, admit: false, progress: false, medication: false, vitals: false, nursing: false, discharge: false },
       labs: { view: false, add: false, edit: false, delete: false },
       drugs: { view: false, add: false, edit: false, delete: false },
       appointments: { view: true, add: true, edit: false, delete: false }
@@ -3671,6 +3730,7 @@ window.resetToRoleDefaults = function () {
       patients: { view: true, add: false, edit: false, delete: false, triage: false, print_qr: false },
       triage: { view: false, edit: false, delete: false, call: false },
       opd: { view: false, edit: false, delete: false, print: false },
+      ipd: { view: true, admit: false, progress: false, medication: false, vitals: false, nursing: false, discharge: false },
       labs: { view: false, add: false, edit: false, delete: false },
       drugs: { view: false, add: false, edit: false, delete: false },
       appointments: { view: true, add: false, edit: false, delete: false }
@@ -3679,6 +3739,7 @@ window.resetToRoleDefaults = function () {
       patients: { view: true, add: false, edit: false, delete: false, triage: false, print_qr: false },
       triage: { view: false, edit: false, delete: false, call: false },
       opd: { view: false, edit: false, delete: false, print: false },
+      ipd: { view: true, admit: false, progress: false, medication: false, vitals: false, nursing: false, discharge: false },
       labs: { view: false, add: false, edit: false, delete: false },
       drugs: { view: false, add: false, edit: false, delete: false },
       appointments: { view: true, add: false, edit: false, delete: false }
@@ -3726,6 +3787,15 @@ window.saveButtonPermissions = async function () {
       edit: $('#perm_opd_edit').is(':checked'),
       delete: $('#perm_opd_delete').is(':checked'),
       print: $('#perm_opd_print').is(':checked')
+    },
+    ipd: {
+      view: $('#perm_ipd_view').is(':checked'),
+      admit: $('#perm_ipd_admit').is(':checked'),
+      progress: $('#perm_ipd_progress').is(':checked'),
+      medication: $('#perm_ipd_medication').is(':checked'),
+      vitals: $('#perm_ipd_vitals').is(':checked'),
+      nursing: $('#perm_ipd_nursing').is(':checked'),
+      discharge: $('#perm_ipd_discharge').is(':checked')
     },
     labs: {
       view: $('#perm_labs_view').is(':checked'),
@@ -4057,6 +4127,12 @@ window.submitOrgForm = async function (e) {
   $('#orgModal').modal('hide');
   window.loadOrgs();
   window.preloadDropdownData();
+};
+
+window.openOrgModal = function () {
+  $('#orgForm')[0].reset();
+  $('#o_rowIdx').val('');
+  $('#orgModal').modal('show');
 };
 
 window.editOrg = function (r, c, n, on, oc, d) {
@@ -5137,6 +5213,852 @@ window.showPatientTimeline = async function (patientId) {
   } catch (err) {
     console.error("Timeline Error:", err);
     $('#timelineContent').html('<div class="text-center py-5 text-danger"><p>ຂໍ້ຜິດພາດໃນການໂຫຼດປະຫວັດ</p></div>');
+  }
+};
+
+// ==========================================
+// IPD (INPATIENT DEPARTMENT) FUNCTIONS
+// ==========================================
+
+// Search IPD Table
+window.searchIPDTable = function () {
+  const query = $('#ipdSearchInput').val().toLowerCase();
+  if (!$.fn.DataTable.isDataTable('#ipdTable')) return;
+  
+  const table = $('#ipdTable').DataTable();
+  table.search(query).draw();
+};
+
+// Load IPD Patients
+window.loadIPDPatients = async function () {
+  const sDate = $('#ipdStartDate').val() || new Date().toISOString().split('T')[0];
+  const eDate = $('#ipdEndDate').val() || new Date().toISOString().split('T')[0];
+  
+  $('#ipdTable tbody').html('<tr><td colspan="9" class="text-center py-4"><div class="spinner-border text-primary spinner-border-sm"></div> ກຳລັງໂຫຼດ...</td></tr>');
+  
+  try {
+    const { data: admissions, error } = await supabaseClient
+      .from('Admissions')
+      .select('*')
+      .eq('Status', 'Admitted')
+      .gte('Admission_Date', sDate)
+      .lte('Admission_Date', eDate)
+      .order('Admission_Date', { ascending: false });
+    
+    if (error) throw error;
+    
+    if (!admissions || admissions.length === 0) {
+      $('#ipdTable tbody').html('<tr><td colspan="9" class="text-center py-4 text-muted">ບໍ່ມີຄົນເຈັບນອນໃນຊ່ວງວັນທີນີ້</td></tr>');
+      updateIPDStats(0);
+      return;
+    }
+    
+    let h = '';
+    for (const adm of admissions) {
+      // Fetch ward/room/bed info
+      let wardName = '-', roomNum = '-', bedNum = '-';
+      if (adm.Ward_ID) {
+        const { data: ward } = await supabaseClient.from('Wards').select('Ward_Name').eq('Ward_ID', adm.Ward_ID).single();
+        if (ward) wardName = ward.Ward_Name;
+      }
+      if (adm.Room_ID) {
+        const { data: room } = await supabaseClient.from('Rooms').select('Room_Number').eq('Room_ID', adm.Room_ID).single();
+        if (room) roomNum = room.Room_Number;
+      }
+      if (adm.Bed_ID) {
+        const { data: bed } = await supabaseClient.from('Beds').select('Bed_Number').eq('Bed_ID', adm.Bed_ID).single();
+        if (bed) bedNum = bed.Bed_Number;
+      }
+      
+      const wardBed = `${wardName} | ${roomNum} | ${bedNum}`;
+      const admDate = adm.Admission_Date ? new Date(adm.Admission_Date).toLocaleDateString('en-GB') : '-';
+      
+      h += `<tr>
+        <td><span class="badge bg-info">${wardBed}</span></td>
+        <td class="text-primary fw-bold">${adm.Patient_ID}</td>
+        <td class="fw-bold">${adm.Patient_Name}</td>
+        <td>-</td>
+        <td>${admDate}</td>
+        <td>${adm.Admitting_Doctor || '-'}</td>
+        <td>${adm.Diagnosis_Admission || '-'}</td>
+        <td><span class="badge bg-success">Admitted</span></td>
+        <td class="text-center">
+          <button class="btn btn-sm btn-info text-white" onclick="window.openIPDDetail('${adm.Admission_ID}')" title="ເບິ່ງລາຍລະອຽດ"><i class="fas fa-eye"></i></button>
+        </td>
+      </tr>`;
+    }
+    
+    $('#ipdTable tbody').html(h);
+    updateIPDStats(admissions.length);
+    
+  } catch (err) {
+    console.error('Error loading IPD patients:', err);
+    $('#ipdTable tbody').html('<tr><td colspan="9" class="text-center py-4 text-danger">ເກີດຂໍ້ຜິດພາດ: ' + err.message + '</td></tr>');
+  }
+};
+
+// Update IPD Statistics
+function updateIPDStats(totalPatients) {
+  $('#ipdTotalPatients').text(totalPatients);
+  $('#ipdAvailableBeds').text('10'); // TODO: Calculate from Beds table
+  $('#ipdOccupiedBeds').text(totalPatients);
+  $('#ipdDischargedToday').text('0'); // TODO: Calculate from discharges today
+}
+
+// Open IPD Admission Modal
+window.openIPDAdmission = async function () {
+  $('#ipdAdmissionForm')[0].reset();
+  $('#admPatientId').val('');
+  
+  // Set default dates
+  const today = new Date().toISOString().split('T')[0];
+  const now = new Date().toTimeString().split(' ')[0].substring(0, 5);
+  $('#admDate').val(today);
+  $('#admTime').val(now);
+  
+  // Load patient dropdown
+  await loadAdmissionPatientDropdown();
+  
+  // Load wards dropdown
+  await loadAdmissionWardsDropdown();
+  
+  // Load doctors dropdown
+  if (typeof window.loadMasterDataGlobalCallback === 'function') {
+    const docSelect = document.getElementById('admDoctor');
+    if (docSelect && masterDataStore['Doctor']) {
+      let opts = '<option value="">-- ເລືອກແພດ --</option>';
+      masterDataStore['Doctor'].forEach(d => {
+        opts += `<option value="${d.value}">${d.value}</option>`;
+      });
+      docSelect.innerHTML = opts;
+    }
+  }
+  
+  $('#ipdAdmissionModal').modal('show');
+};
+
+// Load patient dropdown for admission
+async function loadAdmissionPatientDropdown() {
+  const { data: patients } = await supabaseClient
+    .from('Patients')
+    .select('Patient_ID, First_Name, Last_Name, Gender, Age')
+    .order('Patient_ID', { ascending: false })
+    .limit(100);
+  
+  let opts = '<option value="">-- ຄົ້ນຫາ ແລະ ເລືອກຄົນເຈັບ --</option>';
+  if (patients) {
+    patients.forEach(p => {
+      // Filter out null/invalid patient IDs
+      if (!p.Patient_ID || p.Patient_ID === 'null') return;
+      
+      const firstName = p.First_Name || '';
+      const lastName = p.Last_Name || '';
+      const name = `${firstName} ${lastName}`.trim() || '-';
+      const gender = p.Gender || '-';
+      const age = p.Age || 0;
+      
+      opts += `<option value="${p.Patient_ID}" data-cn="${p.Patient_ID}" data-info="${gender}, ${age} ປີ">${p.Patient_ID} - ${name}</option>`;
+    });
+  }
+  $('#admPatientSelect').html(opts);
+}
+
+// Load wards dropdown
+async function loadAdmissionWardsDropdown() {
+  const { data: wards } = await supabaseClient
+    .from('Wards')
+    .select('*')
+    .eq('Status', 'active');
+  
+  let opts = '<option value="">-- ເລືອກຫ້ອງ --</option>';
+  if (wards) {
+    wards.forEach(w => {
+      opts += `<option value="${w.Ward_ID}" data-type="${w.Ward_Type || ''}">${w.Ward_Name}</option>`;
+    });
+  }
+  $('#admWard').html(opts);
+}
+
+// On patient selection change
+window.onAdmPatientChange = function () {
+  const selected = $('#admPatientSelect option:selected');
+  const patientId = selected.val();
+  const cn = selected.data('cn');
+  const info = selected.data('info');
+  
+  $('#admPatientId').val(patientId);
+  $('#admPatientCN').val(cn || '-');
+  $('#admPatientInfo').val(info || '-');
+};
+
+// On ward change
+window.onAdmWardChange = async function () {
+  const wardId = $('#admWard').val();
+  
+  if (!wardId) {
+    $('#admRoom').html('<option value="">-- ເລືອກຫ້ອງຍ່ອຍ --</option>');
+    $('#admBed').html('<option value="">-- ເລືອກຕຽງ --</option>');
+    return;
+  }
+  
+  // Load rooms for this ward
+  const { data: rooms } = await supabaseClient
+    .from('Rooms')
+    .select('*')
+    .eq('Ward_ID', wardId)
+    .eq('Status', 'active');
+  
+  let opts = '<option value="">-- ເລືອກຫ້ອງຍ່ອຍ --</option>';
+  if (rooms) {
+    rooms.forEach(r => {
+      opts += `<option value="${r.Room_ID}">${r.Room_Number} (${r.Room_Type || 'N/A'})</option>`;
+    });
+  }
+  $('#admRoom').html(opts);
+  $('#admBed').html('<option value="">-- ເລືອກຕຽງ --</option>');
+};
+
+// On room change
+window.onAdmRoomChange = async function () {
+  const roomId = $('#admRoom').val();
+  
+  if (!roomId) {
+    $('#admBed').html('<option value="">-- ເລືອກຕຽງ --</option>');
+    return;
+  }
+  
+  // Load beds for this room
+  const { data: beds } = await supabaseClient
+    .from('Beds')
+    .select('*')
+    .eq('Room_ID', roomId)
+    .eq('Status', 'Available');
+  
+  let opts = '<option value="">-- ເລືອກຕຽງ --</option>';
+  if (beds) {
+    beds.forEach(b => {
+      opts += `<option value="${b.Bed_ID}">${b.Bed_Number}</option>`;
+    });
+  }
+  $('#admBed').html(opts);
+};
+
+// Submit IPD Admission
+window.submitIPDAdmission = async function (e) {
+  if (e) e.preventDefault();
+  
+  const patientId = $('#admPatientId').val();
+  if (!patientId) {
+    Swal.fire('ແຈ້ງເຕືອນ', 'ກະລຸນາເລືອກຄົນເຈັບ', 'warning');
+    return;
+  }
+  
+  const admissionId = 'ADM' + Date.now();
+  const patientName = $('#admPatientSelect option:selected').text().split(' - ')[1] || 'Unknown';
+  
+  const admissionData = {
+    Admission_ID: admissionId,
+    Patient_ID: patientId,
+    Patient_Name: patientName,
+    Admission_Date: $('#admDate').val(),
+    Admission_Time: $('#admTime').val(),
+    Ward_ID: $('#admWard').val(),
+    Room_ID: $('#admRoom').val(),
+    Bed_ID: $('#admBed').val(),
+    Admitting_Doctor: $('#admDoctor').val(),
+    Diagnosis_Admission: $('#admDiagnosis').val(),
+    Admission_Type: $('#admType').val(),
+    Insurance_Info: $('#admInsurance').val(),
+    Deposit_Amount: parseFloat($('#admDeposit').val()) || 0,
+    Status: 'Admitted'
+  };
+  
+  Swal.fire({ title: 'ກຳລັງບັນທຶກ...', didOpen: () => Swal.showLoading() });
+  
+  const { error } = await supabaseClient.from('Admissions').insert(admissionData);
+  
+  if (error) {
+    Swal.fire('ຜິດພາດ!', error.message, 'error');
+    return;
+  }
+  
+  // Update bed status
+  await supabaseClient.from('Beds').update({ Status: 'Occupied' }).eq('Bed_ID', admissionData.Bed_ID);
+  
+  Swal.fire('ສຳເລັດ!', 'ຮັບຄົນເຈັບນອນແລ້ວ', 'success');
+  $('#ipdAdmissionModal').modal('hide');
+  window.loadIPDPatients();
+  window.logAction('Add', `IPD Admission: ${patientName} (${patientId})`, 'IPD');
+};
+
+// Load IPD Wards Management
+window.loadIPDWards = function () {
+  Swal.fire('ກຳລັງພັດທະນາ', 'ໜ້າຈັດການຫ້ອງ/ຕຽງ ກຳລັງພັດທະນາ', 'info');
+};
+
+// Open IPD Detail Modal
+window.openIPDDetail = async function (admissionId) {
+  $('#ipdDetailModal').modal('show');
+  
+  // Fetch admission details
+  const { data: adm } = await supabaseClient
+    .from('Admissions')
+    .select('*')
+    .eq('Admission_ID', admissionId)
+    .single();
+  
+  if (!adm) return;
+  
+  $('#ipdDetailPatientName').text(adm.Patient_Name);
+  $('#detailWardBed').text(`${adm.Ward_ID || '-'} | ${adm.Room_ID || '-'} | ${adm.Bed_ID || '-'}`);
+  $('#detailAdmDate').text(`${adm.Admission_Date || '-'} ${adm.Admission_Time || ''}`);
+  $('#detailDoctor').text(adm.Admitting_Doctor || '-');
+  $('#detailDiagnosis').text(adm.Diagnosis_Admission || '-');
+  $('#detailStatus').text(adm.Status || 'Admitted');
+  $('#detailDeposit').text(adm.Deposit_Amount ? adm.Deposit_Amount.toLocaleString() + ' LAK' : '-');
+  
+  // Load tabs content
+  loadIPDProgressNotes(admissionId);
+  loadIPDMedications(admissionId);
+  loadIPDVitals(admissionId);
+  loadIPDNursingNotes(admissionId);
+};
+
+// Load Progress Notes
+function loadIPDProgressNotes(admissionId) {
+  $('#progressNotesList').html('<div class="text-center py-4"><div class="spinner-border text-primary spinner-border-sm"></div></div>');
+  
+  supabaseClient.from('Progress_Notes')
+    .select('*')
+    .eq('Admission_ID', admissionId)
+    .order('Note_Date', { ascending: false })
+    .then(({ data, error }) => {
+      if (error || !data || data.length === 0) {
+        $('#progressNotesList').html('<p class="text-muted text-center">ຍັງບໍ່ມີບັນທຶກ</p>');
+        return;
+      }
+      
+      let html = '<div class="timeline">';
+      data.forEach(note => {
+        const noteDate = note.Note_Date ? new Date(note.Note_Date).toLocaleDateString('en-GB') : '-';
+        html += `
+          <div class="card border-primary mb-3">
+            <div class="card-header bg-light">
+              <div class="d-flex justify-content-between align-items-center">
+                <strong><i class="fas fa-calendar me-2"></i>${noteDate} ${note.Note_Time || ''}</strong>
+                <span class="badge bg-primary">${note.Note_Type || 'Progress Note'}</span>
+              </div>
+              <small class="text-muted"><i class="fas fa-user-md me-1"></i>${note.Doctor_Name || '-'}</small>
+            </div>
+            <div class="card-body">
+              <div class="row g-2">
+                <div class="col-12"><strong class="text-primary">S:</strong> ${note.Subjective || '-'}</div>
+                <div class="col-12"><strong class="text-info">O:</strong> ${note.Objective || '-'}</div>
+                <div class="col-12"><strong class="text-warning">A:</strong> ${note.Assessment || '-'}</div>
+                <div class="col-12"><strong class="text-success">P:</strong> ${note.Plan || '-'}</div>
+              </div>
+            </div>
+          </div>
+        `;
+      });
+      html += '</div>';
+      $('#progressNotesList').html(html);
+    });
+}
+
+// Load Medications
+function loadIPDMedications(admissionId) {
+  $('#medicationsList').html('<div class="text-center py-4"><div class="spinner-border text-success spinner-border-sm"></div></div>');
+  
+  supabaseClient.from('IPD_Medications')
+    .select('*')
+    .eq('Admission_ID', admissionId)
+    .eq('Status', 'Active')
+    .order('Created_At', { ascending: false })
+    .then(({ data, error }) => {
+      if (error || !data || data.length === 0) {
+        $('#medicationsList').html('<p class="text-muted text-center">ຍັງບໍ່ມີຢາ</p>');
+        return;
+      }
+      
+      let html = '<table class="table table-hover"><thead><tr><th>ຊື່ຢາ</th><th>ຂະໜາດ</th><th>ຄວາມຖີ່</th><th>ວິທີໃຫ້</th><th>ສະຖານະ</th></tr></thead><tbody>';
+      data.forEach(med => {
+        html += `
+          <tr>
+            <td class="fw-bold text-success">${med.Drug_Name}</td>
+            <td>${med.Dosage || '-'}</td>
+            <td><span class="badge bg-info">${med.Frequency || '-'}</span></td>
+            <td><span class="badge bg-secondary">${med.Route || '-'}</span></td>
+            <td><span class="badge bg-success">${med.Status || 'Active'}</span></td>
+          </tr>
+        `;
+      });
+      html += '</tbody></table>';
+      $('#medicationsList').html(html);
+    });
+}
+
+// Load Vitals
+function loadIPDVitals(admissionId) {
+  $('#vitalsList').html('<div class="text-center py-4"><div class="spinner-border text-info spinner-border-sm"></div></div>');
+  
+  supabaseClient.from('IPD_Vital_Signs')
+    .select('*')
+    .eq('Admission_ID', admissionId)
+    .order('Record_Date', { ascending: false })
+    .limit(20)
+    .then(({ data, error }) => {
+      if (error || !data || data.length === 0) {
+        $('#vitalsList').html('<p class="text-muted text-center">ຍັງບໍ່ມີ Vital Signs</p>');
+        return;
+      }
+      
+      let html = '<table class="table table-hover"><thead><tr><th>ວັນທີ/ເວລາ</th><th>BP</th><th>Temp</th><th>Pulse</th><th>Resp</th><th>SpO2</th><th>Pain</th></tr></thead><tbody>';
+      data.forEach(vital => {
+        const recordDate = vital.Record_Date ? new Date(vital.Record_Date).toLocaleDateString('en-GB') : '-';
+        html += `
+          <tr>
+            <td>${recordDate} ${vital.Record_Time || ''}</td>
+            <td><span class="badge bg-primary">${vital.BP || '-'}</span></td>
+            <td>${vital.Temp || '-'} °C</td>
+            <td>${vital.Pulse || '-'} bpm</td>
+            <td>${vital.Resp_Rate || '-'} /min</td>
+            <td><span class="badge bg-info">${vital.SpO2 || '-'} %</span></td>
+            <td><span class="badge ${parseInt(vital.Pain_Score) >= 5 ? 'bg-danger' : 'bg-success'}">${vital.Pain_Score || '0'}</span></td>
+          </tr>
+        `;
+      });
+      html += '</tbody></table>';
+      $('#vitalsList').html(html);
+    });
+}
+
+// Load Nursing Notes
+function loadIPDNursingNotes(admissionId) {
+  $('#nursingNotesList').html('<div class="text-center py-4"><div class="spinner-border text-warning spinner-border-sm"></div></div>');
+  
+  supabaseClient.from('Nursing_Notes')
+    .select('*')
+    .eq('Admission_ID', admissionId)
+    .order('Note_Date', { ascending: false })
+    .then(({ data, error }) => {
+      if (error || !data || data.length === 0) {
+        $('#nursingNotesList').html('<p class="text-muted text-center">ຍັງບໍ່ມີ Nursing Notes</p>');
+        return;
+      }
+      
+      let html = '';
+      data.forEach(note => {
+        const noteDate = note.Note_Date ? new Date(note.Note_Date).toLocaleDateString('en-GB') : '-';
+        html += `
+          <div class="card border-warning mb-3">
+            <div class="card-header bg-light">
+              <div class="d-flex justify-content-between align-items-center">
+                <strong><i class="fas fa-calendar me-2"></i>${noteDate} ${note.Note_Time || ''}</strong>
+                <span class="badge bg-warning text-dark">${note.Note_Type || 'Nursing Note'}</span>
+              </div>
+              <small class="text-muted"><i class="fas fa-user-nurse me-1"></i>${note.Nurse_Name || '-'}</small>
+            </div>
+            <div class="card-body">
+              <p class="mb-0">${note.Content || '-'}</p>
+            </div>
+          </div>
+        `;
+      });
+      $('#nursingNotesList').html(html);
+    });
+}
+
+// Open Progress Note Modal
+window.openIPDProgressNote = function () {
+  const admissionId = $('#ipdDetailModal').length > 0 ? 
+    ($('#detailWardBed').text() ? window.currentAdmissionId : null) : null;
+  
+  if (!admissionId && !window.currentAdmissionId) {
+    Swal.fire('ແຈ້ງເຕືອນ', 'ກະລຸນາເລືອກຄົນເຈັບກ່ອນ', 'warning');
+    return;
+  }
+  
+  $('#progressAdmissionId').val(admissionId || window.currentAdmissionId);
+  $('#progressDate').val(new Date().toISOString().split('T')[0]);
+  $('#progressTime').val(new Date().toTimeString().split(' ')[0].substring(0, 5));
+  
+  // Load doctors
+  if (masterDataStore['Doctor']) {
+    let opts = '<option value="">-- ເລືອກແພດ --</option>';
+    masterDataStore['Doctor'].forEach(d => {
+      opts += `<option value="${d.value}">${d.value}</option>`;
+    });
+    $('#progressDoctor').html(opts);
+  }
+  
+  $('#ipdProgressModal').modal('show');
+};
+
+// Submit Progress Note
+window.submitIPDProgressNote = async function (e) {
+  if (e) e.preventDefault();
+  
+  const noteId = 'NOTE' + Date.now();
+  const noteData = {
+    Note_ID: noteId,
+    Admission_ID: $('#progressAdmissionId').val(),
+    Note_Date: $('#progressDate').val(),
+    Note_Time: $('#progressTime').val(),
+    Doctor_Name: $('#progressDoctor').val(),
+    Note_Type: $('#progressType').val(),
+    Subjective: $('#progressSubjective').val(),
+    Objective: $('#progressObjective').val(),
+    Assessment: $('#progressAssessment').val(),
+    Plan: $('#progressPlan').val()
+  };
+  
+  Swal.fire({ title: 'ກຳລັງບັນທຶກ...', didOpen: () => Swal.showLoading() });
+  
+  const { error } = await supabaseClient.from('Progress_Notes').insert(noteData);
+  
+  if (error) {
+    Swal.fire('ຜິດພາດ!', error.message, 'error');
+    return;
+  }
+  
+  Swal.fire('ສຳເລັດ!', 'ບັນທຶກ Progress Note ແລ້ວ', 'success');
+  $('#ipdProgressModal').modal('hide');
+  loadIPDProgressNotes(noteData.Admission_ID);
+  window.logAction('Add', 'IPD Progress Note', 'IPD');
+};
+
+// Open Medication Modal
+window.openIPDMedication = function () {
+  const admissionId = window.currentAdmissionId;
+  if (!admissionId) {
+    Swal.fire('ແຈ້ງເຕືອນ', 'ກະລຸນາເລືອກຄົນເຈັບກ່ອນ', 'warning');
+    return;
+  }
+  
+  $('#medAdmissionId').val(admissionId);
+  $('#medStartDate').val(new Date().toISOString().split('T')[0]);
+  
+  // Load drugs
+  if (drugsMasterList && drugsMasterList.length > 0) {
+    let opts = '<option value="">-- ຄົ້ນຫາ ແລະ ເລືອກຢາ --</option>';
+    drugsMasterList.forEach(d => {
+      opts += `<option value="${d.name}">${d.name}${d.desc ? ' (' + d.desc + ')' : ''}</option>`;
+    });
+    $('#medDrugSelect').html(opts);
+  }
+  
+  $('#ipdMedicationModal').modal('show');
+};
+
+// Submit Medication
+window.submitIPDMedication = async function (e) {
+  if (e) e.preventDefault();
+  
+  const medId = 'MED' + Date.now();
+  const medData = {
+    Med_ID: medId,
+    Admission_ID: $('#medAdmissionId').val(),
+    Drug_Name: $('#medDrugSelect').val(),
+    Dosage: $('#medDosage').val(),
+    Frequency: $('#medFrequency').val(),
+    Route: $('#medRoute').val(),
+    Start_Date: $('#medStartDate').val(),
+    End_Date: $('#medEndDate').val() || null,
+    Notes: $('#medNotes').val(),
+    Status: 'Active'
+  };
+  
+  Swal.fire({ title: 'ກຳລັງສັ່ງຢາ...', didOpen: () => Swal.showLoading() });
+  
+  const { error } = await supabaseClient.from('IPD_Medications').insert(medData);
+  
+  if (error) {
+    Swal.fire('ຜິດພາດ!', error.message, 'error');
+    return;
+  }
+  
+  Swal.fire('ສຳເລັດ!', 'ສັ່ງຢາແລ້ວ', 'success');
+  $('#ipdMedicationModal').modal('hide');
+  loadIPDMedications(medData.Admission_ID);
+  window.logAction('Add', `IPD Medication: ${medData.Drug_Name}`, 'IPD');
+};
+
+// Open Vitals Modal
+window.openIPDVitals = function () {
+  const admissionId = window.currentAdmissionId;
+  if (!admissionId) {
+    Swal.fire('ແຈ້ງເຕືອນ', 'ກະລຸນາເລືອກຄົນເຈັບກ່ອນ', 'warning');
+    return;
+  }
+  
+  $('#vitalsAdmissionId').val(admissionId);
+  $('#vitalsDate').val(new Date().toISOString().split('T')[0]);
+  $('#vitalsTime').val(new Date().toTimeString().split(' ')[0].substring(0, 5));
+  
+  $('#ipdVitalsModal').modal('show');
+};
+
+// Submit Vitals
+window.submitIPDVitals = async function (e) {
+  if (e) e.preventDefault();
+  
+  const vitalId = 'VITAL' + Date.now();
+  const vitalData = {
+    Vital_ID: vitalId,
+    Admission_ID: $('#vitalsAdmissionId').val(),
+    Record_Date: $('#vitalsDate').val(),
+    Record_Time: $('#vitalsTime').val(),
+    BP: $('#vitalsBP').val(),
+    Temp: parseFloat($('#vitalsTemp').val()) || null,
+    Pulse: parseInt($('#vitalsPulse').val()) || null,
+    Resp_Rate: parseInt($('#vitalsResp').val()) || null,
+    SpO2: parseInt($('#vitalsSpO2').val()) || null,
+    Pain_Score: parseInt($('#vitalsPain').val()) || 0,
+    Consciousness: $('#vitalsConsciousness').val(),
+    Notes: $('#vitalsNotes').val()
+  };
+  
+  Swal.fire({ title: 'ກຳລັງບັນທຶກ...', didOpen: () => Swal.showLoading() });
+  
+  const { error } = await supabaseClient.from('IPD_Vital_Signs').insert(vitalData);
+  
+  if (error) {
+    Swal.fire('ຜິດພາດ!', error.message, 'error');
+    return;
+  }
+  
+  Swal.fire('ສຳເລັດ!', 'ບັນທຶກ Vital Signs ແລ້ວ', 'success');
+  $('#ipdVitalsModal').modal('hide');
+  loadIPDVitals(vitalData.Admission_ID);
+  window.logAction('Add', 'IPD Vital Signs', 'IPD');
+};
+
+// Open Nursing Note Modal
+window.openIPDNursingNote = function () {
+  const admissionId = window.currentAdmissionId;
+  if (!admissionId) {
+    Swal.fire('ແຈ້ງເຕືອນ', 'ກະລຸນາເລືອກຄົນເຈັບກ່ອນ', 'warning');
+    return;
+  }
+  
+  $('#nursingAdmissionId').val(admissionId);
+  $('#nursingDate').val(new Date().toISOString().split('T')[0]);
+  $('#nursingTime').val(new Date().toTimeString().split(' ')[0].substring(0, 5));
+  
+  $('#ipdNursingModal').modal('show');
+};
+
+// Submit Nursing Note
+window.submitIPDNursingNote = async function (e) {
+  if (e) e.preventDefault();
+  
+  const noteId = 'NNOTE' + Date.now();
+  const noteData = {
+    Note_ID: noteId,
+    Admission_ID: $('#nursingAdmissionId').val(),
+    Note_Date: $('#nursingDate').val(),
+    Note_Time: $('#nursingTime').val(),
+    Nurse_Name: $('#nursingName').val(),
+    Note_Type: $('#nursingType').val(),
+    Content: $('#nursingContent').val()
+  };
+  
+  Swal.fire({ title: 'ກຳລັງບັນທຶກ...', didOpen: () => Swal.showLoading() });
+  
+  const { error } = await supabaseClient.from('Nursing_Notes').insert(noteData);
+  
+  if (error) {
+    Swal.fire('ຜິດພາດ!', error.message, 'error');
+    return;
+  }
+  
+  Swal.fire('ສຳເລັດ!', 'ບັນທຶກ Nursing Note ແລ້ວ', 'success');
+  $('#ipdNursingModal').modal('hide');
+  loadIPDNursingNotes(noteData.Admission_ID);
+  window.logAction('Add', 'IPD Nursing Note', 'IPD');
+};
+
+// Open Discharge Modal
+window.openIPDDischarge = function () {
+  const admissionId = window.currentAdmissionId;
+  if (!admissionId) {
+    Swal.fire('ແຈ້ງເຕືອນ', 'ກະລຸນາເລືອກຄົນເຈັບກ່ອນ', 'warning');
+    return;
+  }
+  
+  $('#dischargeAdmissionId').val(admissionId);
+  $('#dischargeDate').val(new Date().toISOString().split('T')[0]);
+  $('#dischargeTime').val(new Date().toTimeString().split(' ')[0].substring(0, 5));
+  
+  $('#ipdDischargeModal').modal('show');
+};
+
+// Submit Discharge
+window.submitIPDDischarge = async function (e) {
+  if (e) e.preventDefault();
+  
+  Swal.fire({
+    title: 'ຢືນຢັນ Discharge?',
+    text: 'ຄົນເຈັບຈະອອກຈາກໂຮງໝໍ ແລະ ຕຽງຈະຖືກປ່ອຍວ່າງ',
+    icon: 'warning',
+    showCancelButton: true,
+    confirmButtonColor: '#dc3545',
+    confirmButtonText: 'ຢືນຢັນ',
+    cancelButtonText: 'ຍົກເລີກ'
+  }).then(async (result) => {
+    if (!result.isConfirmed) return;
+    
+    const dischargeData = {
+      Discharge_Date: $('#dischargeDate').val(),
+      Discharge_Time: $('#dischargeTime').val(),
+      Discharge_Status: $('#dischargeStatus').val(),
+      Discharge_Diagnosis: $('#dischargeDiagnosis').val(),
+      Notes: $('#dischargeSummary').val(),
+      Follow_Up_Date: $('#dischargeFollowUp').val() || null,
+      Status: 'Discharged'
+    };
+    
+    Swal.fire({ title: 'ກຳລັງ Discharge...', didOpen: () => Swal.showLoading() });
+    
+    const admissionId = $('#dischargeAdmissionId').val();
+    
+    // Update admission
+    const { error: updateError } = await supabaseClient
+      .from('Admissions')
+      .update(dischargeData)
+      .eq('Admission_ID', admissionId);
+    
+    if (updateError) {
+      Swal.fire('ຜິດພາດ!', updateError.message, 'error');
+      return;
+    }
+    
+    // Get bed info and update bed status
+    const { data: adm } = await supabaseClient
+      .from('Admissions')
+      .select('Bed_ID')
+      .eq('Admission_ID', admissionId)
+      .single();
+    
+    if (adm && adm.Bed_ID) {
+      await supabaseClient.from('Beds').update({ Status: 'Available' }).eq('Bed_ID', adm.Bed_ID);
+    }
+    
+    Swal.fire('ສຳເລັດ!', 'Discharge ຄົນເຈັບແລ້ວ', 'success');
+    $('#ipdDischargeModal').modal('hide');
+    $('#ipdDetailModal').modal('hide');
+    window.loadIPDPatients();
+    window.logAction('Discharge', 'IPD Discharge', 'IPD');
+  });
+};
+
+// ==========================================
+// IPD VISIT HISTORY (Doctor/Nurse Visits)
+// ==========================================
+
+// Open Visit Modal
+window.openIPDVisit = function (admissionId, patientName) {
+  window.currentAdmissionId = admissionId;
+  $('#visitPatientName').text(patientName || '');
+  $('#visitDate').val(new Date().toISOString().split('T')[0]);
+  $('#visitTime').val(new Date().toTimeString().split(' ')[0].substring(0, 5));
+  
+  // Load doctors/nurses for dropdown
+  if (masterDataStore['Doctor']) {
+    let opts = '<option value="">-- ເລືອກຜູ້ຢ້ຽມ --</option>';
+    masterDataStore['Doctor'].forEach(d => {
+      opts += `<option value="${d.value}">👨‍⚕️ ${d.value}</option>`;
+    });
+    $('#visitVisitor').html(opts);
+  }
+  
+  $('#ipdVisitModal').modal('show');
+};
+
+// Submit Visit
+window.submitIPDVisit = async function (e) {
+  if (e) e.preventDefault();
+  
+  const visitId = 'VISIT' + Date.now();
+  const visitorSelect = $('#visitVisitor').val();
+  const visitorType = visitorSelect ? 'Doctor' : 'Nurse';
+  
+  const visitData = {
+    Visit_ID: visitId,
+    Admission_ID: window.currentAdmissionId,
+    Visit_Date: $('#visitDate').val(),
+    Visit_Time: $('#visitTime').val(),
+    Visitor_Type: visitorType,
+    Visitor_Name: visitorSelect || $('#visitNurseName').val(),
+    Visit_Purpose: $('#visitPurpose').val(),
+    Notes: $('#visitNotes').val()
+  };
+  
+  Swal.fire({ title: 'ກຳລັງບັນທຶກ...', didOpen: () => Swal.showLoading() });
+  
+  const { error } = await supabaseClient.from('IPD_Visits').insert(visitData);
+  
+  if (error) {
+    Swal.fire('ຜິດພາດ!', error.message, 'error');
+    return;
+  }
+  
+  Swal.fire('ສຳເລັດ!', 'ບັນທຶກການຢ້ຽມແລ້ວ', 'success');
+  $('#ipdVisitModal').modal('hide');
+  window.logAction('Add', 'IPD Visit', 'IPD');
+};
+
+// Load Visit History
+window.loadIPDVisitHistory = function (admissionId) {
+  $('#visitHistoryList').html('<div class="text-center py-4"><div class="spinner-border text-primary spinner-border-sm"></div></div>');
+  
+  supabaseClient.from('IPD_Visits')
+    .select('*')
+    .eq('Admission_ID', admissionId)
+    .order('Visit_Date', { ascending: false })
+    .order('Visit_Time', { ascending: false })
+    .then(({ data, error }) => {
+      if (error || !data || data.length === 0) {
+        $('#visitHistoryList').html('<p class="text-muted text-center">ຍັງບໍ່ມີປະຫວັດການຢ້ຽມ</p>');
+        return;
+      }
+      
+      let html = '';
+      data.forEach(visit => {
+        const visitDate = visit.Visit_Date ? new Date(visit.Visit_Date).toLocaleDateString('en-GB') : '-';
+        const icon = visit.Visitor_Type === 'Doctor' ? '👨‍⚕️' : '👩‍⚕️';
+        const badgeColor = visit.Visitor_Type === 'Doctor' ? 'bg-primary' : 'bg-info';
+        
+        html += `
+          <div class="card border-${visit.Visitor_Type === 'Doctor' ? 'primary' : 'info'} mb-2">
+            <div class="card-header bg-light py-2">
+              <div class="d-flex justify-content-between align-items-center">
+                <small><i class="fas fa-calendar me-1"></i>${visitDate} ${visit.Visit_Time || ''}</small>
+                <span class="badge ${badgeColor}">${icon} ${visit.Visitor_Type || '-'}</span>
+              </div>
+            </div>
+            <div class="card-body py-2">
+              <p class="mb-1"><strong>ຜູ້ຢ້ຽມ:</strong> ${visit.Visitor_Name || '-'}</p>
+              <p class="mb-1"><strong>ຈຸດປະສົງ:</strong> ${visit.Visit_Purpose || '-'}</p>
+              <p class="mb-0 text-muted small"><strong>ບັນທຶກ:</strong> ${visit.Notes || '-'}</p>
+            </div>
+          </div>
+        `;
+      });
+      $('#visitHistoryList').html(html);
+    });
+};
+
+// Set current admission ID for detail modal
+window.currentAdmissionId = null;
+
+// Override openIPDDetail to store admission ID
+const originalOpenIPDDetail = window.openIPDDetail;
+window.openIPDDetail = async function (admissionId) {
+  window.currentAdmissionId = admissionId;
+  if (typeof originalOpenIPDDetail === 'function') {
+    await originalOpenIPDDetail(admissionId);
   }
 };
 
