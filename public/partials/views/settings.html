@@ -1,239 +1,322 @@
 <div id="view-settings" style="display:none;">
   <div class="mb-4">
-    <h3 class="fw-bold m-0 text-dark"><i class="fas fa-cogs text-secondary me-2"></i>ຕັ້ງຄ່າຂໍ້ມູນພື້ນຖານ</h3>
-    <p class="text-muted mb-0 mt-1" style="font-size:11.5px;">ຈັດການຂໍ້ມູນ Master ແລະ ລາຍື່ຕ່າງໆ</p>
+    <h3 class="fw-bold m-0 text-dark"><i class="fas fa-cogs text-secondary me-2"></i>ຕັ້ງຄ່າລະບົບ</h3>
+    <p class="text-muted mb-0 mt-1" style="font-size:11.5px;">ຈັດການຕັ້ງຄ່າລະບົບ ແລະ ຂໍ້ມູນພື້ນຖານ</p>
   </div>
 
-  <!-- Settings Tabs -->
-  <ul class="nav nav-tabs mb-4" id="settingsTabs" role="tablist">
+  <!-- Main Category Tabs -->
+  <ul class="nav nav-pills mb-4" id="settingsMainTabs" role="tablist">
     <li class="nav-item" role="presentation">
-      <button class="nav-link active" id="master-tab" data-bs-toggle="tab" data-bs-target="#master" type="button"><i class="fas fa-database me-2"></i>ຂໍ້ມູນ Master</button>
+      <button class="nav-link active" id="system-tab" data-bs-toggle="tab" data-bs-target="#system" type="button"><i class="fas fa-server me-2"></i>🔧 ຕັ້ງຄ່າລະບົບ (Admin)</button>
     </li>
     <li class="nav-item" role="presentation">
-      <button class="nav-link" id="users-set-tab" data-bs-toggle="tab" data-bs-target="#users-set" type="button"><i class="fas fa-user-shield me-2"></i>ຜູ້ໃຊ້ລະບົບ</button>
-    </li>
-    <li class="nav-item" role="presentation">
-      <button class="nav-link" id="log-set-tab" data-bs-toggle="tab" data-bs-target="#log-set" type="button"><i class="fas fa-history me-2"></i>ບັນທຶກການກະທຳ</button>
+      <button class="nav-link" id="master-tab" data-bs-toggle="tab" data-bs-target="#master" type="button"><i class="fas fa-database me-2"></i>📋 ຂໍ້ມູນພື້ນຖານ</button>
     </li>
   </ul>
 
-  <div class="tab-content" id="settingsTabContent">
-    <!-- Master Data -->
-    <div class="tab-pane fade show active" id="master" role="tabpanel">
-      <div class="card card-outline card-success">
-        <div class="card-header bg-success text-white">
-          <h5 class="mb-0"><i class="fas fa-list-alt me-2"></i>ຈັດການຂໍ້ມູນ Master</h5>
-        </div>
-        <div class="card-body bg-light">
-          <div class="row">
-            <div class="col-md-4 mb-3">
-              <label class="form-label fw-bold">ເລືອກໝວດໝູ່:</label>
-              <select class="form-select form-select-lg border-success fw-bold shadow-sm" id="masterCategory" onchange="window.loadMasterList()">
-                <option value="">-- ເລືອກໝວດໝູ່ --</option>
-                <optgroup label="🏥 ຫ້ອງກວດ">
-                  <option value="Department">ຫ້ອງກວດ (Department)</option>
-                  <option value="Doctor">ລາຍຊື່ແພດ (Doctor)</option>
-                </optgroup>
-                <optgroup label="👥 ຄົນເຈັບ">
-                  <option value="Title">ຄຳນຳໜ້າ (Title)</option>
-                  <option value="Gender">ເພດ (Gender)</option>
-                  <option value="Nationality">ສັນຊາດ (Nationality)</option>
-                  <option value="Occupation">ອາຊີບ (Occupation)</option>
-                  <option value="BloodType">ໝວດເລືອດ (Blood Type)</option>
-                </optgroup>
-                <optgroup label="🏢 ອົງກອນ">
-                  <option value="InsCompany">ບໍລິສັດປະກັນໄພ</option>
-                  <option value="Channel">ຊ່ອງທາງຮູ້ຈັກ</option>
-                </optgroup>
-                <optgroup label="📍 ສະານທີ່">
-                  <option value="Site">ສະຖານທີ່ (Site)</option>
-                  <option value="PatientType_InSite">ປະເພດຄົນເຈັບ (In-site)</option>
-                  <option value="PatientType_Onsite">ປະເພດຄົນເຈັບ (On-site)</option>
-                </optgroup>
-                <optgroup label="💊 ຢາ">
-                  <option value="DrugUnit">ຫົວໜ່ວຍຢາ (Drug Unit)</option>
-                  <option value="DrugUsage">ວິທີກິນ/ໃຊ້ (Drug Usage)</option>
-                </optgroup>
-                <optgroup label="⏰ ອື່ນ">
-                  <option value="Shift">ກະເວນ (Shift)</option>
-                </optgroup>
-              </select>
+  <div class="tab-content" id="settingsMainTabContent">
+    <!-- System Settings (Admin Only) -->
+    <div class="tab-pane fade show active" id="system" role="tabpanel">
+      
+      <!-- Sub-tabs for System Settings -->
+      <ul class="nav nav-tabs mb-4" id="systemSubTabs" role="tablist">
+        <li class="nav-item" role="presentation">
+          <button class="nav-link active" id="hospital-tab" data-bs-toggle="tab" data-bs-target="#hospital" type="button"><i class="fas fa-hospital me-2"></i>ໂຮງໝໍ</button>
+        </li>
+        <li class="nav-item" role="presentation">
+          <button class="nav-link" id="users-tab" data-bs-toggle="tab" data-bs-target="#users" type="button"><i class="fas fa-users me-2"></i>ຜູ້ໃຊ້</button>
+        </li>
+        <li class="nav-item" role="presentation">
+          <button class="nav-link" id="permissions-tab" data-bs-toggle="tab" data-bs-target="#permissions" type="button"><i class="fas fa-user-shield me-2"></i>ສິດ</button>
+        </li>
+        <li class="nav-item" role="presentation">
+          <button class="nav-link" id="log-tab" data-bs-toggle="tab" data-bs-target="#log" type="button"><i class="fas fa-history me-2"></i>Log</button>
+        </li>
+      </ul>
+
+      <div class="tab-content" id="systemSubTabContent">
+        <!-- Hospital Settings -->
+        <div class="tab-pane fade show active" id="hospital" role="tabpanel">
+          <div class="card card-outline card-primary mb-4">
+            <div class="card-header bg-primary text-white">
+              <h5 class="mb-0"><i class="fas fa-hospital me-2"></i>ຕັ້ງຄ່າໂຮງໝໍ/ຄລີນິກ</h5>
             </div>
-            <div class="col-md-8 mb-3">
-              <label class="form-label fw-bold">ເພີ່ມຂໍ້ມູນໃໝ່:</label>
-              <div class="input-group input-group-lg shadow-sm">
-                <input type="text" id="newMasterVal" class="form-control" placeholder="ພິມຂໍ້ມູນໃ່ທີ່ຕ້ອງການເພີ່ມ...">
-                <button class="btn btn-success fw-bold px-4" onclick="window.addMaster()"><i class="fas fa-plus me-1"></i> ເພີ່ມ</button>
-                <button class="btn btn-outline-secondary fw-bold px-3" onclick="window.resetMasterDefaults()" title="ດຶງຂໍ້ມູນມາດຕະຖານຄນໃໝ່"><i class="fas fa-sync-alt me-1"></i> Reset</button>
+            <div class="card-body">
+              <form id="settingsForm" onsubmit="window.submitSettingsForm(event)">
+                <div class="row align-items-end mb-3">
+                  <div class="col-md-6 mb-3 mb-md-0"><label class="form-label text-muted fw-bold">ຊື່ໂຮງໝໍ/ຄລີນິກ</label><input type="text" class="form-control" id="setHospitalName" required></div>
+                  <div class="col-md-6 mb-3 mb-md-0"><label class="form-label text-muted fw-bold">Logo URL (ລິ້ງຮູບໂລໂກ້)</label><input type="url" class="form-control" id="setLogoUrl" placeholder="https://..."></div>
+                </div>
+                <div class="row align-items-end mb-3">
+                  <div class="col-md-6 mb-3 mb-md-0"><label class="form-label text-muted fw-bold">ລິ້ງຮູບຫົວເຈ້ຍ OPD (Header A4)</label><input type="url" class="form-control" id="setOpdHeaderUrl" placeholder="https://..."></div>
+                  <div class="col-md-6 mb-3 mb-md-0"><label class="form-label text-muted fw-bold">ລິ້ງຮູບທ້າຍເຈ້ຍ OPD (Footer A4)</label><input type="url" class="form-control" id="setOpdFooterUrl" placeholder="https://..."></div>
+                </div>
+                <button type="submit" class="btn btn-primary shadow-sm px-5"><i class="fas fa-save me-1"></i> ບັນທຶກຕັ້ງຄ່າ</button>
+              </form>
+            </div>
+          </div>
+        </div>
+
+        <!-- Users Management -->
+        <div class="tab-pane fade" id="users" role="tabpanel">
+          <div class="card card-outline card-warning">
+            <div class="card-header bg-warning text-dark">
+              <h5 class="mb-0"><i class="fas fa-users me-2"></i>ຈັດການຜູ້ໃຊ້ລະບົບ</h5>
+            </div>
+            <div class="card-body">
+              <div class="d-flex justify-content-between mb-3">
+                <button class="btn btn-warning text-dark" onclick="window.openAddUserModal()"><i class="fas fa-user-plus me-1"></i> ເພີ່ມຜູ້ໃຊ້</button>
+                <button class="btn btn-outline-danger" onclick="window.bulkDelete('users')"><i class="fas fa-trash me-1"></i> ລຶບທີ່ເລືອກ</button>
+              </div>
+              <div class="table-responsive">
+                <table id="userTable" class="table table-hover">
+                  <thead>
+                    <tr>
+                      <th><input type="checkbox" onchange="window.toggleAllCheckboxes(this, 'users')"></th>
+                      <th>ຊື່</th>
+                      <th>ອີເມວ</th>
+                      <th>Role</th>
+                      <th>ສະຖານະ</th>
+                      <th class="text-center">ຈັດການ</th>
+                    </tr>
+                  </thead>
+                  <tbody></tbody>
+                </table>
               </div>
             </div>
           </div>
-          <ul class="list-group mt-2 shadow-sm" id="masterListUl"></ul>
         </div>
-      </div>
 
-      <!-- Services -->
-      <div class="card card-outline card-info mt-4">
-        <div class="card-header bg-info text-white">
-          <h5 class="mb-0"><i class="fas fa-concierge-bell me-2"></i>ຈັດການບໍລິການ</h5>
-        </div>
-        <div class="card-body">
-          <div class="d-flex justify-content-between mb-3">
-            <button class="btn btn-info text-white" onclick="window.openAddServiceModal()"><i class="fas fa-plus me-1"></i> ເພີ່ມບໍລິການ</button>
-            <button class="btn btn-outline-danger" onclick="window.bulkDelete('services')"><i class="fas fa-trash me-1"></i> ລຶບທີ່ເລືອກ</button>
+        <!-- Permissions -->
+        <div class="tab-pane fade" id="permissions" role="tabpanel">
+          <div class="alert alert-info">
+            <i class="fas fa-info-circle me-2"></i>
+            <strong>ຄຳແນະນຳ:</strong> ການກຳນົດສິດສາມາດເຮັດໄດ້ຈາກໜ້າຈັດການຜູ້ໃຊ້ (ແຖບຜູ້ໃຊ້)
           </div>
-          <div class="table-responsive">
-            <table id="serviceTable" class="table table-hover">
-              <thead>
-                <tr>
-                  <th><input type="checkbox" onchange="window.toggleAllCheckboxes(this, 'services')"></th>
-                  <th>ຊື່ບໍລິການ</th>
-                  <th>ແພດສະເພາະທາງ</th>
-                  <th>ໝວດລາຍຮັບ</th>
-                  <th class="text-center">ຈັດການ</th>
-                </tr>
-              </thead>
-              <tbody></tbody>
-            </table>
+          <div class="text-center py-5">
+            <i class="fas fa-user-shield fa-4x text-muted mb-3"></i>
+            <p class="text-muted">ກະລຸນາເຂົ້າໄປຈັດການສິດໃນໜ້າຈັດການຜູ້ໃຊ້</p>
+            <button class="btn btn-warning text-dark" onclick="$('#system-sub-tab-1').tab('show')"><i class="fas fa-arrow-left me-2"></i>ໄປໜ້າຈັດການຜູ້ໃຊ້</button>
           </div>
         </div>
-      </div>
 
-      <!-- Locations -->
-      <div class="card card-outline card-warning mt-4">
-        <div class="card-header bg-warning text-dark">
-          <h5 class="mb-0"><i class="fas fa-map-marker-alt me-2"></i>ຈັດການທີ່ຢູ່ (ເມືອງ-ແຂວງ)</h5>
-        </div>
-        <div class="card-body">
-          <div class="d-flex justify-content-between mb-3">
-            <button class="btn btn-warning text-dark" onclick="window.openAddLocationModal()"><i class="fas fa-plus me-1"></i> ເພີ່ມທີ່ຢູ່</button>
-            <button class="btn btn-outline-danger" onclick="window.bulkDelete('locations')"><i class="fas fa-trash me-1"></i> ລຶບທີ່ເລືອກ</button>
-          </div>
-          <div class="table-responsive">
-            <table id="locationTable" class="table table-hover">
-              <thead>
-                <tr>
-                  <th><input type="checkbox" onchange="window.toggleAllCheckboxes(this, 'locations')"></th>
-                  <th>ເມືອງ</th>
-                  <th>ແຂວງ</th>
-                  <th class="text-center">ຈັດການ</th>
-                </tr>
-              </thead>
-              <tbody></tbody>
-            </table>
-          </div>
-        </div>
-      </div>
-
-      <!-- Organizations -->
-      <div class="card card-outline card-secondary mt-4">
-        <div class="card-header bg-secondary text-white">
-          <h5 class="mb-0"><i class="fas fa-building me-2"></i>ຈັດການອົງກອນ/ປະກັນໄພ</h5>
-        </div>
-        <div class="card-body">
-          <div class="d-flex justify-content-between mb-3">
-            <button class="btn btn-secondary text-white" onclick="window.openOrgModal()"><i class="fas fa-plus me-1"></i> ເພີ່ມອົງກອນ</button>
-            <button class="btn btn-outline-danger" onclick="window.bulkDelete('orgs')"><i class="fas fa-trash me-1"></i> ລຶບທີ່ເລືອກ</button>
-          </div>
-          <div class="table-responsive">
-            <table id="orgTable" class="table table-hover">
-              <thead>
-                <tr>
-                  <th><input type="checkbox" onchange="window.toggleAllCheckboxes(this, 'orgs')"></th>
-                  <th>Org Code</th>
-                  <th>ຊື່ອົງກອນ</th>
-                  <th>ສ່ວນຫຼຸດ</th>
-                  <th>ສະຖານະ</th>
-                  <th class="text-center">ຈັດການ</th>
-                </tr>
-              </thead>
-              <tbody></tbody>
-            </table>
+        <!-- Activity Log -->
+        <div class="tab-pane fade" id="log" role="tabpanel">
+          <div class="card card-outline card-info">
+            <div class="card-header bg-info text-white">
+              <h5 class="mb-0"><i class="fas fa-history me-2"></i>ບັນທຶກການກະທຳ (Activity Log)</h5>
+            </div>
+            <div class="card-body">
+              <div class="row g-3 mb-3">
+                <div class="col-md-3">
+                  <label class="form-label fw-bold">ວັນທີເລີ່ມ</label>
+                  <input type="date" class="form-control" id="logStartDate">
+                </div>
+                <div class="col-md-3">
+                  <label class="form-label fw-bold">ວັນທີສິ້ນສຸດ</label>
+                  <input type="date" class="form-control" id="logEndDate">
+                </div>
+                <div class="col-md-3">
+                  <label class="form-label fw-bold">Module</label>
+                  <select class="form-select" id="logModuleFilter">
+                    <option value="">ທັງໝົດ</option>
+                    <option value="Auth">Auth</option>
+                    <option value="Patients">Patients</option>
+                    <option value="Triage">Triage</option>
+                    <option value="OPD">OPD</option>
+                    <option value="IPD">IPD</option>
+                    <option value="Users">Users</option>
+                    <option value="Settings">Settings</option>
+                  </select>
+                </div>
+                <div class="col-md-3 d-flex align-items-end">
+                  <button class="btn btn-info text-white w-100" onclick="window.loadActivityLog()"><i class="fas fa-search me-1"></i>ຄົ້ນຫາ</button>
+                </div>
+              </div>
+              <div class="table-responsive">
+                <table id="activityLogTable" class="table table-hover">
+                  <thead>
+                    <tr>
+                      <th>ວັນທີ/ເວລາ</th>
+                      <th>ຜູ້ໃຊ້</th>
+                      <th>ການກະທຳ</th>
+                      <th>ລາຍລະອຽດ</th>
+                      <th>Module</th>
+                    </tr>
+                  </thead>
+                  <tbody id="activityLogTableBody"></tbody>
+                </table>
+              </div>
+              <button class="btn btn-success mt-3" onclick="window.exportActivityLogCSV()"><i class="fas fa-file-csv me-2"></i>Export CSV</button>
+            </div>
           </div>
         </div>
       </div>
     </div>
 
-    <!-- Users -->
-    <div class="tab-pane fade" id="users-set" role="tabpanel">
-      <div class="card card-outline card-warning">
-        <div class="card-header bg-warning text-dark">
-          <h5 class="mb-0"><i class="fas fa-user-shield me-2"></i>ຈັດການຜູ້ໃ້ລະບົບ</h5>
-        </div>
-        <div class="card-body">
-          <div class="d-flex justify-content-between mb-3">
-            <button class="btn btn-warning text-dark" onclick="window.openAddUserModal()"><i class="fas fa-user-plus me-1"></i> ເພີ່ມຜູ້ໃຊ້</button>
-            <button class="btn btn-outline-danger" onclick="window.bulkDelete('users')"><i class="fas fa-trash me-1"></i> ລຶບທີ່ເລືອກ</button>
-          </div>
-          <div class="table-responsive">
-            <table id="userTable" class="table table-hover">
-              <thead>
-                <tr>
-                  <th><input type="checkbox" onchange="window.toggleAllCheckboxes(this, 'users')"></th>
-                  <th>ຊື່</th>
-                  <th>ອີເມວ</th>
-                  <th>Role</th>
-                  <th>ສະຖານະ</th>
-                  <th class="text-center">ຈັດການ</th>
-                </tr>
-              </thead>
-              <tbody></tbody>
-            </table>
-          </div>
-        </div>
-      </div>
-    </div>
+    <!-- Master Data (General) -->
+    <div class="tab-pane fade" id="master" role="tabpanel">
+      
+      <!-- Sub-tabs for Master Data -->
+      <ul class="nav nav-tabs mb-4" id="masterSubTabs" role="tablist">
+        <li class="nav-item" role="presentation">
+          <button class="nav-link active" id="masterlist-tab" data-bs-toggle="tab" data-bs-target="#masterlist" type="button"><i class="fas fa-list me-2"></i>Master List</button>
+        </li>
+        <li class="nav-item" role="presentation">
+          <button class="nav-link" id="service-sub-tab" data-bs-toggle="tab" data-bs-target="#service-sub" type="button"><i class="fas fa-concierge-bell me-2"></i>ບໍລິການ</button>
+        </li>
+        <li class="nav-item" role="presentation">
+          <button class="nav-link" id="location-sub-tab" data-bs-toggle="tab" data-bs-target="#location-sub" type="button"><i class="fas fa-map-marker-alt me-2"></i>ທີ່ຢູ່</button>
+        </li>
+        <li class="nav-item" role="presentation">
+          <button class="nav-link" id="org-sub-tab" data-bs-toggle="tab" data-bs-target="#org-sub" type="button"><i class="fas fa-building me-2"></i>ອົງກອນ</button>
+        </li>
+      </ul>
 
-    <!-- Activity Log -->
-    <div class="tab-pane fade" id="log-set" role="tabpanel">
-      <div class="card card-outline card-info">
-        <div class="card-header bg-info text-white">
-          <h5 class="mb-0"><i class="fas fa-history me-2"></i>ບັນທຶກການກະທຳ (Activity Log)</h5>
+      <div class="tab-content" id="masterSubTabContent">
+        <!-- Master List -->
+        <div class="tab-pane fade show active" id="masterlist" role="tabpanel">
+          <div class="card card-outline card-success">
+            <div class="card-header bg-success text-white">
+              <h5 class="mb-0"><i class="fas fa-list-alt me-2"></i>ຈັດການຂໍ້ມູນ Master</h5>
+            </div>
+            <div class="card-body bg-light">
+              <div class="row">
+                <div class="col-md-4 mb-3">
+                  <label class="form-label fw-bold">ເລືອກໝວດໝູ່:</label>
+                  <select class="form-select form-select-lg border-success fw-bold shadow-sm" id="masterCategory" onchange="window.loadMasterList()">
+                    <option value="">-- ເລືອກໝວດໝູ່ --</option>
+                    <optgroup label="🏥 ຫ້ອງກວດ">
+                      <option value="Department">ຫ້ອງກວດ (Department)</option>
+                      <option value="Doctor">ລາຍຊື່ແພດ (Doctor)</option>
+                    </optgroup>
+                    <optgroup label="👥 ຄົນເຈັບ">
+                      <option value="Title">ຄຳນຳໜ້າ (Title)</option>
+                      <option value="Gender">ເພດ (Gender)</option>
+                      <option value="Nationality">ສັນຊາດ (Nationality)</option>
+                      <option value="Occupation">ອາຊີບ (Occupation)</option>
+                      <option value="BloodType">ໝວດເລືອດ (Blood Type)</option>
+                    </optgroup>
+                    <optgroup label="🏢 ອົງກອນ">
+                      <option value="InsCompany">ບໍລິສັດປະກັນໄພ</option>
+                      <option value="Channel">ຊ່ອງທາງຮູ້ຈັກ</option>
+                    </optgroup>
+                    <optgroup label="📍 ສະຖານທີ່">
+                      <option value="Site">ສະຖານທີ່ (Site)</option>
+                      <option value="PatientType_InSite">ປະເພດຄົນເຈັບ (In-site)</option>
+                      <option value="PatientType_Onsite">ປະເພດຄົນເຈັບ (On-site)</option>
+                    </optgroup>
+                    <optgroup label="💊 ຢາ">
+                      <option value="DrugUnit">ຫົວໜ່ວຍຢາ (Drug Unit)</option>
+                      <option value="DrugUsage">ວິທີກິນ/ໃຊ້ (Drug Usage)</option>
+                    </optgroup>
+                    <optgroup label="⏰ ອື່ນໆ">
+                      <option value="Shift">ກະເວນ (Shift)</option>
+                    </optgroup>
+                  </select>
+                </div>
+                <div class="col-md-8 mb-3">
+                  <label class="form-label fw-bold">ເພີ່ມຂໍ້ມູນໃໝ່:</label>
+                  <div class="input-group input-group-lg shadow-sm">
+                    <input type="text" id="newMasterVal" class="form-control" placeholder="ພິມຂໍ້ມູນໃໝ່ທີ່ຕ້ອງການເພີ່ມ...">
+                    <button class="btn btn-success fw-bold px-4" onclick="window.addMaster()"><i class="fas fa-plus me-1"></i> ເພີ່ມ</button>
+                    <button class="btn btn-outline-secondary fw-bold px-3" onclick="window.resetMasterDefaults()" title="ດຶງຂໍ້ມູນມາດຕະຖານຄືນໃໝ່"><i class="fas fa-sync-alt me-1"></i> Reset</button>
+                  </div>
+                </div>
+              </div>
+              <ul class="list-group mt-2 shadow-sm" id="masterListUl"></ul>
+            </div>
+          </div>
         </div>
-        <div class="card-body">
-          <div class="row g-3 mb-3">
-            <div class="col-md-3">
-              <label class="form-label fw-bold">ວັນທີເລີ່ມ</label>
-              <input type="date" class="form-control" id="logStartDate">
+
+        <!-- Services -->
+        <div class="tab-pane fade" id="service-sub" role="tabpanel">
+          <div class="card card-outline card-info">
+            <div class="card-header bg-info text-white">
+              <h5 class="mb-0"><i class="fas fa-concierge-bell me-2"></i>ຈັດການບໍລິການ</h5>
             </div>
-            <div class="col-md-3">
-              <label class="form-label fw-bold">ວັນທີສິ້ນສຸດ</label>
-              <input type="date" class="form-control" id="logEndDate">
-            </div>
-            <div class="col-md-3">
-              <label class="form-label fw-bold">Module</label>
-              <select class="form-select" id="logModuleFilter">
-                <option value="">ທັງໝົດ</option>
-                <option value="Auth">Auth</option>
-                <option value="Patients">Patients</option>
-                <option value="Triage">Triage</option>
-                <option value="OPD">OPD</option>
-                <option value="IPD">IPD</option>
-                <option value="Users">Users</option>
-                <option value="Settings">Settings</option>
-              </select>
-            </div>
-            <div class="col-md-3 d-flex align-items-end">
-              <button class="btn btn-info text-white w-100" onclick="window.loadActivityLog()"><i class="fas fa-search me-1"></i>ຄົ້ນຫາ</button>
+            <div class="card-body">
+              <div class="d-flex justify-content-between mb-3">
+                <button class="btn btn-info text-white" onclick="window.openAddServiceModal()"><i class="fas fa-plus me-1"></i> ເພີ່ມບໍລິການ</button>
+                <button class="btn btn-outline-danger" onclick="window.bulkDelete('services')"><i class="fas fa-trash me-1"></i> ລຶບທີ່ເລືອກ</button>
+              </div>
+              <div class="table-responsive">
+                <table id="serviceTable" class="table table-hover">
+                  <thead>
+                    <tr>
+                      <th><input type="checkbox" onchange="window.toggleAllCheckboxes(this, 'services')"></th>
+                      <th>ຊື່ບໍລິການ</th>
+                      <th>ແພດສະເພາະທາງ</th>
+                      <th>ໝວດລາຍຮັບ</th>
+                      <th class="text-center">ຈັດການ</th>
+                    </tr>
+                  </thead>
+                  <tbody></tbody>
+                </table>
+              </div>
             </div>
           </div>
-          <div class="table-responsive">
-            <table id="activityLogTable" class="table table-hover">
-              <thead>
-                <tr>
-                  <th>ວັນທີ/ເວລາ</th>
-                  <th>ຜູ້ໃຊ້</th>
-                  <th>ການກະທຳ</th>
-                  <th>ລາຍລະອຽດ</th>
-                  <th>Module</th>
-                </tr>
-              </thead>
-              <tbody id="activityLogTableBody"></tbody>
-            </table>
+        </div>
+
+        <!-- Locations -->
+        <div class="tab-pane fade" id="location-sub" role="tabpanel">
+          <div class="card card-outline card-warning">
+            <div class="card-header bg-warning text-dark">
+              <h5 class="mb-0"><i class="fas fa-map-marker-alt me-2"></i>ຈັດການທີ່ຢູ່ (ເມືອງ-ແຂວງ)</h5>
+            </div>
+            <div class="card-body">
+              <div class="d-flex justify-content-between mb-3">
+                <button class="btn btn-warning text-dark" onclick="window.openAddLocationModal()"><i class="fas fa-plus me-1"></i> ເພີ່ມທີ່ຢູ່</button>
+                <button class="btn btn-outline-danger" onclick="window.bulkDelete('locations')"><i class="fas fa-trash me-1"></i> ລຶບທີ່ເລືອກ</button>
+              </div>
+              <div class="table-responsive">
+                <table id="locationTable" class="table table-hover">
+                  <thead>
+                    <tr>
+                      <th><input type="checkbox" onchange="window.toggleAllCheckboxes(this, 'locations')"></th>
+                      <th>ເມືອງ</th>
+                      <th>ແຂວງ</th>
+                      <th class="text-center">ຈັດການ</th>
+                    </tr>
+                  </thead>
+                  <tbody></tbody>
+                </table>
+              </div>
+            </div>
           </div>
-          <button class="btn btn-success mt-3" onclick="window.exportActivityLogCSV()"><i class="fas fa-file-csv me-2"></i>Export CSV</button>
+        </div>
+
+        <!-- Organizations -->
+        <div class="tab-pane fade" id="org-sub" role="tabpanel">
+          <div class="card card-outline card-secondary">
+            <div class="card-header bg-secondary text-white">
+              <h5 class="mb-0"><i class="fas fa-building me-2"></i>ຈັດການອົງກອນ/ປະກັນໄພ</h5>
+            </div>
+            <div class="card-body">
+              <div class="d-flex justify-content-between mb-3">
+                <button class="btn btn-secondary text-white" onclick="window.openOrgModal()"><i class="fas fa-plus me-1"></i> ເພີ່ມອົງກອນ</button>
+                <button class="btn btn-outline-danger" onclick="window.bulkDelete('orgs')"><i class="fas fa-trash me-1"></i> ລຶບທີ່ເລືອກ</button>
+              </div>
+              <div class="table-responsive">
+                <table id="orgTable" class="table table-hover">
+                  <thead>
+                    <tr>
+                      <th><input type="checkbox" onchange="window.toggleAllCheckboxes(this, 'orgs')"></th>
+                      <th>Org Code</th>
+                      <th>ຊື່ອົງກອນ</th>
+                      <th>ສ່ວນຫຼຸດ</th>
+                      <th>ສະຖານະ</th>
+                      <th class="text-center">ຈັດການ</th>
+                    </tr>
+                  </thead>
+                  <tbody></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </div>
   </div>
+</div>
 </div>
