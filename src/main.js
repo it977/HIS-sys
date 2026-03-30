@@ -267,43 +267,55 @@ window.doLogin = async function () {
   window.toggleLoading(true);
 
   try {
-    // 1. Authenticate with Supabase Auth (Secure)
-    const { data: authData, error: authError } = await supabaseClient.auth.signInWithPassword({
-      email: email,
-      password: pass
-    });
-
-    if (authError || !authData.user) {
-      window.toggleLoading(false);
-      console.error("Auth Error:", authError);
-      Swal.fire('ແຈ້ງເຕືອນ', 'ອີເມວ ຫຼື ລະຫັດຜ່ານບໍ່ຖືກຕ້ອງ', 'error');
-      return;
-    }
-
-    // 2. Fetch User Profile from Custom Users Table for Roles/Permissions
+    // 1. Fetch User from Custom Users Table directly (without Supabase Auth)
     const { data, error } = await supabaseClient
       .from('Users')
       .select('*')
       .eq('Email', email)
-      .single();
+      .limit(1);  // ໃຊ້ limit(1) ແທນ .single() ເພື່ອຫຼີກລ່ຽງ error
 
     window.toggleLoading(false);
 
-    if (error || !data || data.Status !== 'active') {
-      await supabaseClient.auth.signOut();
+    // 2. Check if query has error or no data
+    if (error) {
+      console.error("Query Error:", error);
+      Swal.fire('ແຈ້ງເຕືອນ', 'ເກີດຂໍ້ຜິດພາດໃນລະບົບ: ' + error.message, 'error');
+      return;
+    }
+
+    if (!data || data.length === 0) {
+      console.error("Login Error: No user found with email", email);
+      Swal.fire('ແຈ້ງເຕືອນ', 'ອີເມວ ຫຼື ລະຫັດຜ່ານບໍ່ຖືກຕ້ອງ', 'error');
+      return;
+    }
+
+    // Get first user from array
+    const user = data[0];
+
+    // 3. Check password
+    if (user.Password !== pass) {
+      Swal.fire('ແຈ້ງເຕືອນ', 'ອີເມວ ຫຼື ລະຫັດຜ່ານບໍ່ຖືກຕ້ອງ', 'error');
+      return;
+    }
+
+    // 4. Check status
+    if (user.Status !== 'active') {
       Swal.fire('ແຈ້ງເຕືອນ', 'ບັນຊີຂອງທ່ານບໍ່ພົບໃນລະບົບ ຫຼື ຖືກປິດໃຊ້ງານ', 'error');
       return;
     }
 
-    // ຖ້າຖືກຕ້ອງ ໃຫ້ເກັບຂໍ້ມູນລົງ currentUser
+    // 5. Save user info to currentUser
     currentUser = {
-      id: data.ID,
-      name: data.Name,
-      role: data.Role,
-      permissions: data.Permissions
+      id: user.ID,
+      name: user.Name,
+      role: user.Role,
+      permissions: user.Permissions
     };
 
-    // ສະແດງຂໍ້ຄວາມສຳເລັດ
+    // 6. Update LastLogin
+    await supabaseClient.from('Users').update({ LastLogin: new Date().toISOString() }).eq('ID', user.ID);
+
+    // 7. Show success message
     Swal.fire({
       title: 'ສຳເລັດ!',
       text: `ຍິນດີຕ້ອນຮັບ, ${currentUser.name}`,
@@ -312,7 +324,7 @@ window.doLogin = async function () {
       showConfirmButton: false
     });
 
-    // ເຊື່ອງໜ້າ Login ແລະ ສະແດງໜ້າຫຼັກຊົ່ວຄາວ
+    // 8. Show app content
     $('#login-section').hide();
     $('#app-content').show();
     $('#sidebarUserName').text(currentUser.name);
