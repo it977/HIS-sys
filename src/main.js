@@ -5492,8 +5492,162 @@ window.submitIPDAdmission = async function (e) {
 };
 
 // Load IPD Wards Management
-window.loadIPDWards = function () {
-  Swal.fire('ກຳລັງພັດທະນາ', 'ໜ້າຈັດການຫ້ອງ/ຕຽງ ກຳລັງພັດທະນາ', 'info');
+window.loadIPDWards = async function () {
+  // Load wards, rooms, and beds
+  const { data: wards } = await supabaseClient.from('Wards').select('*').order('Ward_Name');
+  const { data: rooms } = await supabaseClient.from('Rooms').select('*').order('Room_Number');
+  const { data: beds } = await supabaseClient.from('Beds').select('*').order('Bed_Number');
+  
+  let html = '<div class="row g-4">';
+  
+  // Group by Ward
+  if (wards && wards.length > 0) {
+    wards.forEach(ward => {
+      const wardRooms = rooms?.filter(r => r.Ward_ID === ward.Ward_ID) || [];
+      
+      html += `
+        <div class="col-12">
+          <div class="card border-primary">
+            <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+              <h5 class="mb-0"><i class="fas fa-building me-2"></i>${ward.Ward_Name} (${ward.Ward_Type || 'N/A'})</h5>
+              <button class="btn btn-sm btn-light text-primary" onclick="window.openRoomModal('${ward.Ward_ID}')"><i class="fas fa-plus me-1"></i>ເພີ່ມຫ້ອງ</button>
+            </div>
+            <div class="card-body">
+              <div class="row g-3">
+      `;
+      
+      if (wardRooms.length === 0) {
+        html += '<div class="col-12 text-center text-muted">ຍັງບໍ່ມີຫ້ອງໃນໂຊນນີ້</div>';
+      } else {
+        wardRooms.forEach(room => {
+          const roomBeds = beds?.filter(b => b.Room_ID === room.Room_ID) || [];
+          const occupiedBeds = roomBeds.filter(b => b.Status === 'Occupied').length;
+          const availableBeds = roomBeds.filter(b => b.Status === 'Available').length;
+          
+          html += `
+            <div class="col-md-4">
+              <div class="card border-info h-100">
+                <div class="card-header bg-light d-flex justify-content-between align-items-center">
+                  <strong><i class="fas fa-door-open me-2"></i>${room.Room_Number}</strong>
+                  <span class="badge bg-info">${room.Room_Type || 'N/A'}</span>
+                </div>
+                <div class="card-body">
+                  <div class="d-flex justify-content-between mb-2">
+                    <span class="text-success"><i class="fas fa-check-circle me-1"></i>ວ່າງ: ${availableBeds}</span>
+                    <span class="text-danger"><i class="fas fa-times-circle me-1"></i>ມີຄົນ: ${occupiedBeds}</span>
+                  </div>
+                  <div class="d-flex gap-2 flex-wrap">
+          `;
+          
+          roomBeds.forEach(bed => {
+            const bedColor = bed.Status === 'Available' ? 'success' : 'danger';
+            const bedIcon = bed.Status === 'Available' ? 'fa-check' : 'fa-user';
+            
+            html += `
+              <button class="btn btn-sm btn-outline-${bedColor}" title="${bed.Bed_Number} - ${bed.Status}">
+                <i class="fas ${bedIcon} me-1"></i>${bed.Bed_Number}
+              </button>
+            `;
+          });
+          
+          html += `
+                  </div>
+                  <button class="btn btn-sm btn-primary mt-2 w-100" onclick="window.openBedModal('${room.Room_ID}')"><i class="fas fa-plus me-1"></i>ເພີ່ມຕຽງ</button>
+                </div>
+              </div>
+            </div>
+          `;
+        });
+      }
+      
+      html += `
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+    });
+  } else {
+    html += '<div class="col-12 text-center text-muted py-5">ຍັງບໍ່ມີຫ້ອງ/ຕຽງ</div>';
+  }
+  
+  html += '</div>';
+  
+  Swal.fire({
+    title: '<i class="fas fa-building me-2"></i>ຈັດການຫ້ອງ/ຕຽງ',
+    html: html,
+    width: '90%',
+    showConfirmButton: false,
+    showCloseButton: true
+  });
+};
+
+// Open Room Modal
+window.openRoomModal = function (wardId) {
+  $('#roomWardId').val(wardId);
+  $('#roomForm')[0].reset();
+  $('#roomModal').modal('show');
+};
+
+// Submit Room
+window.submitRoom = async function (e) {
+  if (e) e.preventDefault();
+  
+  const roomId = 'ROOM' + Date.now();
+  const roomData = {
+    Room_ID: roomId,
+    Ward_ID: $('#roomWardId').val(),
+    Room_Number: $('#roomNumber').val(),
+    Room_Type: $('#roomType').val(),
+    Capacity: parseInt($('#roomCapacity').val()) || 1,
+    Status: 'active'
+  };
+  
+  Swal.fire({ title: 'ກຳລັງບັນທຶກ...', didOpen: () => Swal.showLoading() });
+  
+  const { error } = await supabaseClient.from('Rooms').insert(roomData);
+  
+  if (error) {
+    Swal.fire('ຜິດພາດ!', error.message, 'error');
+    return;
+  }
+  
+  Swal.fire('ສຳເລັດ!', 'ເພີ່ມຫ້ອງແລ້ວ', 'success');
+  $('#roomModal').modal('hide');
+  window.loadIPDWards();
+};
+
+// Open Bed Modal
+window.openBedModal = function (roomId) {
+  $('#bedRoomId').val(roomId);
+  $('#bedForm')[0].reset();
+  $('#bedModal').modal('show');
+};
+
+// Submit Bed
+window.submitBed = async function (e) {
+  if (e) e.preventDefault();
+  
+  const bedId = 'BED' + Date.now();
+  const bedData = {
+    Bed_ID: bedId,
+    Room_ID: $('#bedRoomId').val(),
+    Bed_Number: $('#bedNumber').val(),
+    Status: 'Available'
+  };
+  
+  Swal.fire({ title: 'ກຳລັງບັນທຶກ...', didOpen: () => Swal.showLoading() });
+  
+  const { error } = await supabaseClient.from('Beds').insert(bedData);
+  
+  if (error) {
+    Swal.fire('ຜິດພາດ!', error.message, 'error');
+    return;
+  }
+  
+  Swal.fire('ສຳເລັດ!', 'ເພີ່ມຕຽງແລ້ວ', 'success');
+  $('#bedModal').modal('hide');
+  window.loadIPDWards();
 };
 
 // Open IPD Detail Modal
