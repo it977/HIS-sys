@@ -563,7 +563,10 @@ window.loadView = function (v) {
   if (v === 'drugs') window.loadDrugsMaster();
   if (v === 'labs') window.loadLabsMaster();
   if (v === 'activity_log') window.loadActivityLog();
-
+  if (v === 'patient-settings') {
+    // Load patient settings page - don't load regular settings
+    window.loadPatientSettings();
+  }
   if (v === 'settings') {
     supabaseClient.from('Settings').select('Key,Value').then(({ data }) => {
       let s = { hospitalName: 'HIS HOSPITAL', logoUrl: '', opdHeaderUrl: '', opdFooterUrl: '' };
