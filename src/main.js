@@ -3376,6 +3376,7 @@ window.loadUsers = async function () {
                         <td><span class="badge ${x.Role === 'admin' ? 'bg-primary' : 'bg-secondary'} rounded-pill px-3 text-uppercase">${x.Role}</span></td>
                         <td>${sb}</td>
                         <td class="text-center">
+                            <button class="btn btn-sm btn-info text-white shadow-sm me-1" onclick="window.openButtonPermModal('${x.ID}','${x.Name}')" title="ກຳນົດສິດປຸ່ມ"><i class="fas fa-fingerprint"></i></button>
                             <button class="btn btn-sm btn-primary shadow-sm me-1" onclick="window.openEditUserModal('${x.ID}','${x.Name}','${x.Email}','${x.Role}','${x.Permissions || ''}')"><i class="fas fa-edit"></i></button>
                             <button class="btn btn-sm btn-danger shadow-sm rounded" onclick="window.deleteUserRow('${x.ID}')"><i class="fas fa-trash"></i></button>
                         </td>
@@ -3465,6 +3466,215 @@ window.selectAllPermissions = function () {
 
 window.deselectAllPermissions = function () {
   $('.permission-check').prop('checked', false);
+};
+
+// ==========================================
+// BUTTON PERMISSIONS MANAGEMENT
+// ==========================================
+
+window.openButtonPermModal = async function (userId, userName) {
+  $('#permUserId').val(userId);
+  $('#permUserName').text(userName);
+  
+  // Reset all checkboxes
+  $('.btn-perm-check').prop('checked', false);
+  
+  try {
+    // Fetch user's button permissions
+    const { data, error } = await supabaseClient
+      .from('Users')
+      .select('ButtonPermissions')
+      .eq('ID', userId)
+      .single();
+    
+    if (error) {
+      console.error('Error fetching permissions:', error);
+      Swal.fire('Error', 'ບໍ່ສາມາດໂຫຼດສິດໄດ້: ' + error.message, 'error');
+      return;
+    }
+    
+    // Set checkboxes based on permissions
+    if (data && data.ButtonPermissions) {
+      const perms = data.ButtonPermissions;
+      
+      // Iterate through all modules and their buttons
+      Object.keys(perms).forEach(module => {
+        const buttons = perms[module];
+        Object.keys(buttons).forEach(button => {
+          if (buttons[button] === true) {
+            $(`.btn-perm-check[value="${module}.${button}"]`).prop('checked', true);
+          }
+        });
+      });
+    }
+    
+    $('#buttonPermModal').modal('show');
+    
+  } catch (err) {
+    console.error('Error:', err);
+    Swal.fire('Error', 'ເກີດຂໍ້ຜິດພາດ: ' + err.message, 'error');
+  }
+};
+
+window.selectAllButtonPermissions = function () {
+  $('.btn-perm-check').prop('checked', true);
+};
+
+window.deselectAllButtonPermissions = function () {
+  $('.btn-perm-check').prop('checked', false);
+};
+
+window.resetToRoleDefaults = function () {
+  const role = $('#u_role').val() || 'staff';
+  
+  const roleDefaults = {
+    'admin': {
+      patients: { view: true, add: true, edit: true, delete: true, triage: true, print_qr: true },
+      triage: { view: true, edit: true, delete: true, call: true },
+      opd: { view: true, edit: true, delete: true, print: true },
+      labs: { view: true, add: true, edit: true, delete: true },
+      drugs: { view: true, add: true, edit: true, delete: true },
+      appointments: { view: true, add: true, edit: true, delete: true }
+    },
+    'doctor': {
+      patients: { view: true, add: true, edit: true, delete: false, triage: true, print_qr: true },
+      triage: { view: true, edit: true, delete: false, call: true },
+      opd: { view: true, edit: true, delete: false, print: true },
+      labs: { view: true, add: true, edit: true, delete: false },
+      drugs: { view: true, add: true, edit: true, delete: false },
+      appointments: { view: true, add: true, edit: true, delete: false }
+    },
+    'nurse': {
+      patients: { view: true, add: false, edit: false, delete: false, triage: true, print_qr: false },
+      triage: { view: true, edit: true, delete: false, call: true },
+      opd: { view: false, edit: false, delete: false, print: false },
+      labs: { view: false, add: false, edit: false, delete: false },
+      drugs: { view: false, add: false, edit: false, delete: false },
+      appointments: { view: true, add: true, edit: false, delete: false }
+    },
+    'lab': {
+      patients: { view: true, add: false, edit: false, delete: false, triage: false, print_qr: false },
+      triage: { view: false, edit: false, delete: false, call: false },
+      opd: { view: false, edit: false, delete: false, print: false },
+      labs: { view: true, add: true, edit: true, delete: false },
+      drugs: { view: false, add: false, edit: false, delete: false },
+      appointments: { view: false, add: false, edit: false, delete: false }
+    },
+    'pharmacy': {
+      patients: { view: true, add: false, edit: false, delete: false, triage: false, print_qr: false },
+      triage: { view: false, edit: false, delete: false, call: false },
+      opd: { view: false, edit: false, delete: false, print: false },
+      labs: { view: false, add: false, edit: false, delete: false },
+      drugs: { view: true, add: true, edit: true, delete: false },
+      appointments: { view: false, add: false, edit: false, delete: false }
+    },
+    'reception': {
+      patients: { view: true, add: true, edit: false, delete: false, triage: false, print_qr: true },
+      triage: { view: false, edit: false, delete: false, call: false },
+      opd: { view: false, edit: false, delete: false, print: false },
+      labs: { view: false, add: false, edit: false, delete: false },
+      drugs: { view: false, add: false, edit: false, delete: false },
+      appointments: { view: true, add: true, edit: false, delete: false }
+    },
+    'cashier': {
+      patients: { view: true, add: false, edit: false, delete: false, triage: false, print_qr: false },
+      triage: { view: false, edit: false, delete: false, call: false },
+      opd: { view: false, edit: false, delete: false, print: false },
+      labs: { view: false, add: false, edit: false, delete: false },
+      drugs: { view: false, add: false, edit: false, delete: false },
+      appointments: { view: true, add: false, edit: false, delete: false }
+    },
+    'staff': {
+      patients: { view: true, add: false, edit: false, delete: false, triage: false, print_qr: false },
+      triage: { view: false, edit: false, delete: false, call: false },
+      opd: { view: false, edit: false, delete: false, print: false },
+      labs: { view: false, add: false, edit: false, delete: false },
+      drugs: { view: false, add: false, edit: false, delete: false },
+      appointments: { view: true, add: false, edit: false, delete: false }
+    }
+  };
+  
+  const defaults = roleDefaults[role] || {};
+  
+  // Reset all checkboxes
+  $('.btn-perm-check').prop('checked', false);
+  
+  // Set default permissions
+  Object.keys(defaults).forEach(module => {
+    const buttons = defaults[module];
+    Object.keys(buttons).forEach(button => {
+      if (buttons[button] === true) {
+        $(`.btn-perm-check[value="${module}.${button}"]`).prop('checked', true);
+      }
+    });
+  });
+};
+
+window.saveButtonPermissions = async function () {
+  const userId = $('#permUserId').val();
+  const userName = $('#permUserName').text();
+  
+  // Build permissions object
+  const permissions = {
+    patients: {
+      view: $('#perm_patients_view').is(':checked'),
+      add: $('#perm_patients_add').is(':checked'),
+      edit: $('#perm_patients_edit').is(':checked'),
+      delete: $('#perm_patients_delete').is(':checked'),
+      triage: $('#perm_patients_triage').is(':checked'),
+      print_qr: $('#perm_patients_print_qr').is(':checked')
+    },
+    triage: {
+      view: $('#perm_triage_view').is(':checked'),
+      edit: $('#perm_triage_edit').is(':checked'),
+      delete: $('#perm_triage_delete').is(':checked'),
+      call: $('#perm_triage_call').is(':checked')
+    },
+    opd: {
+      view: $('#perm_opd_view').is(':checked'),
+      edit: $('#perm_opd_edit').is(':checked'),
+      delete: $('#perm_opd_delete').is(':checked'),
+      print: $('#perm_opd_print').is(':checked')
+    },
+    labs: {
+      view: $('#perm_labs_view').is(':checked'),
+      add: $('#perm_labs_add').is(':checked'),
+      edit: $('#perm_labs_edit').is(':checked'),
+      delete: $('#perm_labs_delete').is(':checked')
+    },
+    drugs: {
+      view: $('#perm_drugs_view').is(':checked'),
+      add: $('#perm_drugs_add').is(':checked'),
+      edit: $('#perm_drugs_edit').is(':checked'),
+      delete: $('#perm_drugs_delete').is(':checked')
+    },
+    appointments: {
+      view: $('#perm_appointments_view').is(':checked'),
+      add: $('#perm_appointments_add').is(':checked'),
+      edit: $('#perm_appointments_edit').is(':checked'),
+      delete: $('#perm_appointments_delete').is(':checked')
+    }
+  };
+  
+  try {
+    const { error } = await supabaseClient
+      .from('Users')
+      .update({ ButtonPermissions: permissions })
+      .eq('ID', userId);
+    
+    if (error) {
+      Swal.fire('Error', 'ບໍ່ສາມາດບັນທຶກສິດໄດ້: ' + error.message, 'error');
+      return;
+    }
+    
+    $('#buttonPermModal').modal('hide');
+    window.logAction('Edit', `ແກ້ໄຂສິດປຸ່ມ: ${userName}`, 'Users');
+    Swal.fire('ສຳເລັດ!', 'ບັນທຶກສິດປຸ່ມແລ້ວ', 'success');
+    
+  } catch (err) {
+    console.error('Error:', err);
+    Swal.fire('Error', 'ເກີດຂໍ້ຜິດພາດ: ' + err.message, 'error');
+  }
 };
 
 window.deleteUserRow = async function (id) {
