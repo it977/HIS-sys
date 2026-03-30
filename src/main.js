@@ -504,12 +504,11 @@ window.loadView = function (v) {
     }
   }
 
-  // Switch Views
-  let views = ['dashboard', 'report', 'patients', 'settings', 'orgs', 'triage', 'opd', 'ipd', 'patient-settings', 'users', 'services', 'locations', 'appointments', 'vaccines', 'vaccine_master', 'drugs', 'labs', 'activity_log', 'public-queue'];
-  views.forEach(n => {
-    if (n === v) $('#view-' + n).show();
-    else $('#view-' + n).hide();
-  });
+  // ຊ້ອນທຸກ view ກ່ອນ
+  $('#view-dashboard, #view-report, #view-patients, #view-settings, #view-orgs, #view-triage, #view-opd, #view-ipd, #view-patient-settings, #view-users, #view-services, #view-locations, #view-appointments, #view-vaccines, #view-vaccine_master, #view-drugs, #view-labs, #view-activity_log, #view-public-queue').hide();
+
+  // ສະແດງແຕ່ view ທີ່ເລືອກ
+  $('#view-' + v).show();
 
   // Special handling for TV Display (Hide Navbars)
   if (v === 'public-queue') {
