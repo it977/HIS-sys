@@ -309,7 +309,8 @@ window.doLogin = async function () {
       id: user.ID,
       name: user.Name,
       role: user.Role,
-      permissions: user.Permissions
+      permissions: user.Permissions,
+      buttonPermissions: user.ButtonPermissions || {}  // ໂຫຼດ Button Permissions
     };
 
     // 6. Update LastLogin
@@ -334,6 +335,11 @@ window.doLogin = async function () {
     window.logAction('Login', `ເຂົ້າສູ່ລະບົບ: ${currentUser.name} (${currentUser.role})`, 'Auth');
 
     window.initApp();
+    
+    // 9. Apply button permissions after app initializes
+    setTimeout(() => {
+      window.applyButtonPermissions();
+    }, 500);
 
   } catch (err) {
     window.toggleLoading(false);
@@ -1497,14 +1503,38 @@ window.initPatientTable = async function () {
       let fullname = `${r.First_Name || ''} ${r.Last_Name || ''}`.trim();
       let safeName = fullname.replace(/'/g, "\\'").replace(/"/g, "&quot;");
 
-      let acts = `<div class="d-flex gap-1 flex-nowrap justify-content-center">
-                          <button class="btn btn-sm btn-outline-info shadow-sm fw-bold btn-timeline" data-pid="${r.Patient_ID}" title="ປະຫວັດ"><i class="fas fa-history"></i></button>
-                          <button class="btn btn-sm btn-info text-white shadow-sm fw-bold" title="ເບິ່ງລາຍລະອຽດ" onclick="window.viewPatientDetail('${r.Patient_ID}')"><i class="fas fa-eye me-1"></i> View</button>
-                          <button class="btn btn-sm btn-warning text-dark shadow-sm fw-bold" onclick="window.sendToTriageFlow('${r.Patient_ID}', '${safeName}')"><i class="fas fa-share me-1"></i> Triage</button>
-                          <button class="btn btn-sm btn-primary shadow-sm" title="ແກ້ໄຂ" onclick="window.editPatient('${r.Patient_ID}')"><i class="fas fa-edit"></i></button>
-                          <button class="btn btn-sm btn-dark text-white shadow-sm" title="ພິມບັດ QR" onclick="window.printQRCard('${r.Patient_ID}')"><i class="fas fa-qrcode"></i></button>
-                          <button class="btn btn-sm btn-danger shadow-sm" title="ລຶບ" onclick="window.delPatient('${r.Patient_ID}')"><i class="fas fa-trash"></i></button>
-                        </div>`;
+      // Build action buttons based on permissions
+      let acts = `<div class="d-flex gap-1 flex-nowrap justify-content-center">`;
+      
+      // Timeline button (always show)
+      acts += `<button class="btn btn-sm btn-outline-info shadow-sm fw-bold btn-timeline" data-pid="${r.Patient_ID}" title="ປະຫວັດ"><i class="fas fa-history"></i></button>`;
+      
+      // View button
+      if (window.can('patients', 'view')) {
+        acts += `<button class="btn btn-sm btn-info text-white shadow-sm fw-bold" title="ເບິ່ງລາຍລະອຽດ" onclick="window.viewPatientDetail('${r.Patient_ID}')"><i class="fas fa-eye me-1"></i> View</button>`;
+      }
+      
+      // Triage button
+      if (window.can('patients', 'triage')) {
+        acts += `<button class="btn btn-sm btn-warning text-dark shadow-sm fw-bold" onclick="window.sendToTriageFlow('${r.Patient_ID}', '${safeName}')"><i class="fas fa-share me-1"></i> Triage</button>`;
+      }
+      
+      // Edit button
+      if (window.can('patients', 'edit')) {
+        acts += `<button class="btn btn-sm btn-primary shadow-sm" title="ແກ້ໄຂ" onclick="window.editPatient('${r.Patient_ID}')"><i class="fas fa-edit"></i></button>`;
+      }
+      
+      // Print QR button
+      if (window.can('patients', 'print_qr')) {
+        acts += `<button class="btn btn-sm btn-dark text-white shadow-sm" title="ພິມບັດ QR" onclick="window.printQRCard('${r.Patient_ID}')"><i class="fas fa-qrcode"></i></button>`;
+      }
+      
+      // Delete button
+      if (window.can('patients', 'delete')) {
+        acts += `<button class="btn btn-sm btn-danger shadow-sm" title="ລຶບ" onclick="window.delPatient('${r.Patient_ID}')"><i class="fas fa-trash"></i></button>`;
+      }
+      
+      acts += `</div>`;
 
       h += `<tr>
                     <td class="text-muted small">${r.Registration_Date || '-'}</td>
@@ -3466,6 +3496,67 @@ window.selectAllPermissions = function () {
 
 window.deselectAllPermissions = function () {
   $('.permission-check').prop('checked', false);
+};
+
+// ==========================================
+// BUTTON PERMISSIONS HELPER FUNCTIONS
+// ==========================================
+
+// Check if user has permission for a specific button
+window.can = function (module, action) {
+  if (!currentUser) return false;
+  if (currentUser.role === 'admin' || currentUser.permissions === 'all') return true;
+  
+  const buttonPerms = currentUser.buttonPermissions;
+  if (!buttonPerms || !buttonPerms[module]) return false;
+  
+  return buttonPerms[module][action] === true;
+};
+
+// Hide/show buttons based on permissions
+window.applyButtonPermissions = function () {
+  if (!currentUser || currentUser.role === 'admin' || currentUser.permissions === 'all') return;
+  
+  const buttonPerms = currentUser.buttonPermissions;
+  if (!buttonPerms) return;
+  
+  // Patients buttons
+  if (!window.can('patients', 'view')) $('.btn-patient-view, .btn-view-patient').hide();
+  if (!window.can('patients', 'add')) $('.btn-add-patient, #btnAddPatient').hide();
+  if (!window.can('patients', 'edit')) $('.btn-patient-edit, .btn-edit-patient').hide();
+  if (!window.can('patients', 'delete')) $('.btn-patient-delete, .btn-delete-patient').hide();
+  if (!window.can('patients', 'triage')) $('.btn-triage, .btn-send-triage').hide();
+  if (!window.can('patients', 'print_qr')) $('.btn-print-qr, .btn-qr-card').hide();
+  
+  // Triage buttons
+  if (!window.can('triage', 'view')) $('.btn-triage-view').hide();
+  if (!window.can('triage', 'edit')) $('.btn-triage-edit, .btn-vital-signs').hide();
+  if (!window.can('triage', 'delete')) $('.btn-triage-delete').hide();
+  if (!window.can('triage', 'call')) $('.btn-call-triage, .btn-volume-up').hide();
+  
+  // OPD buttons
+  if (!window.can('opd', 'view')) $('.btn-opd-view, .btn-view-emr').hide();
+  if (!window.can('opd', 'edit')) $('.btn-opd-edit, .btn-open-emr').hide();
+  if (!window.can('opd', 'delete')) $('.btn-opd-delete').hide();
+  if (!window.can('opd', 'print')) $('.btn-opd-print, .btn-print-opd').hide();
+  
+  // Labs buttons
+  if (!window.can('labs', 'view')) $('.btn-labs-view').hide();
+  if (!window.can('labs', 'add')) $('.btn-labs-add').hide();
+  if (!window.can('labs', 'edit')) $('.btn-labs-edit').hide();
+  if (!window.can('labs', 'delete')) $('.btn-labs-delete').hide();
+  
+  // Drugs buttons
+  if (!window.can('drugs', 'view')) $('.btn-drugs-view').hide();
+  if (!window.can('drugs', 'add')) $('.btn-drugs-add').hide();
+  if (!window.can('drugs', 'edit')) $('.btn-drugs-edit').hide();
+  if (!window.can('drugs', 'delete')) $('.btn-drugs-delete').hide();
+  
+  // Appointments buttons
+  if (!window.can('appointments', 'view')) $('.btn-appt-view').hide();
+  if (!window.can('appointments', 'add')) $('.btn-add-appt').hide();
+  if (!window.can('appointments', 'edit')) $('.btn-appt-edit').hide();
+  if (!window.can('appointments', 'delete')) $('.btn-appt-delete, .btn-delete-appt').hide();
 };
 
 // ==========================================
