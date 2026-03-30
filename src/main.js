@@ -227,6 +227,14 @@ $(document).ready(async function () {
     let id = $(this).attr('id');
     if (id && id.startsWith('nav-')) {
       e.preventDefault();
+      
+      // Handle settings sub-menus
+      if (id === 'nav-patients-settings') { window.loadView('patients'); return; }
+      if (id === 'nav-triage-settings') { window.loadView('triage'); return; }
+      if (id === 'nav-opd-settings') { window.loadView('opd'); return; }
+      if (id === 'nav-ipd-settings') { window.loadView('ipd'); return; }
+      if (id === 'nav-appointments-settings') { window.loadView('appointments'); return; }
+      
       let view = id.replace('nav-', '');
       window.loadView(view);
     }
