@@ -817,33 +817,71 @@ window.fetchDashboardData = async function () {
       }
     }
 
-    // 3. Mark "New" vs "Returning"
-    // Heuristic: If we don't have all-time visit history, we consider a visit 'isNew' 
-    // if the patient was created within our current dash range (simplified approach).
-    // Better: Fetch first visit date for these patients.
-    let firstVisitMap = {};
+    // 3. Mark "New" vs "Returning" - Same logic as Triage & Report
+    let hasPreviousVisitMap = {};
     if (pIds.length > 0) {
-      let avStart = 0;
-      while (true) {
-        const { data: avChunk, error: avError } = await supabaseClient.from('Visits')
+      // First: Count visits per patient in current batch
+      const patientVisitCount = {};
+      const patientVisits = {};
+      data.forEach(v => {
+        if (!patientVisits[v.Patient_ID]) patientVisits[v.Patient_ID] = [];
+        patientVisits[v.Patient_ID].push(v);
+        patientVisitCount[v.Patient_ID] = (patientVisitCount[v.Patient_ID] || 0) + 1;
+      });
+      
+      // For patients with multiple visits: sort by Date, 1st=NEW, 2nd+=RETURNING
+      Object.keys(patientVisits).forEach(pid => {
+        if (patientVisitCount[pid] > 1) {
+          const sortedVisits = patientVisits[pid].sort((a, b) => new Date(a.Date) - new Date(b.Date));
+          sortedVisits.slice(1).forEach((v, idx) => {
+            const visitKey = `${v.Patient_ID}|${v.Date}`;
+            hasPreviousVisitMap[visitKey] = true;
+          });
+        }
+      });
+      
+      // Second: Check database for any other visits
+      for (let i = 0; i < pIds.length; i += 100) {
+        const chunkIds = pIds.slice(i, i + 100);
+        const { data: allPatientVisits, error: avError } = await supabaseClient
+          .from('Visits')
           .select('Visit_ID, Patient_ID, Date')
-          .in('Patient_ID', pIds)
-          .order('Date', { ascending: true })
-          .range(avStart, avStart + 999);
-        if (avError || !avChunk || avChunk.length === 0) break;
-        avChunk.forEach(v => {
-          if (!firstVisitMap[v.Patient_ID]) firstVisitMap[v.Patient_ID] = v.Visit_ID;
+          .in('Patient_ID', chunkIds)
+          .order('Date', { ascending: true });
+        
+        if (avError || !allPatientVisits || allPatientVisits.length === 0) break;
+        
+        const currentVisitKeys = new Set(
+          data.map(v => `${v.Patient_ID}|${v.Date}`)
+        );
+        
+        const patientPrevVisits = {};
+        allPatientVisits.forEach(v => {
+          const visitKey = `${v.Patient_ID}|${v.Date}`;
+          if (!currentVisitKeys.has(visitKey)) {
+            patientPrevVisits[v.Patient_ID] = true;
+          }
         });
-        if (avChunk.length < 1000) break;
-        avStart += 1000;
+        
+        data.forEach(v => {
+          const visitKey = `${v.Patient_ID}|${v.Date}`;
+          if (patientPrevVisits[v.Patient_ID]) {
+            hasPreviousVisitMap[visitKey] = true;
+          }
+        });
+        
+        if (allPatientVisits.length < 1000) break;
       }
     }
 
-    const visitsWithDetails = data.map(v => ({
-      ...v,
-      Patients: pMap[v.Patient_ID] || {},
-      isNew: firstVisitMap[v.Patient_ID] === v.Visit_ID
-    }));
+    const visitsWithDetails = data.map(v => {
+      const visitKey = `${v.Patient_ID}|${v.Date}`;
+      return {
+        ...v,
+        Patients: pMap[v.Patient_ID] || {},
+        isNew: !hasPreviousVisitMap[visitKey] // Check visit-specific key
+      };
+    });
 
     window.renderDashboardCharts(visitsWithDetails);
 
@@ -1143,23 +1181,69 @@ window._fetchReportData = async function (sDate, eDate) {
       }
     }
 
-    // 3. Fetch all-time visits for these patients for isNew logic (Paginated)
-    let firstVisitMap = {};
+    // 3. Check if patient has previous visits (same logic as Triage)
+    let hasPreviousVisitMap = {};
     if (pIds.length > 0) {
-      let avStart = 0;
-      while (true) {
-        const { data: allVisits, error: avError } = await supabaseClient.from('Visits')
+      console.log('=== REPORT: CHECKING PREVIOUS VISITS ===');
+      
+      // First: Count visits per patient in current batch
+      const patientVisitCount = {};
+      const patientVisits = {};
+      visits.forEach(v => {
+        if (!patientVisits[v.Patient_ID]) patientVisits[v.Patient_ID] = [];
+        patientVisits[v.Patient_ID].push(v);
+        patientVisitCount[v.Patient_ID] = (patientVisitCount[v.Patient_ID] || 0) + 1;
+      });
+      
+      console.log('Patient visit counts in current batch:', patientVisitCount);
+      
+      // For patients with multiple visits: sort by Date, 1st=NEW, 2nd+=RETURNING
+      Object.keys(patientVisits).forEach(pid => {
+        if (patientVisitCount[pid] > 1) {
+          const sortedVisits = patientVisits[pid].sort((a, b) => new Date(a.Date) - new Date(b.Date));
+          sortedVisits.slice(1).forEach((v, idx) => {
+            const visitKey = `${v.Patient_ID}|${v.Date}`;
+            hasPreviousVisitMap[visitKey] = true;
+            console.log(`Report: Visit ${idx + 2} for ${pid} marked as returning`);
+          });
+        }
+      });
+      
+      // Second: Check database for any other visits
+      for (let i = 0; i < pIds.length; i += 100) {
+        const chunkIds = pIds.slice(i, i + 100);
+        const { data: allPatientVisits, error: pvError } = await supabaseClient
+          .from('Visits')
           .select('Visit_ID, Patient_ID, Date')
-          .in('Patient_ID', pIds)
-          .order('Date', { ascending: true })
-          .range(avStart, avStart + 999);
-        if (avError || !allVisits || allVisits.length === 0) break;
-        allVisits.forEach(v => {
-          if (!firstVisitMap[v.Patient_ID]) firstVisitMap[v.Patient_ID] = v.Visit_ID;
-        });
-        if (allVisits.length < 1000) break;
-        avStart += 1000;
+          .in('Patient_ID', chunkIds)
+          .order('Date', { ascending: true });
+        
+        if (pvError) {
+          console.error('Report Previous Visit Query Error:', pvError);
+        } else if (allPatientVisits) {
+          const currentVisitKeys = new Set(
+            visits.map(v => `${v.Patient_ID}|${v.Date}`)
+          );
+          
+          const patientPrevVisits = {};
+          allPatientVisits.forEach(v => {
+            const visitKey = `${v.Patient_ID}|${v.Date}`;
+            if (!currentVisitKeys.has(visitKey)) {
+              patientPrevVisits[v.Patient_ID] = true;
+            }
+          });
+          
+          visits.forEach(v => {
+            const visitKey = `${v.Patient_ID}|${v.Date}`;
+            if (patientPrevVisits[v.Patient_ID]) {
+              hasPreviousVisitMap[visitKey] = true;
+            }
+          });
+        }
       }
+      
+      console.log('Report - Visits marked as returning:', Object.keys(hasPreviousVisitMap));
+      console.log('=========================================');
     }
 
     // 4. Merge data
@@ -1169,11 +1253,12 @@ window._fetchReportData = async function (sDate, eDate) {
       let isValidDate = !isNaN(dObj.getTime());
       let dateStr = isValidDate ? dObj.toLocaleDateString('en-GB') : '-';
       let timeStr = isValidDate ? dObj.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) : '-';
-      
+
       // Handle null Patient ID
       let p = pMap[r.Patient_ID];
       let idStr = r.Patient_ID || '-';
-      
+      const visitKey = `${r.Patient_ID}|${r.Date}`;
+
       return {
         ...r, // Keep original record for "View" detail
         date: dateStr,
@@ -1183,7 +1268,7 @@ window._fetchReportData = async function (sDate, eDate) {
         gender: p?.Gender || '-',
         age: p?.Age || '-',
         type: r.Type || 'OPD',
-        status: (r.Patient_ID && firstVisitMap[r.Patient_ID] === r.Visit_ID) ? 'ໃໝ່' : 'ເກົ່າ',
+        status: hasPreviousVisitMap[visitKey] ? 'ເກົ່າ' : 'ໃໝ່', // Check visit-specific key
         category: r.Category || 'GN'
       };
     });
@@ -1851,12 +1936,33 @@ window.submitTriageForm = function (e) {
 
 window.executeTriageSave = async function (fd) {
   Swal.fire({ title: 'ກຳລັງບັນທຶກ...', didOpen: () => Swal.showLoading() });
-  const { error } = await supabaseClient.from('Visits').update({
+
+  console.log('=== TRIAGE SAVE DEBUG ===');
+  console.log('Visit ID:', fd.visitId);
+  console.log('Patient ID:', fd.patientId);
+  console.log('Department:', fd.v_department);
+  console.log('BP:', fd.v_bp);
+  console.log('Symptoms:', fd.v_symptoms);
+
+  // Use both Visit_ID and Patient_ID to ensure we update the correct record
+  let query = supabaseClient.from('Visits').update({
     Status: 'Waiting OPD', BP: fd.v_bp, Temp: fd.v_temp,
     Weight: fd.v_weight, Height: fd.v_height,
     Pulse: fd.v_pulse, SpO2: fd.v_spo2,
     Department: fd.v_department, Symptoms: fd.v_symptoms
   }).eq('Visit_ID', fd.visitId);
+
+  // If Patient_ID is provided, add it to the filter for extra safety
+  if (fd.patientId) {
+    query = query.eq('Patient_ID', fd.patientId);
+    console.log('Using Patient_ID filter for safety');
+  }
+
+  const { data, error } = await query.select();
+
+  console.log('Update result - Data:', data);
+  console.log('Update result - Error:', error);
+  console.log('========================');
 
   if (error) {
     Swal.fire('ຜິດພາດ!', error.message, 'error');
@@ -2003,14 +2109,88 @@ window._fetchTriageQueue = async function (sDate, eDate) {
       }
     }
 
-    // 3. Determine isNew
-    let firstVisitMap = {};
+    // 3. Determine isNew - First visit = NEW, 2nd+ visit = RETURNING
+    let hasPreviousVisitMap = {};
     if (pIds.length > 0) {
+      console.log('=== CHECKING PREVIOUS VISITS ===');
+      console.log('Patient IDs to check:', pIds);
+      console.log('Current visits being processed:', visits.map(v => ({ visitId: v.Visit_ID, patientId: v.Patient_ID, date: v.Date })));
+      
+      // First: Count visits per patient in current batch
+      const patientVisitCount = {};
+      const patientVisits = {}; // Track visits per patient
+      visits.forEach(v => {
+        if (!patientVisits[v.Patient_ID]) patientVisits[v.Patient_ID] = [];
+        patientVisits[v.Patient_ID].push(v);
+        patientVisitCount[v.Patient_ID] = (patientVisitCount[v.Patient_ID] || 0) + 1;
+      });
+      
+      console.log('Patient visit counts in current batch:', patientVisitCount);
+      
+      // For patients with multiple visits in current batch:
+      // - Sort by Date
+      // - First visit = NEW, 2nd+ = RETURNING
+      Object.keys(patientVisits).forEach(pid => {
+        if (patientVisitCount[pid] > 1) {
+          const sortedVisits = patientVisits[pid].sort((a, b) => new Date(a.Date) - new Date(b.Date));
+          // First visit is NEW (don't mark), 2nd+ visits are RETURNING
+          sortedVisits.slice(1).forEach((v, idx) => {
+            const visitKey = `${v.Patient_ID}|${v.Date}`;
+            hasPreviousVisitMap[visitKey] = true; // Mark specific visit as returning
+            console.log(`Visit ${idx + 2} for ${pid} (${v.Date}) marked as returning`);
+          });
+        }
+      });
+      
+      // Second: Check database for any other visits before current batch
       for (let i = 0; i < pIds.length; i += 100) {
         const chunkIds = pIds.slice(i, i + 100);
-        const { data: allVs } = await supabaseClient.from('Visits').select('Visit_ID, Patient_ID, Date').in('Patient_ID', chunkIds).order('Date', { ascending: true });
-        (allVs || []).forEach(v => { if (!firstVisitMap[v.Patient_ID]) firstVisitMap[v.Patient_ID] = v.Visit_ID; });
+        
+        // Query ALL visits for these patients (no date filter)
+        const { data: allPatientVisits, error: pvError } = await supabaseClient
+          .from('Visits')
+          .select('Visit_ID, Patient_ID, Date')
+          .in('Patient_ID', chunkIds)
+          .order('Date', { ascending: true });
+        
+        console.log(`Checked ${chunkIds.length} patients, found ${allPatientVisits?.length || 0} total visits`);
+        
+        if (pvError) {
+          console.error('Previous Visit Query Error:', pvError);
+        } else if (allPatientVisits) {
+          // Create unique keys for current visits
+          const currentVisitKeys = new Set(
+            visits.map(v => `${v.Patient_ID}|${v.Date}`)
+          );
+          
+          console.log('Current visit keys:', Array.from(currentVisitKeys));
+          
+          // For each patient, check if they have visits in the database
+          // that are NOT in the current batch
+          const patientPrevVisits = {};
+          allPatientVisits.forEach(v => {
+            const visitKey = `${v.Patient_ID}|${v.Date}`;
+            if (!currentVisitKeys.has(visitKey)) {
+              // This is a previous visit (not in current batch)
+              patientPrevVisits[v.Patient_ID] = true;
+            }
+          });
+          
+          // Mark ALL current visits of patients who have previous visits as "returning"
+          visits.forEach(v => {
+            const visitKey = `${v.Patient_ID}|${v.Date}`;
+            if (patientPrevVisits[v.Patient_ID]) {
+              hasPreviousVisitMap[visitKey] = true;
+              console.log(`All visits for ${v.Patient_ID} marked as returning (has previous history)`);
+            }
+          });
+          
+          console.log('All patient visits:', allPatientVisits);
+        }
       }
+      
+      console.log('Visits marked as returning:', Object.keys(hasPreviousVisitMap));
+      console.log('================================');
     }
 
     // 4. Merge & Filter
@@ -2019,13 +2199,14 @@ window._fetchTriageQueue = async function (sDate, eDate) {
       .map((r, i) => {
         let dObj = new Date(r.Date);
         let p = pMap[r.Patient_ID];
+        const visitKey = `${r.Patient_ID}|${r.Date}`;
         return {
           rowIdx: r.Visit_ID, visitId: r.Visit_ID,
-          date: r.Date ? dObj.toLocaleDateString('en-GB') : '-', 
+          date: r.Date ? dObj.toLocaleDateString('en-GB') : '-',
           time: r.Date ? dObj.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) : '-',
           patientId: r.Patient_ID, patientName: r.Patient_Name,
           status: r.Status, department: r.Department || 'OPD',
-          isNew: (firstVisitMap[r.Patient_ID] === r.Visit_ID),
+          isNew: !hasPreviousVisitMap[visitKey], // Check visit-specific key
           // Prefer record data (Visits), fallback to patient profile
           age: r.Age || p?.Age || 0,
           gender: r.Gender || p?.Gender || '',
@@ -2066,18 +2247,25 @@ window._fetchOpdQueue = async function (sDate, eDate) {
     // 2. Fallbacks (only if range is empty)
     let rawVisits = visitsInRange || [];
     if (rawVisits.length === 0) {
-      // Recover NULL or Invalid/Missing dates
-      const { data: visitsNull } = await supabaseClient.from('Visits').select('*').is('Date', null).limit(100);
+      console.warn('OPD Main query returned 0 results, using fallback...');
       
-      // Recover ONLY active patients (Waiting/Calling) who might be "lost" or just passed Triage
-      // We don't want to show 'Closed' records in the fallback as it clutters the view.
+      // Recover ONLY active patients from TODAY who might be "lost"
+      // We filter by today's date to avoid showing old records
       const { data: visitsActive } = await supabaseClient.from('Visits')
         .select('*')
-        .in('Status', ['Waiting OPD', 'Calling OPD', 'Waiting Lab', 'Calling Lab'])
+        .in('Status', ['Waiting OPD', 'Calling OPD', 'Waiting Lab', 'Calling Lab', 'Triage', 'Waiting Triage'])
         .order('created_at', { ascending: false })
         .limit(200);
 
-      rawVisits = [...(visitsNull || []), ...(visitsActive || [])];
+      // Filter fallback results to TODAY only
+      const today = sDate;
+      rawVisits = (visitsActive || []).filter(v => {
+        if (!v.Date) return true; // Include NULL dates (might be today's records)
+        const visitDate = new Date(v.Date).toISOString().split('T')[0];
+        return visitDate === today;
+      });
+      
+      console.log(`OPD Fallback: ${rawVisits.length} visits found for today`);
     }
     
     // De-duplicate by Visit_ID
@@ -2104,28 +2292,73 @@ window._fetchOpdQueue = async function (sDate, eDate) {
       }
     }
 
-    let firstVisitMap = {};
+    let hasPreviousVisitMap = {};
     if (pIds.length > 0) {
+      // First: Count visits per patient in current batch
+      const patientVisitCount = {};
+      const patientVisits = {};
+      data.forEach(v => {
+        if (!patientVisits[v.Patient_ID]) patientVisits[v.Patient_ID] = [];
+        patientVisits[v.Patient_ID].push(v);
+        patientVisitCount[v.Patient_ID] = (patientVisitCount[v.Patient_ID] || 0) + 1;
+      });
+      
+      // For patients with multiple visits: sort by Date, 1st=NEW, 2nd+=RETURNING
+      Object.keys(patientVisits).forEach(pid => {
+        if (patientVisitCount[pid] > 1) {
+          const sortedVisits = patientVisits[pid].sort((a, b) => new Date(a.Date) - new Date(b.Date));
+          sortedVisits.slice(1).forEach((v, idx) => {
+            const visitKey = `${v.Patient_ID}|${v.Date}`;
+            hasPreviousVisitMap[visitKey] = true;
+          });
+        }
+      });
+      
+      // Second: Check database for any other visits
       for (let i = 0; i < pIds.length; i += 100) {
         const chunkIds = pIds.slice(i, i + 100);
-        const { data: allVs } = await supabaseClient.from('Visits')
+        const { data: allPatientVisits, error: pvError } = await supabaseClient
+          .from('Visits')
           .select('Visit_ID, Patient_ID, Date')
           .in('Patient_ID', chunkIds)
           .order('Date', { ascending: true });
-        (allVs || []).forEach(v => { if (!firstVisitMap[v.Patient_ID]) firstVisitMap[v.Patient_ID] = v.Visit_ID; });
+
+        if (pvError) {
+          console.error('OPD Previous Visit Query Error:', pvError);
+        } else if (allPatientVisits) {
+          const currentVisitKeys = new Set(
+            data.map(v => `${v.Patient_ID}|${v.Date}`)
+          );
+          
+          const patientPrevVisits = {};
+          allPatientVisits.forEach(v => {
+            const visitKey = `${v.Patient_ID}|${v.Date}`;
+            if (!currentVisitKeys.has(visitKey)) {
+              patientPrevVisits[v.Patient_ID] = true;
+            }
+          });
+          
+          data.forEach(v => {
+            const visitKey = `${v.Patient_ID}|${v.Date}`;
+            if (patientPrevVisits[v.Patient_ID]) {
+              hasPreviousVisitMap[visitKey] = true;
+            }
+          });
+        }
       }
     }
 
     return data.map((r, i) => {
       let dObj = new Date(r.Date);
       let p = pMap[r.Patient_ID];
+      const visitKey = `${r.Patient_ID}|${r.Date}`;
       return {
         rowIdx: r.Visit_ID, visitId: r.Visit_ID,
-        date: r.Date ? dObj.toLocaleDateString('en-GB') : '-', 
+        date: r.Date ? dObj.toLocaleDateString('en-GB') : '-',
         time: r.Date ? dObj.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) : '-',
         patientId: r.Patient_ID, patientName: r.Patient_Name,
         status: r.Status, department: r.Department || 'OPD',
-        isNew: (firstVisitMap[r.Patient_ID] === r.Visit_ID),
+        isNew: !hasPreviousVisitMap[visitKey], // Check visit-specific key
         // Prefer record data (Visits), fallback to patient profile
         age: r.Age || p?.Age || 0,
         gender: r.Gender || p?.Gender || '',
@@ -2171,7 +2404,7 @@ window.loadTriageQueue = async function () {
       btnHtml += `<button class="btn btn-sm btn-dark shadow-sm me-1" onclick="window.triggerPublicCall('${r.visitId}', '${r.patientId}', 'ຊັກປະຫວັດ (Triage)')" title="ເອີ້ນຄິວ"><i class="fas fa-volume-up"></i></button>`;
       
       btnHtml += `<button class="btn btn-sm btn-outline-info shadow-sm me-1 btn-timeline" data-pid="${r.patientId}" title="ປະຫວັດການກວດ"><i class="fas fa-history"></i></button>
-                         <button class="btn btn-sm btn-outline-danger shadow-sm me-1" onclick="window.deleteVisitFlow('${r.visitId}')" title="ລຶບ"><i class="fas fa-trash"></i></button>
+                         <button class="btn btn-sm btn-outline-danger shadow-sm me-1" onclick="window.deleteVisitFlow('${r.visitId}', '${r.patientId}')" title="ລຶບ"><i class="fas fa-trash"></i></button>
                          <button class="btn btn-sm btn-secondary text-white shadow-sm" onclick="window.printOPDCard('triage', ${i})" title="ພິມໃບ OPD"><i class="fas fa-file-medical"></i></button>`;
       h += `<tr class="${isCalling ? 'table-danger' : ''}">
                     <td class="text-muted">${r.date}</td>
@@ -2266,10 +2499,9 @@ window.viewTriage = function (i) {
 
 window.openTriage = function (i) {
   let r = currentTriageData[i];
-  $('#vRowIdx').val(r.rowIdx);
   $('#vPatientId').text(r.patientId);
   $('#vPatientName').text(r.patientName);
-  
+
   if (r.photoUrl) {
     $('#v_p_photo').attr('src', r.photoUrl).show();
     $('#v_p_photo_placeholder').hide();
@@ -2280,6 +2512,11 @@ window.openTriage = function (i) {
 
   $('#triageForm')[0].reset();
   $('input[name="v_bp"]').removeClass('border-danger text-danger bg-danger border-warning text-dark bg-warning bg-opacity-10 border-success text-success fw-bold');
+
+  // IMPORTANT: Set Visit_ID and Patient_ID AFTER reset (reset clears all form fields including hidden inputs)
+  $('#vRowIdx').val(r.rowIdx);
+  $('#vPatientIdHidden').val(r.patientId); // Store patientId for safe update/delete
+  console.log('Triage Modal - Visit ID:', r.rowIdx, 'Patient ID:', r.patientId);
 
   // Always populate fields if data exists (to support editing old records)
   $('input[name="v_bp"]').val(r.bp || '').trigger('input');
@@ -2301,14 +2538,61 @@ window.openTriage = function (i) {
   $('#triageModal').modal('show');
 };
 
-window.deleteVisitFlow = async function (id) {
-  const r = await Swal.fire({ title: 'ລຶບຄິວ?', icon: 'warning', showCancelButton: true, confirmButtonColor: '#ef4444', confirmButtonText: 'ລຶບ' });
+window.deleteVisitFlow = async function (visitId, patientId) {
+  // Validate ID before deleting
+  if (!visitId || visitId === '' || visitId === 'undefined' || visitId === 'null') {
+    console.error('deleteVisitFlow: Invalid Visit_ID!', visitId);
+    Swal.fire('ຜິດພາດ!', 'ບໍ່ສາມາດລຶບໄດ້: ບໍ່ມີ Visit ID', 'error');
+    return;
+  }
+  
+  console.log('=== DELETE VISIT DEBUG ===');
+  console.log('Deleting Visit ID:', visitId);
+  console.log('Patient ID:', patientId);
+  console.log('Type:', typeof visitId);
+  
+  const r = await Swal.fire({ 
+    title: 'ລຶບຄິວ?', 
+    text: `Visit ID: ${visitId}\nPatient ID: ${patientId || 'N/A'}`,
+    icon: 'warning', 
+    showCancelButton: true, 
+    confirmButtonColor: '#ef4444', 
+    confirmButtonText: 'ລຶບ',
+    cancelButtonText: 'ຍົກເລີກ'
+  });
+  
   if (r.isConfirmed) {
     Swal.fire({ title: 'ກຳລັງລຶບ...', didOpen: () => Swal.showLoading() });
-    await supabaseClient.from('Visits').delete().eq('Visit_ID', id);
-    Swal.fire('ສຳເລັດ!', 'ລຶບແລ້ວ', 'success');
-    window.loadTriageQueue();
-    window.loadQueue();
+    
+    // Use both Visit_ID and Patient_ID to ensure we delete the correct record
+    let query = supabaseClient.from('Visits').delete().eq('Visit_ID', visitId);
+    
+    // If Patient_ID is provided, add it to the filter for extra safety
+    if (patientId) {
+      query = query.eq('Patient_ID', patientId);
+      console.log('Using Patient_ID filter for safety');
+    }
+    
+    const { data, error, count } = await query.select();
+    
+    console.log('Delete result - Data:', data);
+    console.log('Delete result - Error:', error);
+    console.log('Delete result - Count:', count);
+    console.log('=========================');
+    
+    if (error) {
+      console.error('Delete error:', error);
+      Swal.fire('ຜິດພາດ!', error.message, 'error');
+    } else {
+      if (count && count > 1) {
+        console.warn('WARNING: Multiple records deleted! Visit_ID may not be unique in database.');
+        Swal.fire('ຄຳເຕືອນ!', `ລຶບ ${count} ລາຍການ (Visit_ID ອາດຈະຊ້ຳກັນ)`, 'warning');
+      } else {
+        Swal.fire('ສຳເລັດ!', 'ລຶບແລ້ວ', 'success');
+      }
+      window.loadTriageQueue();
+      window.loadQueue();
+    }
   }
 };
 

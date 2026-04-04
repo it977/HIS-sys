@@ -21,10 +21,11 @@
       <div class="modal-body p-4">
         <form id="triageForm" onsubmit="window.submitTriageForm(event)">
           <input type="hidden" id="vRowIdx" name="visitId">
+          <input type="hidden" id="vPatientIdHidden" name="patientId">
           <div class="row g-3">
             <div class="col-md-6">
-              <label class="form-label fw-bold text-danger required">ຄວາມດັນໂລຫິດ (BP) mmHg</label>
-              <input type="text" class="form-control border-2" name="v_bp" placeholder="120/80" required autocomplete="off">
+              <label class="form-label fw-bold">ຄວາມດັນໂລຫິດ (BP) mmHg</label>
+              <input type="text" class="form-control border-2" name="v_bp" placeholder="120/80" autocomplete="off">
               <div class="small text-muted mt-1"><i class="fas fa-info-circle me-1"></i>ຕົວຢ່າງ: 120/80</div>
             </div>
             <div class="col-md-6">
@@ -52,9 +53,9 @@
               <input type="number" class="form-control" name="v_spo2" step="0.1" min="50" max="100" placeholder="98">
             </div>
             <div class="col-12">
-              <label class="form-label fw-bold required">ຫ້ອງກວດ (Department)</label>
-              <select class="form-select dyn-Department" name="v_department" required>
-                <option value="">-- ເລືອກຫ້ອງກວດ --</option>
+              <label class="form-label fw-bold">ຫ້ອງກວດ (Department)</label>
+              <select class="form-select dyn-Department" name="v_department">
+                <option value="">-- ເລືອກຫ້ອງກວດ (ຖ້າມີ) --</option>
               </select>
             </div>
             <div class="col-12">
