@@ -23,3 +23,244 @@
     </div>
   </div>
 </div>
+
+<!-- Button Permissions Modal -->
+<div class="modal fade" id="buttonPermModal" tabindex="-1" data-bs-backdrop="static">
+  <div class="modal-dialog modal-xl">
+    <div class="modal-content border-0 shadow">
+      <div class="modal-header bg-info text-white">
+        <h5 class="modal-title fw-bold"><i class="fas fa-fingerprint me-2"></i>ກຳນົດສິດປຸ່ມ: <span id="permUserName" class="text-warning"></span></h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body p-4">
+        <input type="hidden" id="permUserId">
+        
+        <div class="alert alert-info d-flex align-items-center">
+          <i class="fas fa-info-circle me-2 fa-lg"></i>
+          <div>ເລືອກປຸ່ມທີ່ຕ້ອງການອະນຸຍາດໃຫ້ຜູ້ໃຊ້ນີ້ສາມາດກົດໄດ້</div>
+        </div>
+
+        <div class="row g-4">
+          <!-- Patients Permissions -->
+          <div class="col-md-6">
+            <div class="card border-primary h-100">
+              <div class="card-header bg-primary text-white">
+                <h6 class="mb-0"><i class="fas fa-users me-2"></i>ຄົນເຈັບ (Patients)</h6>
+              </div>
+              <div class="card-body">
+                <div class="form-check mb-2">
+                  <input class="form-check-input btn-perm-check" type="checkbox" value="patients.view" id="perm_patients_view">
+                  <label class="form-check-label" for="perm_patients_view">👁️ View (ເບິ່ງລາຍລະອຽດ)</label>
+                </div>
+                <div class="form-check mb-2">
+                  <input class="form-check-input btn-perm-check" type="checkbox" value="patients.add" id="perm_patients_add">
+                  <label class="form-check-label" for="perm_patients_add">➕ Add (ເພີ່ມໃໝ່)</label>
+                </div>
+                <div class="form-check mb-2">
+                  <input class="form-check-input btn-perm-check" type="checkbox" value="patients.edit" id="perm_patients_edit">
+                  <label class="form-check-label" for="perm_patients_edit">✏️ Edit (ແກ້ໄຂ)</label>
+                </div>
+                <div class="form-check mb-2">
+                  <input class="form-check-input btn-perm-check" type="checkbox" value="patients.delete" id="perm_patients_delete">
+                  <label class="form-check-label" for="perm_patients_delete">🗑️ Delete (ລຶບ)</label>
+                </div>
+                <div class="form-check mb-2">
+                  <input class="form-check-input btn-perm-check" type="checkbox" value="patients.triage" id="perm_patients_triage">
+                  <label class="form-check-label" for="perm_patients_triage">🔄 Triage (ສົ່ງຕໍ່ Triage)</label>
+                </div>
+                <div class="form-check mb-2">
+                  <input class="form-check-input btn-perm-check" type="checkbox" value="patients.print_qr" id="perm_patients_print_qr">
+                  <label class="form-check-label" for="perm_patients_print_qr">🖨️ Print QR (ພິມບັດ QR)</label>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Triage Permissions -->
+          <div class="col-md-6">
+            <div class="card border-danger h-100">
+              <div class="card-header bg-danger text-white">
+                <h6 class="mb-0"><i class="fas fa-heartbeat me-2"></i>Triage</h6>
+              </div>
+              <div class="card-body">
+                <div class="form-check mb-2">
+                  <input class="form-check-input btn-perm-check" type="checkbox" value="triage.view" id="perm_triage_view">
+                  <label class="form-check-label" for="perm_triage_view">👁️ View (ເບິ່ງລາຍລະອຽດ)</label>
+                </div>
+                <div class="form-check mb-2">
+                  <input class="form-check-input btn-perm-check" type="checkbox" value="triage.edit" id="perm_triage_edit">
+                  <label class="form-check-label" for="perm_triage_edit">✏️ Edit (ແກ້ໄຂ Vital Signs)</label>
+                </div>
+                <div class="form-check mb-2">
+                  <input class="form-check-input btn-perm-check" type="checkbox" value="triage.delete" id="perm_triage_delete">
+                  <label class="form-check-label" for="perm_triage_delete">🗑️ Delete (ລຶບຄິວ)</label>
+                </div>
+                <div class="form-check mb-2">
+                  <input class="form-check-input btn-perm-check" type="checkbox" value="triage.call" id="perm_triage_call">
+                  <label class="form-check-label" for="perm_triage_call">📢 Call (ເອີ້ນຄິວ)</label>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- OPD Permissions -->
+          <div class="col-md-6">
+            <div class="card border-info h-100">
+              <div class="card-header bg-info text-white">
+                <h6 class="mb-0"><i class="fas fa-stethoscope me-2"></i>ຫ້ອງກວດ (OPD)</h6>
+              </div>
+              <div class="card-body">
+                <div class="form-check mb-2">
+                  <input class="form-check-input btn-perm-check" type="checkbox" value="opd.view" id="perm_opd_view">
+                  <label class="form-check-label" for="perm_opd_view">👁️ View (ເບິ່ງ EMR)</label>
+                </div>
+                <div class="form-check mb-2">
+                  <input class="form-check-input btn-perm-check" type="checkbox" value="opd.edit" id="perm_opd_edit">
+                  <label class="form-check-label" for="perm_opd_edit">✏️ Edit (ຂຽນ EMR)</label>
+                </div>
+                <div class="form-check mb-2">
+                  <input class="form-check-input btn-perm-check" type="checkbox" value="opd.delete" id="perm_opd_delete">
+                  <label class="form-check-label" for="perm_opd_delete">🗑️ Delete (ລຶບການກວດ)</label>
+                </div>
+                <div class="form-check mb-2">
+                  <input class="form-check-input btn-perm-check" type="checkbox" value="opd.print" id="perm_opd_print">
+                  <label class="form-check-label" for="perm_opd_print">🖨️ Print (ພິມໃບ OPD)</label>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Labs Permissions -->
+          <div class="col-md-6">
+            <div class="card border-warning h-100">
+              <div class="card-header bg-warning text-dark">
+                <h6 class="mb-0"><i class="fas fa-flask me-2"></i>ແລັບ (Labs)</h6>
+              </div>
+              <div class="card-body">
+                <div class="form-check mb-2">
+                  <input class="form-check-input btn-perm-check" type="checkbox" value="labs.view" id="perm_labs_view">
+                  <label class="form-check-label" for="perm_labs_view">👁️ View (ເບິ່ງຜົນ)</label>
+                </div>
+                <div class="form-check mb-2">
+                  <input class="form-check-input btn-perm-check" type="checkbox" value="labs.add" id="perm_labs_add">
+                  <label class="form-check-label" for="perm_labs_add">➕ Add (ສັ່ງກວດ)</label>
+                </div>
+                <div class="form-check mb-2">
+                  <input class="form-check-input btn-perm-check" type="checkbox" value="labs.edit" id="perm_labs_edit">
+                  <label class="form-check-label" for="perm_labs_edit">✏️ Edit (ແກ້ໄຂຜົນ)</label>
+                </div>
+                <div class="form-check mb-2">
+                  <input class="form-check-input btn-perm-check" type="checkbox" value="labs.delete" id="perm_labs_delete">
+                  <label class="form-check-label" for="perm_labs_delete">🗑️ Delete (ລຶບຜົນ)</label>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Drugs Permissions -->
+          <div class="col-md-6">
+            <div class="card border-success h-100">
+              <div class="card-header bg-success text-white">
+                <h6 class="mb-0"><i class="fas fa-pills me-2"></i>ຢາ (Drugs)</h6>
+              </div>
+              <div class="card-body">
+                <div class="form-check mb-2">
+                  <input class="form-check-input btn-perm-check" type="checkbox" value="drugs.view" id="perm_drugs_view">
+                  <label class="form-check-label" for="perm_drugs_view">👁️ View (ເບິ່ງ)</label>
+                </div>
+                <div class="form-check mb-2">
+                  <input class="form-check-input btn-perm-check" type="checkbox" value="drugs.add" id="perm_drugs_add">
+                  <label class="form-check-label" for="perm_drugs_add">➕ Add (ເພີ່ມ)</label>
+                </div>
+                <div class="form-check mb-2">
+                  <input class="form-check-input btn-perm-check" type="checkbox" value="drugs.edit" id="perm_drugs_edit">
+                  <label class="form-check-label" for="perm_drugs_edit">✏️ Edit (ແກ້ໄຂ)</label>
+                </div>
+                <div class="form-check mb-2">
+                  <input class="form-check-input btn-perm-check" type="checkbox" value="drugs.delete" id="perm_drugs_delete">
+                  <label class="form-check-label" for="perm_drugs_delete">🗑️ Delete (ລຶບ)</label>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Appointments Permissions -->
+          <div class="col-md-6">
+            <div class="card border-secondary h-100">
+              <div class="card-header bg-secondary text-white">
+                <h6 class="mb-0"><i class="fas fa-calendar-alt me-2"></i>ນັດໝາຍ</h6>
+              </div>
+              <div class="card-body">
+                <div class="form-check mb-2">
+                  <input class="form-check-input btn-perm-check" type="checkbox" value="appointments.view" id="perm_appointments_view">
+                  <label class="form-check-label" for="perm_appointments_view">👁️ View (ເບິ່ງ)</label>
+                </div>
+                <div class="form-check mb-2">
+                  <input class="form-check-input btn-perm-check" type="checkbox" value="appointments.add" id="perm_appointments_add">
+                  <label class="form-check-label" for="perm_appointments_add">➕ Add (ສ້າງນັດ)</label>
+                </div>
+                <div class="form-check mb-2">
+                  <input class="form-check-input btn-perm-check" type="checkbox" value="appointments.edit" id="perm_appointments_edit">
+                  <label class="form-check-label" for="perm_appointments_edit">✏️ Edit (ແກ້ໄຂ)</label>
+                </div>
+                <div class="form-check mb-2">
+                  <input class="form-check-input btn-perm-check" type="checkbox" value="appointments.delete" id="perm_appointments_delete">
+                  <label class="form-check-label" for="perm_appointments_delete">🗑️ Delete (ຍົກເລີກ)</label>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- IPD Permissions -->
+          <div class="col-md-6">
+            <div class="card border-danger h-100">
+              <div class="card-header bg-danger text-white">
+                <h6 class="mb-0"><i class="fas fa-bed me-2"></i>ຄົນເຈັບນອນ (IPD)</h6>
+              </div>
+              <div class="card-body">
+                <div class="form-check mb-2">
+                  <input class="form-check-input btn-perm-check" type="checkbox" value="ipd.view" id="perm_ipd_view">
+                  <label class="form-check-label" for="perm_ipd_view">👁️ View (ເບິ່ງລາຍລະອຽດ)</label>
+                </div>
+                <div class="form-check mb-2">
+                  <input class="form-check-input btn-perm-check" type="checkbox" value="ipd.admit" id="perm_ipd_admit">
+                  <label class="form-check-label" for="perm_ipd_admit">➕ Admit (ຮັບຄົນເຈັບນອນ)</label>
+                </div>
+                <div class="form-check mb-2">
+                  <input class="form-check-input btn-perm-check" type="checkbox" value="ipd.progress" id="perm_ipd_progress">
+                  <label class="form-check-label" for="perm_ipd_progress">📝 Progress Note (ບັນທຶກປະຈຳວັນ)</label>
+                </div>
+                <div class="form-check mb-2">
+                  <input class="form-check-input btn-perm-check" type="checkbox" value="ipd.medication" id="perm_ipd_medication">
+                  <label class="form-check-label" for="perm_ipd_medication">💊 Medication (ສັ່ງຢາ)</label>
+                </div>
+                <div class="form-check mb-2">
+                  <input class="form-check-input btn-perm-check" type="checkbox" value="ipd.vitals" id="perm_ipd_vitals">
+                  <label class="form-check-label" for="perm_ipd_vitals">❤️ Vitals (ຊີວະສັນຍານ)</label>
+                </div>
+                <div class="form-check mb-2">
+                  <input class="form-check-input btn-perm-check" type="checkbox" value="ipd.nursing" id="perm_ipd_nursing">
+                  <label class="form-check-label" for="perm_ipd_nursing">👩‍⚕️ Nursing Note (ບັນທຶກພະຍາບານ)</label>
+                </div>
+                <div class="form-check mb-2">
+                  <input class="form-check-input btn-perm-check" type="checkbox" value="ipd.discharge" id="perm_ipd_discharge">
+                  <label class="form-check-label" for="perm_ipd_discharge">🏠 Discharge (ໃຫ້ອອກ)</label>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="mt-4 d-flex gap-2">
+          <button type="button" class="btn btn-outline-primary" onclick="window.selectAllButtonPermissions()"><i class="fas fa-check-square me-1"></i>ເລືອກທັງໝົດ</button>
+          <button type="button" class="btn btn-outline-secondary" onclick="window.deselectAllButtonPermissions()"><i class="fas fa-times-square me-1"></i>ລ້າງທັງໝົດ</button>
+          <button type="button" class="btn btn-outline-info" onclick="window.resetToRoleDefaults()"><i class="fas fa-undo me-1"></i>ຄ່າເລີ່ມຕົ້ນຕາມ Role</button>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">ປິດ</button>
+        <button type="button" class="btn btn-info text-white" onclick="window.saveButtonPermissions()"><i class="fas fa-save me-2"></i>ບັນທຶກສິດ</button>
+      </div>
+    </div>
+  </div>
+</div>

@@ -1,0 +1,811 @@
+<div id="view-ipd" style="display:none;">
+  <div class="d-flex justify-content-between align-items-center mb-4 pb-3" style="border-bottom:2px solid var(--border-color);">
+    <div>
+      <h3 class="fw-bold m-0 text-dark"><i class="fas fa-bed text-primary me-2"></i>ຄົນເຈັບນອນໂຮງໝໍ (IPD)</h3>
+      <p class="text-muted mb-0 mt-1" style="font-size:11.5px;">ຈັດການຄົນເຈັບນອນ ແລະ ຕິດຕາມການປິ່ນປົວ</p>
+    </div>
+    <div class="d-flex gap-2">
+      <button class="btn btn-success shadow-sm fw-bold" onclick="window.openIPDAdmission()"><i class="fas fa-user-plus me-1"></i> ຮັບຄົນເຈັບນອນ</button>
+      <button class="btn btn-info text-white shadow-sm" onclick="window.loadIPDWards()"><i class="fas fa-building me-1"></i> ຈັດການຫ້ອງ/ຕຽງ</button>
+    </div>
+  </div>
+
+  <!-- IPD Statistics -->
+  <div class="row g-3 mb-4">
+    <div class="col-md-3">
+      <div class="card border-primary shadow-sm">
+        <div class="card-body py-3">
+          <div class="d-flex justify-content-between align-items-center">
+            <div>
+              <p class="text-muted mb-1 small">ຄົນເຈັບນອນທັງໝົດ</p>
+              <h4 class="mb-0 text-primary fw-bold" id="ipdTotalPatients">0</h4>
+            </div>
+            <div class="text-primary opacity-25">
+              <i class="fas fa-bed fa-2x"></i>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-3">
+      <div class="card border-success shadow-sm">
+        <div class="card-body py-3">
+          <div class="d-flex justify-content-between align-items-center">
+            <div>
+              <p class="text-muted mb-1 small">ຕຽງວ່າງ</p>
+              <h4 class="mb-0 text-success fw-bold" id="ipdAvailableBeds">0</h4>
+            </div>
+            <div class="text-success opacity-25">
+              <i class="fas fa-check-circle fa-2x"></i>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-3">
+      <div class="card border-warning shadow-sm">
+        <div class="card-body py-3">
+          <div class="d-flex justify-content-between align-items-center">
+            <div>
+              <p class="text-muted mb-1 small">ຕຽງມີຄົນ</p>
+              <h4 class="mb-0 text-warning fw-bold" id="ipdOccupiedBeds">0</h4>
+            </div>
+            <div class="text-warning opacity-25">
+              <i class="fas fa-user fa-2x"></i>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-3">
+      <div class="card border-info shadow-sm">
+        <div class="card-body py-3">
+          <div class="d-flex justify-content-between align-items-center">
+            <div>
+              <p class="text-muted mb-1 small">ອອກມື້ນີ້</p>
+              <h4 class="mb-0 text-info fw-bold" id="ipdDischargedToday">0</h4>
+            </div>
+            <div class="text-info opacity-25">
+              <i class="fas fa-sign-out-alt fa-2x"></i>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- IPD Patient Table -->
+  <div class="card card-primary shadow-sm">
+    <div class="card-header bg-primary text-white">
+      <div class="d-flex justify-content-between align-items-center">
+        <h5 class="mb-0"><i class="fas fa-list me-2"></i>ລາຍຊື່ຄົນເຈັບນອນປັດຈຸບັນ</h5>
+        <div class="d-flex gap-2 align-items-center">
+          <input type="text" id="ipdSearchInput" class="form-control form-control-sm" placeholder="🔍 ຄົ້ນຫາ CN, ຊື່..." style="width: 200px;" onkeyup="window.searchIPDTable()">
+          <input type="date" id="ipdStartDate" class="form-control form-control-sm" style="width: auto;">
+          <span class="text-white">-</span>
+          <input type="date" id="ipdEndDate" class="form-control form-control-sm" style="width: auto;">
+          <button class="btn btn-sm btn-light text-primary fw-bold" onclick="window.loadIPDPatients()"><i class="fas fa-search me-1"></i>ຄົ້ນຫາ</button>
+        </div>
+      </div>
+    </div>
+    <div class="card-body p-0">
+      <table id="ipdTable" class="table table-hover align-middle mb-0">
+        <thead class="bg-light">
+          <tr>
+            <th>ຫ້ອງ/ຕຽງ</th>
+            <th>CN</th>
+            <th>ຊື່ຄົນເຈັບ</th>
+            <th>ເພດ/ອາຍຸ</th>
+            <th>ວັນຮັບໄວ້</th>
+            <th>ແພດຜູ້ຮັບໄວ້</th>
+            <th>ການວິນິດໄສ</th>
+            <th>ສະຖານະ</th>
+            <th class="text-center">ຈັດການ</th>
+          </tr>
+        </thead>
+        <tbody id="ipdTableBody">
+          <tr>
+            <td colspan="9" class="text-center py-4">
+              <div class="spinner-border text-primary spinner-border-sm"></div>
+              <p class="text-muted mt-2">ກຳລັງໂຫຼດຂໍ້ມູນ...</p>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- IPD Admission Modal -->
+<div class="modal fade" id="ipdAdmissionModal" tabindex="-1" data-bs-backdrop="static">
+  <div class="modal-dialog modal-xl">
+    <div class="modal-content border-0 shadow">
+      <div class="modal-header bg-primary text-white">
+        <h5 class="modal-title fw-bold"><i class="fas fa-user-plus me-2"></i>ຮັບຄົນເຈັບນອນ (IPD Admission)</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body p-4">
+        <form id="ipdAdmissionForm" onsubmit="window.submitIPDAdmission(event)">
+          <input type="hidden" id="admPatientId">
+          
+          <!-- Patient Selection -->
+          <div class="card border-primary mb-3">
+            <div class="card-header bg-primary text-white">
+              <h6 class="mb-0"><i class="fas fa-user me-2"></i>ຂໍ້ມູນຄົນເຈັບ</h6>
+            </div>
+            <div class="card-body">
+              <div class="row g-3">
+                <div class="col-md-6">
+                  <label class="form-label fw-bold required">ຄົນເຈັບ</label>
+                  <select class="form-select" id="admPatientSelect" required onchange="window.onAdmPatientChange()">
+                    <option value="">-- ຄົ້ນຫາ ແລະ ເລືອກຄົນເຈັບ --</option>
+                  </select>
+                </div>
+                <div class="col-md-3">
+                  <label class="form-label fw-bold">CN</label>
+                  <input type="text" class="form-control bg-light" id="admPatientCN" readonly>
+                </div>
+                <div class="col-md-3">
+                  <label class="form-label fw-bold">ອາຍຸ/ເພດ</label>
+                  <input type="text" class="form-control bg-light" id="admPatientInfo" readonly>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Admission Details -->
+          <div class="card border-info mb-3">
+            <div class="card-header bg-info text-white">
+              <h6 class="mb-0"><i class="fas fa-clipboard me-2"></i>ຂໍ້ມູນການຮັບໄວ້</h6>
+            </div>
+            <div class="card-body">
+              <div class="row g-3">
+                <div class="col-md-4">
+                  <label class="form-label fw-bold required">ວັນທີຮັບໄວ້</label>
+                  <input type="date" class="form-control" id="admDate" required>
+                </div>
+                <div class="col-md-4">
+                  <label class="form-label fw-bold required">ເວລາຮັບໄວ້</label>
+                  <input type="time" class="form-control" id="admTime" required>
+                </div>
+                <div class="col-md-4">
+                  <label class="form-label fw-bold required">ປະເພດການຮັບໄວ້</label>
+                  <select class="form-select" id="admType" required>
+                    <option value="">-- ເລືອກ --</option>
+                    <option value="Emergency">ສຸກເສີນ (Emergency)</option>
+                    <option value="Elective">ວາງແຜນ (Elective)</option>
+                    <option value="Transfer">ສົ່ງຕໍ່ (Transfer)</option>
+                  </select>
+                </div>
+                <div class="col-md-6">
+                  <label class="form-label fw-bold required">ແພດຜູ້ຮັບໄວ້</label>
+                  <select class="form-select dyn-Doctor" id="admDoctor" required></select>
+                </div>
+                <div class="col-md-6">
+                  <label class="form-label fw-bold">ການວິນິດໄສເບື້ອງຕົ້ນ</label>
+                  <input type="text" class="form-control" id="admDiagnosis" placeholder="Initial Diagnosis">
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Ward/Bed Selection -->
+          <div class="card border-success mb-3">
+            <div class="card-header bg-success text-white">
+              <h6 class="mb-0"><i class="fas fa-bed me-2"></i>ຫ້ອງ ແລະ ຕຽງ</h6>
+            </div>
+            <div class="card-body">
+              <div class="row g-3">
+                <div class="col-md-4">
+                  <label class="form-label fw-bold required">ຫ້ອງ (Ward)</label>
+                  <select class="form-select" id="admWard" required onchange="window.onAdmWardChange()">
+                    <option value="">-- ເລືອກຫ້ອງ --</option>
+                  </select>
+                </div>
+                <div class="col-md-4">
+                  <label class="form-label fw-bold required">ຫ້ອງຍ່ອຍ (Room)</label>
+                  <select class="form-select" id="admRoom" required onchange="window.onAdmRoomChange()">
+                    <option value="">-- ເລືອກຫ້ອງຍ່ອຍ --</option>
+                  </select>
+                </div>
+                <div class="col-md-4">
+                  <label class="form-label fw-bold required">ຕຽງ (Bed)</label>
+                  <select class="form-select" id="admBed" required>
+                    <option value="">-- ເລືອກຕຽງ --</option>
+                  </select>
+                </div>
+                <div class="col-md-6">
+                  <label class="form-label fw-bold">ມັດຈຳ (Deposit)</label>
+                  <input type="number" class="form-control" id="admDeposit" placeholder="0" step="0.01">
+                </div>
+                <div class="col-md-6">
+                  <label class="form-label fw-bold">ປະກັນໄພ</label>
+                  <input type="text" class="form-control" id="admInsurance" placeholder="Insurance Info">
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="d-grid gap-2">
+            <button type="submit" class="btn btn-primary fw-bold py-2"><i class="fas fa-save me-2"></i>ບັນທຶກການຮັບໄວ້</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- IPD Detail Modal -->
+<div class="modal fade" id="ipdDetailModal" tabindex="-1" data-bs-backdrop="static">
+  <div class="modal-dialog modal-xl">
+    <div class="modal-content border-0 shadow">
+      <div class="modal-header bg-info text-white">
+        <h5 class="modal-title fw-bold"><i class="fas fa-procedures me-2"></i>ລາຍລະອຽດຄົນເຈັບນອນ: <span id="ipdDetailPatientName"></span></h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body p-0">
+        <!-- Tabs -->
+        <ul class="nav nav-tabs" id="ipdDetailTabs" role="tablist">
+          <li class="nav-item" role="presentation">
+            <button class="nav-link active" id="overview-tab" data-bs-toggle="tab" data-bs-target="#overview" type="button">📋 ພາບລວມ</button>
+          </li>
+          <li class="nav-item" role="presentation">
+            <button class="nav-link" id="progress-tab" data-bs-toggle="tab" data-bs-target="#progress" type="button">📝 Progress Notes</button>
+          </li>
+          <li class="nav-item" role="presentation">
+            <button class="nav-link" id="meds-tab" data-bs-toggle="tab" data-bs-target="#meds" type="button">💊 ຢາ</button>
+          </li>
+          <li class="nav-item" role="presentation">
+            <button class="nav-link" id="vitals-tab" data-bs-toggle="tab" data-bs-target="#vitals" type="button">❤️ Vital Signs</button>
+          </li>
+          <li class="nav-item" role="presentation">
+            <button class="nav-link" id="nursing-tab" data-bs-toggle="tab" data-bs-target="#nursing" type="button">👩‍⚕️ Nursing Notes</button>
+          </li>
+        </ul>
+
+        <!-- Tab Content -->
+        <div class="tab-content p-4" id="ipdDetailTabContent">
+          <!-- Overview Tab -->
+          <div class="tab-pane fade show active" id="overview" role="tabpanel">
+            <div class="row g-4">
+              <div class="col-md-8">
+                <div class="card border-0 shadow-sm h-100">
+                  <div class="card-header bg-light">
+                    <h6 class="mb-0 fw-bold">ຂໍ້ມູນການນອນໂຮງໝໍ</h6>
+                  </div>
+                  <div class="card-body">
+                    <div class="row g-3">
+                      <div class="col-md-6">
+                        <p class="mb-1 text-muted small">ຫ້ອງ/ຕຽງ</p>
+                        <p class="fw-bold mb-0" id="detailWardBed">-</p>
+                      </div>
+                      <div class="col-md-6">
+                        <p class="mb-1 text-muted small">ວັນຮັບໄວ້</p>
+                        <p class="fw-bold mb-0" id="detailAdmDate">-</p>
+                      </div>
+                      <div class="col-md-6">
+                        <p class="mb-1 text-muted small">ແພດຜູ້ຮັບໄວ້</p>
+                        <p class="fw-bold mb-0" id="detailDoctor">-</p>
+                      </div>
+                      <div class="col-md-6">
+                        <p class="mb-1 text-muted small">ການວິນິດໄສ</p>
+                        <p class="fw-bold mb-0" id="detailDiagnosis">-</p>
+                      </div>
+                      <div class="col-md-6">
+                        <p class="mb-1 text-muted small">ສະຖານະ</p>
+                        <p class="fw-bold mb-0"><span class="badge bg-success" id="detailStatus">Admitted</span></p>
+                      </div>
+                      <div class="col-md-6">
+                        <p class="mb-1 text-muted small">ມັດຈຳ</p>
+                        <p class="fw-bold mb-0" id="detailDeposit">-</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="col-md-4">
+                <div class="card border-0 shadow-sm h-100">
+                  <div class="card-header bg-light">
+                    <h6 class="mb-0 fw-bold">ການກະທຳ</h6>
+                  </div>
+                  <div class="card-body">
+                    <div class="d-grid gap-2">
+                      <button class="btn btn-primary" onclick="window.openIPDProgressNote()"><i class="fas fa-file-medical me-2"></i>Progress Note</button>
+                      <button class="btn btn-success" onclick="window.openIPDMedication()"><i class="fas fa-pills me-2"></i>ສັ່ງຢາ</button>
+                      <button class="btn btn-info text-white" onclick="window.openIPDVitals()"><i class="fas fa-heartbeat me-2"></i>Vital Signs</button>
+                      <button class="btn btn-warning" onclick="window.openIPDNursingNote()"><i class="fas fa-user-nurse me-2"></i>Nursing Note</button>
+                      <hr>
+                      <button class="btn btn-danger" onclick="window.openIPDDischarge()"><i class="fas fa-sign-out-alt me-2"></i>Discharge</button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Progress Notes Tab -->
+          <div class="tab-pane fade" id="progress" role="tabpanel">
+            <div class="d-flex justify-content-between mb-3">
+              <h6 class="fw-bold mb-0">ປະຫວັດບັນທຶກປະຈຳວັນ</h6>
+              <button class="btn btn-sm btn-primary" onclick="window.openIPDProgressNote()"><i class="fas fa-plus me-1"></i>ເພີ່ມບັນທຶກ</button>
+            </div>
+            <div id="progressNotesList"></div>
+          </div>
+
+          <!-- Medications Tab -->
+          <div class="tab-pane fade" id="meds" role="tabpanel">
+            <div class="d-flex justify-content-between mb-3">
+              <h6 class="fw-bold mb-0">ຢາປັດຈຸບັນ</h6>
+              <button class="btn btn-sm btn-success" onclick="window.openIPDMedication()"><i class="fas fa-plus me-1"></i>ສັ່ງຢາ</button>
+            </div>
+            <div id="medicationsList"></div>
+          </div>
+
+          <!-- Vitals Tab -->
+          <div class="tab-pane fade" id="vitals" role="tabpanel">
+            <div class="d-flex justify-content-between mb-3">
+              <h6 class="fw-bold mb-0">ປະຫວັດ Vital Signs</h6>
+              <button class="btn btn-sm btn-info text-white" onclick="window.openIPDVitals()"><i class="fas fa-plus me-1"></i>ບັນທຶກ Vital Signs</button>
+            </div>
+            <div id="vitalsList"></div>
+          </div>
+
+          <!-- Nursing Notes Tab -->
+          <div class="tab-pane fade" id="nursing" role="tabpanel">
+            <div class="d-flex justify-content-between mb-3">
+              <h6 class="fw-bold mb-0">Nursing Notes</h6>
+              <button class="btn btn-sm btn-warning" onclick="window.openIPDNursingNote()"><i class="fas fa-plus me-1"></i>ເພີ່ມ Note</button>
+            </div>
+            <div id="nursingNotesList"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Progress Note Modal -->
+<div class="modal fade" id="ipdProgressModal" tabindex="-1" data-bs-backdrop="static">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content border-0 shadow">
+      <div class="modal-header bg-primary text-white">
+        <h5 class="modal-title fw-bold"><i class="fas fa-file-medical me-2"></i>ບັນທຶກປະຈຳວັນ (Progress Note)</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body p-4">
+        <form id="ipdProgressForm" onsubmit="window.submitIPDProgressNote(event)">
+          <input type="hidden" id="progressAdmissionId">
+          <div class="row g-3">
+            <div class="col-md-6">
+              <label class="form-label fw-bold required">ວັນທີ</label>
+              <input type="date" class="form-control" id="progressDate" required>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label fw-bold required">ເວລາ</label>
+              <input type="time" class="form-control" id="progressTime" required>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label fw-bold">ແພດຜູ້ບັນທຶກ</label>
+              <select class="form-select dyn-Doctor" id="progressDoctor"></select>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label fw-bold">ປະເພດບັນທຶກ</label>
+              <select class="form-select" id="progressType">
+                <option value="Daily Progress">Daily Progress</option>
+                <option value="Consultation">Consultation</option>
+                <option value="Procedure">Procedure</option>
+                <option value="Discharge Summary">Discharge Summary</option>
+              </select>
+            </div>
+            <div class="col-12">
+              <label class="form-label fw-bold required">S (Subjective) - ອາການທີ່ຄົນເຈັບບອກ</label>
+              <textarea class="form-control" id="progressSubjective" rows="2" required placeholder="ອາການ, ຄຳບອກຂອງຄົນເຈັບ..."></textarea>
+            </div>
+            <div class="col-12">
+              <label class="form-label fw-bold required">O (Objective) - ຜົນກວດທີ່ພົບ</label>
+              <textarea class="form-control" id="progressObjective" rows="2" required placeholder="Vital Signs, ຜົນແລັບ, ຜົນກວດ..."></textarea>
+            </div>
+            <div class="col-12">
+              <label class="form-label fw-bold required">A (Assessment) - ການວິນິດໄສ</label>
+              <textarea class="form-control" id="progressAssessment" rows="2" required placeholder="ການວິນິດໄສ..."></textarea>
+            </div>
+            <div class="col-12">
+              <label class="form-label fw-bold required">P (Plan) - ແຜນການປິ່ນປົວ</label>
+              <textarea class="form-control" id="progressPlan" rows="2" required placeholder="ແຜນການປິ່ນປົວ, ຢາ, ການກວດເພີ່ມເຕີມ..."></textarea>
+            </div>
+          </div>
+          <div class="mt-4 d-grid gap-2">
+            <button type="submit" class="btn btn-primary fw-bold"><i class="fas fa-save me-2"></i>ບັນທຶກ</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Medication Modal -->
+<div class="modal fade" id="ipdMedicationModal" tabindex="-1" data-bs-backdrop="static">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content border-0 shadow">
+      <div class="modal-header bg-success text-white">
+        <h5 class="modal-title fw-bold"><i class="fas fa-pills me-2"></i>ສັ່ງຢາ (IPD Medication)</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body p-4">
+        <form id="ipdMedicationForm" onsubmit="window.submitIPDMedication(event)">
+          <input type="hidden" id="medAdmissionId">
+          <div class="row g-3">
+            <div class="col-md-8">
+              <label class="form-label fw-bold required">ຊື່ຢາ</label>
+              <select class="form-select" id="medDrugSelect" required>
+                <option value="">-- ຄົ້ນຫາ ແລະ ເລືອກຢາ --</option>
+              </select>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label fw-bold">ຂະໜາດ (Dosage)</label>
+              <input type="text" class="form-control" id="medDosage" placeholder="500mg, 1 tab...">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label fw-bold required">ຄວາມຖີ່</label>
+              <select class="form-select" id="medFrequency" required>
+                <option value="">-- ເລືອກ --</option>
+                <option value="OD">OD (ວັນລະ 1 ຄັ້ງ)</option>
+                <option value="BID">BID (ວັນລະ 2 ຄັ້ງ)</option>
+                <option value="TID">TID (ວັນລະ 3 ຄັ້ງ)</option>
+                <option value="QID">QID (ວັນລະ 4 ຄັ້ງ)</option>
+                <option value="Q4H">Q4H (ທຸກໆ 4 ຊົ່ວໂມງ)</option>
+                <option value="Q6H">Q6H (ທຸກໆ 6 ຊົ່ວໂມງ)</option>
+                <option value="Q8H">Q8H (ທຸກໆ 8 ຊົ່ວໂມງ)</option>
+                <option value="Q12H">Q12H (ທຸກໆ 12 ຊົ່ວໂມງ)</option>
+                <option value="PRN">PRN (ເມື່ອຈຳເປັນ)</option>
+                <option value="STAT">STAT (ທັນທີ)</option>
+              </select>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label fw-bold required">ວິທີໃຫ້</label>
+              <select class="form-select" id="medRoute" required>
+                <option value="">-- ເລືອກ --</option>
+                <option value="PO">PO (ກິນ)</option>
+                <option value="IV">IV (ເສັ້ນເລືອດ)</option>
+                <option value="IM">IM (ກ້າມຊີ້ນ)</option>
+                <option value="SC">SC (ໃຕ້ຜິວໜັງ)</option>
+                <option value="SL">SL (ໃຕ້ລິ້ນ)</option>
+                <option value="PR">PR (ທະວານ)</option>
+                <option value="Neb">Neb (ຢາຂີ້ເຜິ້ງ)</option>
+                <option value="Topical">Topical (ທາ)</option>
+              </select>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label fw-bold">ວັນທີເລີ່ມ</label>
+              <input type="date" class="form-control" id="medStartDate">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label fw-bold">ວັນທີສິ້ນສຸດ</label>
+              <input type="date" class="form-control" id="medEndDate">
+            </div>
+            <div class="col-12">
+              <label class="form-label fw-bold">ໝາຍເຫດ</label>
+              <textarea class="form-control" id="medNotes" rows="2" placeholder="ຄຳແນະນຳເພີ່ມເຕີມ..."></textarea>
+            </div>
+          </div>
+          <div class="mt-4 d-grid gap-2">
+            <button type="submit" class="btn btn-success fw-bold"><i class="fas fa-save me-2"></i>ສັ່ງຢາ</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Vitals Modal -->
+<div class="modal fade" id="ipdVitalsModal" tabindex="-1" data-bs-backdrop="static">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content border-0 shadow">
+      <div class="modal-header bg-info text-white">
+        <h5 class="modal-title fw-bold"><i class="fas fa-heartbeat me-2"></i>ບັນທຶກ Vital Signs</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body p-4">
+        <form id="ipdVitalsForm" onsubmit="window.submitIPDVitals(event)">
+          <input type="hidden" id="vitalsAdmissionId">
+          <div class="row g-3">
+            <div class="col-md-6">
+              <label class="form-label fw-bold required">ວັນທີ</label>
+              <input type="date" class="form-control" id="vitalsDate" required>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label fw-bold required">ເວລາ</label>
+              <input type="time" class="form-control" id="vitalsTime" required>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label fw-bold">ຄວາມດັນເລືອດ (BP)</label>
+              <input type="text" class="form-control" id="vitalsBP" placeholder="120/80">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label fw-bold">ອຸນຫະພູມ (Temp °C)</label>
+              <input type="number" step="0.1" class="form-control" id="vitalsTemp" placeholder="36.5">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label fw-bold">ຊີບຈອນ (Pulse)</label>
+              <input type="number" class="form-control" id="vitalsPulse" placeholder="80">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label fw-bold">ອັດຕາການຫາຍໃຈ (Resp Rate)</label>
+              <input type="number" class="form-control" id="vitalsResp" placeholder="20">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label fw-bold">SpO2 (%)</label>
+              <input type="number" class="form-control" id="vitalsSpO2" placeholder="98">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label fw-bold">Pain Score (0-10)</label>
+              <select class="form-select" id="vitalsPain">
+                <option value="0">0 - ບໍ່ເຈັບ</option>
+                <option value="1">1</option>
+                <option value="2">2</option>
+                <option value="3">3</option>
+                <option value="4">4</option>
+                <option value="5">5 - ເຈັບປານກາງ</option>
+                <option value="6">6</option>
+                <option value="7">7</option>
+                <option value="8">8</option>
+                <option value="9">9</option>
+                <option value="10">10 - ເຈັບຫຼາຍທີ່ສຸດ</option>
+              </select>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label fw-bold">ສະຕິ (Consciousness)</label>
+              <select class="form-select" id="vitalsConsciousness">
+                <option value="Alert">Alert (ຮູ້ສຶກຕົວ)</option>
+                <option value="Voice">Response to Voice (ຕອບສະໜອງຕໍ່ສຽງ)</option>
+                <option value="Pain">Response to Pain (ຕອບສະໜອງຕໍ່ຄວາມເຈັບ)</option>
+                <option value="Unresponsive">Unresponsive (ບໍ່ຕອບສະໜອງ)</option>
+              </select>
+            </div>
+            <div class="col-12">
+              <label class="form-label fw-bold">ໝາຍເຫດ</label>
+              <textarea class="form-control" id="vitalsNotes" rows="2" placeholder="ຂໍ້ສັງເກດເພີ່ມເຕີມ..."></textarea>
+            </div>
+          </div>
+          <div class="mt-4 d-grid gap-2">
+            <button type="submit" class="btn btn-info text-white fw-bold"><i class="fas fa-save me-2"></i>ບັນທຶກ</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Nursing Note Modal -->
+<div class="modal fade" id="ipdNursingModal" tabindex="-1" data-bs-backdrop="static">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content border-0 shadow">
+      <div class="modal-header bg-warning text-dark">
+        <h5 class="modal-title fw-bold"><i class="fas fa-user-nurse me-2"></i>ບັນທຶກ Nursing Note</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body p-4">
+        <form id="ipdNursingForm" onsubmit="window.submitIPDNursingNote(event)">
+          <input type="hidden" id="nursingAdmissionId">
+          <div class="row g-3">
+            <div class="col-md-6">
+              <label class="form-label fw-bold required">ວັນທີ</label>
+              <input type="date" class="form-control" id="nursingDate" required>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label fw-bold required">ເວລາ</label>
+              <input type="time" class="form-control" id="nursingTime" required>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label fw-bold">ພະຍາບານຜູ້ບັນທຶກ</label>
+              <input type="text" class="form-control" id="nursingName" placeholder="ຊື່ພະຍາບານ">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label fw-bold">ປະເພດ</label>
+              <select class="form-select" id="nursingType">
+                <option value="Assessment">Assessment (ການປະເມີນ)</option>
+                <option value="Intervention">Intervention (ການແຊກແຊງ)</option>
+                <option value="Evaluation">Evaluation (ການປະເມີນຜົນ)</option>
+                <option value="Education">Patient Education (ການໃຫ້ຄວາມຮູ້)</option>
+                <option value="Other">Other (ອື່ນໆ)</option>
+              </select>
+            </div>
+            <div class="col-12">
+              <label class="form-label fw-bold required">ເນື້ອໃນ</label>
+              <textarea class="form-control" id="nursingContent" rows="4" required placeholder="ບັນທຶກຂໍ້ມູນການພະຍາບານ..."></textarea>
+            </div>
+          </div>
+          <div class="mt-4 d-grid gap-2">
+            <button type="submit" class="btn btn-warning text-dark fw-bold"><i class="fas fa-save me-2"></i>ບັນທຶກ</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Discharge Modal -->
+<div class="modal fade" id="ipdDischargeModal" tabindex="-1" data-bs-backdrop="static">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content border-0 shadow">
+      <div class="modal-header bg-danger text-white">
+        <h5 class="modal-title fw-bold"><i class="fas fa-sign-out-alt me-2"></i>ໃຫ້ຄົນເຈັບອອກ (Discharge)</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body p-4">
+        <form id="ipdDischargeForm" onsubmit="window.submitIPDDischarge(event)">
+          <input type="hidden" id="dischargeAdmissionId">
+          <div class="alert alert-warning">
+            <i class="fas fa-exclamation-triangle me-2"></i>
+            <strong>ຄຳເຕືອນ:</strong> ການ Discharge ຈະປິດການນອນໂຮງໝໍ ແລະ ປ່ຽນສະຖານະຕຽງເປັນວ່າງ
+          </div>
+          <div class="row g-3">
+            <div class="col-md-6">
+              <label class="form-label fw-bold required">ວັນທີອອກ</label>
+              <input type="date" class="form-control" id="dischargeDate" required>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label fw-bold required">ເວລາອອກ</label>
+              <input type="time" class="form-control" id="dischargeTime" required>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label fw-bold required">ສະຖານະອອກ</label>
+              <select class="form-select" id="dischargeStatus" required>
+                <option value="">-- ເລືອກ --</option>
+                <option value="Improved">Improved (ດີຂຶ້ນ)</option>
+                <option value="Stable">Stable (ຄົງທີ່)</option>
+                <option value="Worse">Worse (ແຊກຊ້ອນ)</option>
+                <option value="Deceased">Deceased (ເສຍຊີວິດ)</option>
+                <option value="AMA">AMA (ອອກຕາມໃຈ)</option>
+                <option value="Transfer">Transfer (ສົ່ງຕໍ່)</option>
+              </select>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label fw-bold">ການວິນິດໄສສຸດທ້າຍ</label>
+              <input type="text" class="form-control" id="dischargeDiagnosis" placeholder="Final Diagnosis">
+            </div>
+            <div class="col-12">
+              <label class="form-label fw-bold">ສະຫຼຸບການປິ່ນປົວ</label>
+              <textarea class="form-control" id="dischargeSummary" rows="3" placeholder="ສະຫຼຸບການປິ່ນປົວ..."></textarea>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label fw-bold">ວັນນັດຕິດຕາມ</label>
+              <input type="date" class="form-control" id="dischargeFollowUp">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label fw-bold">ຢາທີ່ໃຫ້ກັບບ້ານ</label>
+              <input type="text" class="form-control" id="dischargeMeds" placeholder="ຢາກັບບ້ານ...">
+            </div>
+          </div>
+          <div class="mt-4 d-grid gap-2">
+            <button type="submit" class="btn btn-danger fw-bold"><i class="fas fa-sign-out-alt me-2"></i>ຢືນຢັນ Discharge</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Visit History Modal -->
+<div class="modal fade" id="ipdVisitModal" tabindex="-1" data-bs-backdrop="static">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content border-0 shadow">
+      <div class="modal-header bg-info text-white">
+        <h5 class="modal-title fw-bold"><i class="fas fa-user-md me-2"></i>ບັນທຶກການຢ້ຽມ: <span id="visitPatientName"></span></h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body p-4">
+        <form id="ipdVisitForm" onsubmit="window.submitIPDVisit(event)">
+          <div class="row g-3">
+            <div class="col-md-6">
+              <label class="form-label fw-bold required">ວັນທີ</label>
+              <input type="date" class="form-control" id="visitDate" required>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label fw-bold required">ເວລາ</label>
+              <input type="time" class="form-control" id="visitTime" required>
+            </div>
+            <div class="col-md-12">
+              <label class="form-label fw-bold">ຜູ້ຢ້ຽມ (ໝໍ/ພະຍາບານ)</label>
+              <select class="form-select" id="visitVisitor">
+                <option value="">-- ເລືອກຜູ້ຢ້ຽມ --</option>
+              </select>
+              <input type="text" class="form-control mt-2" id="visitNurseName" placeholder="ຫຼື ພິມຊື່ພະຍາບານ...">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label fw-bold">ຈຸດປະສົງ</label>
+              <select class="form-select" id="visitPurpose">
+                <option value="">-- ເລືອກຈຸດປະສົງ --</option>
+                <option value="Round">Round (ຢ້ຽມປະຈຳວັນ)</option>
+                <option value="Consult">Consult (ປຶກສາ)</option>
+                <option value="Procedure">Procedure (ຫັດຖະການ)</option>
+                <option value="Emergency">Emergency (ສຸກເສີນ)</option>
+                <option value="Other">Other (ອື່ນໆ)</option>
+              </select>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label fw-bold">ປະເພດຜູ້ຢ້ຽມ</label>
+              <select class="form-select" id="visitType">
+                <option value="Doctor">👨‍⚕️ ແພດ</option>
+                <option value="Nurse">👩‍⚕️ ພະຍາບານ</option>
+              </select>
+            </div>
+            <div class="col-12">
+              <label class="form-label fw-bold">ບັນທຶກ</label>
+              <textarea class="form-control" id="visitNotes" rows="3" placeholder="ບັນທຶກເພີ່ມເຕີມ..."></textarea>
+            </div>
+          </div>
+          <div class="mt-4 d-grid gap-2">
+            <button type="submit" class="btn btn-info text-white fw-bold"><i class="fas fa-save me-2"></i>ບັນທຶກ</button>
+          </div>
+        </form>
+        
+        <hr class="my-4">
+        
+        <h6 class="fw-bold mb-3"><i class="fas fa-history me-2"></i>ປະຫວັດການຢ້ຽມ</h6>
+        <div id="visitHistoryList"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Room Modal -->
+<div class="modal fade" id="roomModal" tabindex="-1" data-bs-backdrop="static">
+  <div class="modal-dialog">
+    <div class="modal-content border-0 shadow">
+      <div class="modal-header bg-primary text-white">
+        <h5 class="modal-title fw-bold"><i class="fas fa-door-open me-2"></i>ເພີ່ມຫ້ອງ</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body p-4">
+        <form id="roomForm" onsubmit="window.submitRoom(event)">
+          <input type="hidden" id="roomWardId">
+          <div class="mb-3">
+            <label class="form-label fw-bold required">ເລກຫ້ອງ</label>
+            <input type="text" class="form-control" id="roomNumber" required placeholder="ICU-1, GW-101...">
+          </div>
+          <div class="mb-3">
+            <label class="form-label fw-bold">ປະເພດຫ້ອງ</label>
+            <select class="form-select" id="roomType">
+              <option value="ICU">ICU</option>
+              <option value="General">General</option>
+              <option value="Private">Private</option>
+              <option value="Semi-Private">Semi-Private</option>
+            </select>
+          </div>
+          <div class="mb-3">
+            <label class="form-label fw-bold">ຈຳນວນຕຽງ (ປະມານ)</label>
+            <input type="number" class="form-control" id="roomCapacity" value="1" min="1">
+          </div>
+          <div class="d-grid">
+            <button type="submit" class="btn btn-primary fw-bold"><i class="fas fa-save me-2"></i>ບັນທຶກ</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Bed Modal -->
+<div class="modal fade" id="bedModal" tabindex="-1" data-bs-backdrop="static">
+  <div class="modal-dialog">
+    <div class="modal-content border-0 shadow">
+      <div class="modal-header bg-info text-white">
+        <h5 class="modal-title fw-bold"><i class="fas fa-bed me-2"></i>ເພີ່ມຕຽງ</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body p-4">
+        <form id="bedForm" onsubmit="window.submitBed(event)">
+          <input type="hidden" id="bedRoomId">
+          <div class="mb-3">
+            <label class="form-label fw-bold required">ເລກຕຽງ</label>
+            <input type="text" class="form-control" id="bedNumber" required placeholder="Bed-1, A1...">
+          </div>
+          <div class="d-grid">
+            <button type="submit" class="btn btn-info text-white fw-bold"><i class="fas fa-save me-2"></i>ບັນທຶກ</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>

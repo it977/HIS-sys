@@ -23,7 +23,7 @@
 
 <!-- User Modal -->
 <div class="modal fade" id="addUserModal" tabindex="-1" data-bs-backdrop="static">
-  <div class="modal-dialog">
+  <div class="modal-dialog modal-lg">
     <div class="modal-content border-0 shadow">
       <div class="modal-header bg-warning text-dark">
         <h5 class="modal-title fw-bold" id="userModalTitle"><i class="fas fa-user-plus me-2"></i>ເພີ່ມຜູ້ໃຊ້ລະບົບ</h5>
@@ -32,35 +32,165 @@
       <div class="modal-body p-4">
         <form id="addUserForm" onsubmit="window.submitUserForm(event)">
           <input type="hidden" id="u_id">
-          <div class="mb-3"><label class="form-label fw-bold required">ຊື່ພະນັກງານ</label><input type="text" class="form-control" id="u_name" required></div>
-          <div class="mb-3"><label class="form-label fw-bold required">ອີເມວ (Email)</label><input type="email" class="form-control" id="u_email" required></div>
-          <div class="mb-3">
-            <label class="form-label fw-bold">ລະຫັດຜ່ານ <span class="text-muted small fw-normal">(ຖ້າແກ້ໄຂ ປ່ອຍວ່າງໄດ້)</span></label>
-            <input type="password" class="form-control" id="u_pass" placeholder="ລະຫັດຜ່ານ...">
-          </div>
-          <div class="mb-3">
-            <label class="form-label fw-bold required">ສິດ (Role)</label>
-            <select class="form-select" id="u_role" required onchange="window.togglePermissionsBox()">
-              <option value="admin">Admin (ສິດທັງໝົດ)</option>
-              <option value="doctor">Doctor</option>
-              <option value="nurse">Nurse</option>
-              <option value="staff">Staff</option>
-            </select>
-          </div>
-          <div class="mb-4 border rounded p-3 bg-light" id="permBox" style="display:none;">
-            <label class="form-label fw-bold text-muted mb-2"><i class="fas fa-key me-1"></i>ໜ້າທີ່ທີ່ອະນຸຍາດ:</label>
-            <div class="row g-2">
-              <div class="col-6"><div class="form-check"><input class="form-check-input permission-check" type="checkbox" value="dashboard" id="perm_dash"><label class="form-check-label" for="perm_dash">Dashboard</label></div></div>
-              <div class="col-6"><div class="form-check"><input class="form-check-input permission-check" type="checkbox" value="report" id="perm_rep"><label class="form-check-label" for="perm_rep">Report</label></div></div>
-              <div class="col-6"><div class="form-check"><input class="form-check-input permission-check" type="checkbox" value="patients" id="perm_pat"><label class="form-check-label" for="perm_pat">ທະບຽນຄົນເຈັບ</label></div></div>
-              <div class="col-6"><div class="form-check"><input class="form-check-input permission-check" type="checkbox" value="triage" id="perm_tri"><label class="form-check-label" for="perm_tri">Triage</label></div></div>
-              <div class="col-6"><div class="form-check"><input class="form-check-input permission-check" type="checkbox" value="opd" id="perm_opd"><label class="form-check-label" for="perm_opd">OPD (ຫ້ອງກວດ)</label></div></div>
-              <div class="col-6"><div class="form-check"><input class="form-check-input permission-check" type="checkbox" value="appointments" id="perm_apt"><label class="form-check-label" for="perm_apt">ນັດໝາຍ</label></div></div>
-              <div class="col-6"><div class="form-check"><input class="form-check-input permission-check" type="checkbox" value="vaccines" id="perm_vac"><label class="form-check-label" for="perm_vac">ວັກຊີນ</label></div></div>
-              <div class="col-6"><div class="form-check"><input class="form-check-input permission-check" type="checkbox" value="settings" id="perm_set"><label class="form-check-label" for="perm_set">ຕັ້ງຄ່າ</label></div></div>
+          <div class="row g-3">
+            <div class="col-md-6">
+              <label class="form-label fw-bold required">ຊື່ພະນັກງານ</label>
+              <input type="text" class="form-control" id="u_name" required>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label fw-bold required">ອີເມວ (Email)</label>
+              <input type="email" class="form-control" id="u_email" required>
             </div>
           </div>
-          <button type="submit" class="btn btn-warning w-100 fw-bold text-dark"><i class="fas fa-save me-2"></i>ບັນທຶກຜູ້ໃຊ້</button>
+          <div class="row g-3 mt-1">
+            <div class="col-md-6">
+              <label class="form-label fw-bold">ລະຫັດຜ່ານ <span class="text-muted small fw-normal">(ຖ້າແກ້ໄຂ ປ່ອຍວ່າງໄດ້)</span></label>
+              <input type="password" class="form-control" id="u_pass" placeholder="ລະຫັດຜ່ານ...">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label fw-bold required">ສິດ (Role)</label>
+              <select class="form-select" id="u_role" required onchange="window.togglePermissionsBox()">
+                <option value="">-- ເລືອກ Role --</option>
+                <option value="admin">👑 Admin (ສິດທັງໝົດ)</option>
+                <option value="doctor">👨‍⚕️ Doctor (ແພດ)</option>
+                <option value="nurse">👩‍⚕️ Nurse (ພະຍາບານ)</option>
+                <option value="lab">🔬 Lab Technician</option>
+                <option value="pharmacy">💊 Pharmacy (ເຈົ້າໜ້າທີ່ຢາ)</option>
+                <option value="reception">📋 Reception (ຝ່າຍຕ້ອນຮັບ)</option>
+                <option value="cashier">💰 Cashier (ຝ່າຍການເງິນ)</option>
+                <option value="staff">👤 Staff (ພະນັກງານທົ່ວໄປ)</option>
+              </select>
+            </div>
+          </div>
+          
+          <div class="mt-4 border rounded p-3 bg-light" id="permBox" style="display:none;">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+              <label class="form-label fw-bold text-muted mb-0"><i class="fas fa-key me-2"></i>ໜ້າທີ່ທີ່ອະນຸຍາດ:</label>
+              <div>
+                <button type="button" class="btn btn-sm btn-outline-primary me-1" onclick="window.selectAllPermissions()"><i class="fas fa-check-square me-1"></i>ເລືອກທັງໝົດ</button>
+                <button type="button" class="btn btn-sm btn-outline-secondary" onclick="window.deselectAllPermissions()"><i class="fas fa-times-square me-1"></i>ລ້າງທັງໝົດ</button>
+              </div>
+            </div>
+            
+            <div class="row g-2">
+              <div class="col-md-3">
+                <div class="form-check p-2 border rounded bg-white">
+                  <input class="form-check-input permission-check" type="checkbox" value="dashboard" id="perm_dashboard">
+                  <label class="form-check-label fw-bold" for="perm_dashboard">📊 Dashboard</label>
+                  <div class="small text-muted">ເບິ່ງແດชບອດ</div>
+                </div>
+              </div>
+              <div class="col-md-3">
+                <div class="form-check p-2 border rounded bg-white">
+                  <input class="form-check-input permission-check" type="checkbox" value="report" id="perm_report">
+                  <label class="form-check-label fw-bold" for="perm_report">📋 Report</label>
+                  <div class="small text-muted">ເບິ່ງລາຍງານ</div>
+                </div>
+              </div>
+              <div class="col-md-3">
+                <div class="form-check p-2 border rounded bg-white">
+                  <input class="form-check-input permission-check" type="checkbox" value="patients" id="perm_patients">
+                  <label class="form-check-label fw-bold" for="perm_patients">👥 ຄົນເຈັບ</label>
+                  <div class="small text-muted">ທະບຽນ/ຈັດການຄົນເຈັບ</div>
+                </div>
+              </div>
+              <div class="col-md-3">
+                <div class="form-check p-2 border rounded bg-white">
+                  <input class="form-check-input permission-check" type="checkbox" value="triage" id="perm_triage">
+                  <label class="form-check-label fw-bold" for="perm_triage">❤️ Triage</label>
+                  <div class="small text-muted">ຊັກປະຫວັດ/Vital Signs</div>
+                </div>
+              </div>
+              <div class="col-md-3">
+                <div class="form-check p-2 border rounded bg-white">
+                  <input class="form-check-input permission-check" type="checkbox" value="opd" id="perm_opd">
+                  <label class="form-check-label fw-bold" for="perm_opd">🩺 OPD</label>
+                  <div class="small text-muted">ຫ້ອງກວດ/EMR</div>
+                </div>
+              </div>
+              <div class="col-md-3">
+                <div class="form-check p-2 border rounded bg-white">
+                  <input class="form-check-input permission-check" type="checkbox" value="labs" id="perm_labs">
+                  <label class="form-check-label fw-bold" for="perm_labs">🔬 Labs</label>
+                  <div class="small text-muted">ກວດແລັບ</div>
+                </div>
+              </div>
+              <div class="col-md-3">
+                <div class="form-check p-2 border rounded bg-white">
+                  <input class="form-check-input permission-check" type="checkbox" value="drugs" id="perm_drugs">
+                  <label class="form-check-label fw-bold" for="perm_drugs">💊 Drugs</label>
+                  <div class="small text-muted">ຈັດການຢາ</div>
+                </div>
+              </div>
+              <div class="col-md-3">
+                <div class="form-check p-2 border rounded bg-white">
+                  <input class="form-check-input permission-check" type="checkbox" value="appointments" id="perm_appointments">
+                  <label class="form-check-label fw-bold" for="perm_appointments">📅 ນັດໝາຍ</label>
+                  <div class="small text-muted">ຈັດການນັດໝາຍ</div>
+                </div>
+              </div>
+              <div class="col-md-3">
+                <div class="form-check p-2 border rounded bg-white">
+                  <input class="form-check-input permission-check" type="checkbox" value="vaccines" id="perm_vaccines">
+                  <label class="form-check-label fw-bold" for="perm_vaccines">💉 Vaccines</label>
+                  <div class="small text-muted">ວັກຊີນ</div>
+                </div>
+              </div>
+              <div class="col-md-3">
+                <div class="form-check p-2 border rounded bg-white">
+                  <input class="form-check-input permission-check" type="checkbox" value="vaccine_master" id="perm_vaccine_master">
+                  <label class="form-check-label fw-bold" for="perm_vaccine_master">📦 Vaccine Master</label>
+                  <div class="small text-muted">ຈັດການວັກຊີນ</div>
+                </div>
+              </div>
+              <div class="col-md-3">
+                <div class="form-check p-2 border rounded bg-white">
+                  <input class="form-check-input permission-check" type="checkbox" value="services" id="perm_services">
+                  <label class="form-check-label fw-bold" for="perm_services">🏥 Services</label>
+                  <div class="small text-muted">ຈັດການບໍລິການ</div>
+                </div>
+              </div>
+              <div class="col-md-3">
+                <div class="form-check p-2 border rounded bg-white">
+                  <input class="form-check-input permission-check" type="checkbox" value="locations" id="perm_locations">
+                  <label class="form-check-label fw-bold" for="perm_locations">📍 Locations</label>
+                  <div class="small text-muted">ຈັດການທີ່ຢູ່</div>
+                </div>
+              </div>
+              <div class="col-md-3">
+                <div class="form-check p-2 border rounded bg-white">
+                  <input class="form-check-input permission-check" type="checkbox" value="orgs" id="perm_orgs">
+                  <label class="form-check-label fw-bold" for="perm_orgs">🏢 Organizations</label>
+                  <div class="small text-muted">ຈັດການອົງກອນ</div>
+                </div>
+              </div>
+              <div class="col-md-3">
+                <div class="form-check p-2 border rounded bg-white">
+                  <input class="form-check-input permission-check" type="checkbox" value="users" id="perm_users">
+                  <label class="form-check-label fw-bold" for="perm_users">👥 Users</label>
+                  <div class="small text-muted">ຈັດການຜູ້ໃຊ້</div>
+                </div>
+              </div>
+              <div class="col-md-3">
+                <div class="form-check p-2 border rounded bg-white">
+                  <input class="form-check-input permission-check" type="checkbox" value="settings" id="perm_settings">
+                  <label class="form-check-label fw-bold" for="perm_settings">⚙️ Settings</label>
+                  <div class="small text-muted">ຕັ້ງຄ່າລະບົບ</div>
+                </div>
+              </div>
+              <div class="col-md-3">
+                <div class="form-check p-2 border rounded bg-white">
+                  <input class="form-check-input permission-check" type="checkbox" value="activity_log" id="perm_activity_log">
+                  <label class="form-check-label fw-bold" for="perm_activity_log">📜 Activity Log</label>
+                  <div class="small text-muted">ເບິ່ງ Log</div>
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          <div class="mt-4">
+            <button type="submit" class="btn btn-warning w-100 fw-bold text-dark"><i class="fas fa-save me-2"></i>ບັນທຶກຜູ້ໃຊ້</button>
+          </div>
         </form>
       </div>
     </div>
