@@ -38,8 +38,8 @@ async function loadPartials() {
     'labs', 'services', 'locations', 'users', 'orgs', 'settings', 'activity_log', 'public-queue'
   ];
   const modals = [
-    'triage-modal',
     'patient-modal',
+    'triage-modal',
     'appointment-qr-modal',
     'org-user-modal',
     'admin-modals',
@@ -313,10 +313,7 @@ window.doLogin = async function () {
       buttonPermissions: user.ButtonPermissions || {}  // ໂຫຼດ Button Permissions
     };
 
-    // 6. Update LastLogin
-    await supabaseClient.from('Users').update({ LastLogin: new Date().toISOString() }).eq('ID', user.ID);
-
-    // 7. Show success message
+    // 6. Show success message
     Swal.fire({
       title: 'ສຳເລັດ!',
       text: `ຍິນດີຕ້ອນຮັບ, ${currentUser.name}`,
@@ -331,8 +328,6 @@ window.doLogin = async function () {
     $('#sidebarUserName').text(currentUser.name);
 
     console.log("Login ສຳເລັດ! ຂໍ້ມູນ User:", currentUser);
-
-    window.logAction('Login', `ເຂົ້າສູ່ລະບົບ: ${currentUser.name} (${currentUser.role})`, 'Auth');
 
     window.initApp();
     
@@ -541,11 +536,6 @@ window.loadView = function (v) {
     window.loadQueue();
   }
   if (v === 'ipd') {
-    if (!$('#ipdStartDate').val()) {
-      let today = new Date();
-      $('#ipdStartDate').val(window.getLocalStr(today));
-      $('#ipdEndDate').val(window.getLocalStr(today));
-    }
     window.loadIPDPatients();
   }
   if (v === 'users') window.loadUsers();
@@ -753,10 +743,12 @@ window.preloadDropdownDataCallback = function (resolve) {
       labsMasterList = (data || []).map(r => ({ id: r.Lab_ID, name: r.Lab_Name, desc: r.Description || '' }));
       let h = '';
       labsMasterList.forEach((l, i) => {
-        h += `<div class="form-check mb-2">
-                        <input class="form-check-input lab-checkbox" type="checkbox" value="${l.name}" id="chkLab${i}">
-                        <label class="form-check-label fw-bold text-primary" for="chkLab${i}">${l.name}</label>
-                        <span class="text-muted small ms-1">- ${l.desc}</span>
+        h += `<div class="emr-picker-option">
+                        <input class="form-check-input lab-checkbox mt-1" type="checkbox" value="${l.name}" id="chkLab${i}">
+                        <label class="form-check-label mb-0" for="chkLab${i}">
+                          <strong>${l.name}</strong>
+                          <span>${l.desc || 'ບໍ່ມີລາຍລະອຽດເພີ່ມເຕີມ'}</span>
+                        </label>
                       </div>`;
       });
       if (document.getElementById('labCheckboxContainer')) document.getElementById('labCheckboxContainer').innerHTML = h;
@@ -1163,143 +1155,203 @@ window.fetchReportData = function () {
   window._fetchReportData(sDate, eDate);
 };
 
+// Pipeline helpers
+window.getPatientStage = function (visit) {
+  if (!visit) return 1; // ລົງທະບຽນເທົ່ານັ້ນ
+  const s = window.normalizeVisitStatus(visit.Status);
+  const dischargeStatus = (visit.Discharge_Status || '').toString();
+  if (s === 'Waiting Lab' || s === 'Calling Lab' || /Waiting Lab/i.test(dischargeStatus)) return 4;
+  if (s === 'Waiting OPD' || s === 'Calling OPD') return 3;
+  if (s === 'Triage' || s === 'Waiting Triage' || s === 'Calling Triage') return 2;
+  if (s === 'Pharmacy' || s === 'Done' || s === 'Completed') return 5;
+  if (dischargeStatus && !/Waiting Lab/i.test(dischargeStatus)) return 5;
+  return 2;
+};
+
+window.normalizeVisitStatus = function (status) {
+  const raw = (status || '').toString().trim();
+  if (!raw) return '';
+  if (/^calling\s+triage/i.test(raw)) return 'Calling Triage';
+  if (/^(triage|waiting\s+triage)/i.test(raw)) return 'Triage';
+  if (/^calling\s+opd/i.test(raw)) return 'Calling OPD';
+  if (/^waiting\s+opd/i.test(raw)) return 'Waiting OPD';
+  if (/^calling\s+lab/i.test(raw)) return 'Calling Lab';
+  if (/^waiting\s+lab/i.test(raw)) return 'Waiting Lab';
+  if (/^completed$/i.test(raw)) return 'Completed';
+  if (/^done$/i.test(raw)) return 'Done';
+  if (/^pharmacy$/i.test(raw)) return 'Pharmacy';
+  if (/^transfer$/i.test(raw)) return 'Transfer';
+  if (/^admit$/i.test(raw)) return 'Admit';
+  return raw;
+};
+
+window.generateUniqueVisitId = async function () {
+  for (let attempt = 0; attempt < 5; attempt += 1) {
+    const now = new Date();
+    const yy = now.getFullYear().toString().slice(-2);
+    const mm = String(now.getMonth() + 1).padStart(2, '0');
+    const dd = String(now.getDate()).padStart(2, '0');
+    const hh = String(now.getHours()).padStart(2, '0');
+    const mi = String(now.getMinutes()).padStart(2, '0');
+    const ss = String(now.getSeconds()).padStart(2, '0');
+    const ms = String(now.getMilliseconds()).padStart(3, '0');
+    const candidate = `V${yy}${mm}${dd}-${hh}${mi}${ss}${ms}`;
+    const { data, error } = await supabaseClient.from('Visits').select('Visit_ID').eq('Visit_ID', candidate).limit(1);
+    if (error) throw error;
+    if (!data || data.length === 0) return candidate;
+  }
+  throw new Error('ບໍ່ສາມາດສ້າງ Visit ID ໃໝ່ໄດ້');
+};
+
+window.isSuspiciousDuplicateVisit = function (visit, duplicateVisitMap) {
+  if (!visit?.Visit_ID || !duplicateVisitMap?.[visit.Visit_ID]) return false;
+  const normalizedStatus = window.normalizeVisitStatus(visit.Status);
+  return duplicateVisitMap[visit.Visit_ID] > 1
+    && !visit.Department
+    && ['Waiting OPD', 'Calling OPD', 'Waiting Lab', 'Calling Lab', 'Completed', 'Done', 'Pharmacy'].includes(normalizedStatus);
+};
+
+window.renderPipeline = function (stage) {
+  const steps = [
+    { icon: 'fa-user-plus', label: 'ລົງທະບຽນ' },
+    { icon: 'fa-clipboard-list', label: 'ຊັກປະຫວັດ' },
+    { icon: 'fa-stethoscope', label: 'ຫ້ອງກວດ' },
+    { icon: 'fa-flask', label: 'ຖ້າຜົນ' },
+    { icon: 'fa-check-circle', label: 'ສຳເລັດ' },
+  ];
+  let h = '<div style="display:flex;align-items:center;padding:4px 0">';
+  steps.forEach((s, i) => {
+    const done = i + 1 < stage;
+    const active = i + 1 === stage;
+    const bg = done ? '#22c55e' : active ? '#0ea5e9' : '#e2e8f0';
+    const tc = done || active ? '#fff' : '#94a3b8';
+    const lc = done ? '#16a34a' : active ? '#0284c7' : '#94a3b8';
+    if (i > 0) {
+      const cc = i < stage - 1 ? '#22c55e' : '#e2e8f0';
+      h += `<div style="flex:1;height:3px;background:${cc};margin-bottom:20px;min-width:6px"></div>`;
+    }
+    h += `<div style="text-align:center;flex-shrink:0">
+      <div style="width:30px;height:30px;border-radius:50%;background:${bg};color:${tc};display:flex;align-items:center;justify-content:center;margin:0 auto;font-size:11px;box-shadow:0 2px 5px rgba(0,0,0,.15)${active ? ';outline:3px solid ' + bg + '44' : ''}">
+        <i class="fas ${s.icon}"></i>
+      </div>
+      <div style="font-size:8.5px;color:${lc};font-weight:700;margin-top:3px;white-space:nowrap">${s.label}</div>
+    </div>`;
+  });
+  h += '</div>';
+  return h;
+};
+
 window._fetchReportData = async function (sDate, eDate) {
   try {
-    // 1. Fetch Visits with range (Paginated) - ONLY valid dates
-    let visitsInRange = [];
-    let startRange = 0;
+    // 1A. Fetch Patients registered in date range
+    let patientMap = {};
+    let pStart = 0;
     while (true) {
-      const { data: chunk, error: vError } = await supabaseClient.from('Visits')
+      const { data: chunk, error: pErr } = await supabaseClient.from('Patients')
         .select('*')
+        .gte('Registration_Date', sDate)
+        .lte('Registration_Date', eDate)
+        .not('Registration_Date', 'is', null)
+        .order('Registration_Date', { ascending: false })
+        .range(pStart, pStart + 999);
+      if (pErr) throw pErr;
+      if (!chunk || chunk.length === 0) break;
+      chunk.forEach(p => { patientMap[p.Patient_ID] = p; });
+      if (chunk.length < 1000) break;
+      pStart += 1000;
+    }
+
+    // 1B. Also fetch Visits in date range → get Patient IDs who came today even if registered before
+    let visitsInRange = [];
+    let vStart = 0;
+    while (true) {
+      const { data: chunk, error: vErr } = await supabaseClient.from('Visits')
+          .select('Patient_ID, Patient_Name, Date, Status, Department, Visit_Type, Symptoms, Diagnosis, Doctor_Name, Lab_Orders_JSON, Prescription_JSON, Discharge_Status, Visit_ID')
         .gte('Date', sDate + 'T00:00:00Z')
         .lte('Date', eDate + 'T23:59:59Z')
         .not('Date', 'is', null)
         .order('Date', { ascending: false })
-        .range(startRange, startRange + 999);
-      if (vError) throw vError;
+        .range(vStart, vStart + 999);
+      if (vErr) throw vErr;
       if (!chunk || chunk.length === 0) break;
       visitsInRange = visitsInRange.concat(chunk);
       if (chunk.length < 1000) break;
-      startRange += 1000;
-      if (visitsInRange.length >= 10000) break;
+      vStart += 1000;
     }
 
-    // Do NOT fetch NULL dates - they are invalid data
-    // Filter out any records with invalid Patient_ID or Date
-    let visits = visitsInRange.filter(v => v.Visit_ID && v.Patient_ID && v.Date);
-    
-    console.log(`Diagnostic: Visits loaded: ${visits.length}`);
-
-    if (!visits || visits.length === 0) return window.renderReportPage([]);
-
-    // 2. Fetch unique Patients involved (Paginated)
-    const pIds = [...new Set(visits.map(v => v.Patient_ID).filter(id => !!id))];
-    let pMap = {};
-    if (pIds.length > 0) {
-      let pStart = 0;
-      while (true) {
-        const { data: patients, error: pError } = await supabaseClient.from('Patients')
-          .select('Patient_ID, First_Name, Last_Name, Gender, Age')
-          .in('Patient_ID', pIds)
-          .range(pStart, pStart + 999);
-        if (pError || !patients || patients.length === 0) break;
-        patients.forEach(p => pMap[p.Patient_ID] = p);
-        if (patients.length < 1000) break;
-        pStart += 1000;
-      }
-    }
-
-    // 3. Check if patient has previous visits (same logic as Triage)
-    let hasPreviousVisitMap = {};
-    if (pIds.length > 0) {
-      console.log('=== REPORT: CHECKING PREVIOUS VISITS ===');
-      
-      // First: Count visits per patient in current batch
-      const patientVisitCount = {};
-      const patientVisits = {};
-      visits.forEach(v => {
-        if (!patientVisits[v.Patient_ID]) patientVisits[v.Patient_ID] = [];
-        patientVisits[v.Patient_ID].push(v);
-        patientVisitCount[v.Patient_ID] = (patientVisitCount[v.Patient_ID] || 0) + 1;
-      });
-      
-      console.log('Patient visit counts in current batch:', patientVisitCount);
-      
-      // For patients with multiple visits: sort by Date, 1st=NEW, 2nd+=RETURNING
-      Object.keys(patientVisits).forEach(pid => {
-        if (patientVisitCount[pid] > 1) {
-          const sortedVisits = patientVisits[pid].sort((a, b) => new Date(a.Date) - new Date(b.Date));
-          sortedVisits.slice(1).forEach((v, idx) => {
-            const visitKey = `${v.Patient_ID}|${v.Date}`;
-            hasPreviousVisitMap[visitKey] = true;
-            console.log(`Report: Visit ${idx + 2} for ${pid} marked as returning`);
-          });
-        }
-      });
-      
-      // Second: Check database for any other visits
-      for (let i = 0; i < pIds.length; i += 100) {
-        const chunkIds = pIds.slice(i, i + 100);
-        const { data: allPatientVisits, error: pvError } = await supabaseClient
-          .from('Visits')
-          .select('Visit_ID, Patient_ID, Date')
-          .in('Patient_ID', chunkIds)
-          .order('Date', { ascending: true });
-        
-        if (pvError) {
-          console.error('Report Previous Visit Query Error:', pvError);
-        } else if (allPatientVisits) {
-          const currentVisitKeys = new Set(
-            visits.map(v => `${v.Patient_ID}|${v.Date}`)
-          );
-          
-          const patientPrevVisits = {};
-          allPatientVisits.forEach(v => {
-            const visitKey = `${v.Patient_ID}|${v.Date}`;
-            if (!currentVisitKeys.has(visitKey)) {
-              patientPrevVisits[v.Patient_ID] = true;
-            }
-          });
-          
-          visits.forEach(v => {
-            const visitKey = `${v.Patient_ID}|${v.Date}`;
-            if (patientPrevVisits[v.Patient_ID]) {
-              hasPreviousVisitMap[visitKey] = true;
-            }
-          });
-        }
-      }
-      
-      console.log('Report - Visits marked as returning:', Object.keys(hasPreviousVisitMap));
-      console.log('=========================================');
-    }
-
-    // 4. Merge data
-    const processed = visits.map(r => {
-      // Handle invalid/missing dates
-      let dObj = new Date(r.Date);
-      let isValidDate = !isNaN(dObj.getTime());
-      let dateStr = isValidDate ? dObj.toLocaleDateString('en-GB') : '-';
-      let timeStr = isValidDate ? dObj.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) : '-';
-
-      // Handle null Patient ID
-      let p = pMap[r.Patient_ID];
-      let idStr = r.Patient_ID || '-';
-      const visitKey = `${r.Patient_ID}|${r.Date}`;
-
-      return {
-        ...r, // Keep original record for "View" detail
-        date: dateStr,
-        time: timeStr,
-        id: idStr,
-        name: r.Patient_Name || (p ? `${p.First_Name} ${p.Last_Name}` : '-'),
-        gender: p?.Gender || '-',
-        age: p?.Age || '-',
-        type: r.Type || 'OPD',
-        status: hasPreviousVisitMap[visitKey] ? 'ເກົ່າ' : 'ໃໝ່', // Check visit-specific key
-        category: r.Category || 'GN'
-      };
+    const duplicateVisitMap = {};
+    visitsInRange.forEach(v => {
+      if (!v?.Visit_ID) return;
+      duplicateVisitMap[v.Visit_ID] = (duplicateVisitMap[v.Visit_ID] || 0) + 1;
     });
+    visitsInRange = visitsInRange.filter(v => !window.isSuspiciousDuplicateVisit(v, duplicateVisitMap));
+
+    // Collect Patient IDs from visits who are NOT already in patientMap
+    const extraPIds = [...new Set(visitsInRange.map(v => v.Patient_ID).filter(id => id && !patientMap[id]))];
+    if (extraPIds.length > 0) {
+      for (let i = 0; i < extraPIds.length; i += 100) {
+        const chunk = extraPIds.slice(i, i + 100);
+        const { data: extra } = await supabaseClient.from('Patients').select('*').in('Patient_ID', chunk);
+        (extra || []).forEach(p => { patientMap[p.Patient_ID] = p; });
+      }
+    }
+
+    const allPatients = Object.values(patientMap);
+    if (allPatients.length === 0) return window.renderReportPage([]);
+
+    const allPIds = allPatients.map(p => p.Patient_ID);
+
+    // 2. Build latest eligible visit per patient + total visit count
+    let visitsByPatient = {};
+    let visitCountMap = {};
+    // First use visits already fetched in range
+    visitsInRange.forEach(v => {
+      if (!v.Patient_ID) return;
+      visitCountMap[v.Patient_ID] = (visitCountMap[v.Patient_ID] || 0) + 1;
+      if (!visitsByPatient[v.Patient_ID]) visitsByPatient[v.Patient_ID] = [];
+      visitsByPatient[v.Patient_ID].push(v);
+    });
+    // Fetch total visit count for all patients (to determine new/returning)
+    for (let i = 0; i < allPIds.length; i += 100) {
+      const chunk = allPIds.slice(i, i + 100);
+      const { data: allV } = await supabaseClient.from('Visits')
+        .select('Patient_ID').in('Patient_ID', chunk);
+      (allV || []).forEach(v => {
+        if (!visitCountMap[v.Patient_ID]) visitCountMap[v.Patient_ID] = 0;
+        // Only count once per Patient_ID (total historical visits)
+      });
+      // Get accurate count
+      const counts = {};
+      (allV || []).forEach(v => { counts[v.Patient_ID] = (counts[v.Patient_ID] || 0) + 1; });
+      Object.assign(visitCountMap, counts);
+    }
+
+    // 3. Merge and sort by visit date (latest visit date or registration date)
+    const processed = allPatients.map(p => {
+      const candidateVisits = visitsByPatient[p.Patient_ID] || [];
+      const visit = candidateVisits.length > 0 ? candidateVisits[0] : null;
+
+      const visitDate = visit ? new Date(visit.Date) : null;
+      const regDate = p.Registration_Date ? new Date(p.Registration_Date) : null;
+      const displayDate = visitDate || regDate;
+      return {
+        ...p,
+        ...(visit || {}),
+        _sortDate: displayDate ? displayDate.toISOString() : '',
+        date: displayDate ? displayDate.toLocaleDateString('en-GB') : '-',
+        time: visit ? visitDate.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
+                    : (p.Time || '-'),
+        id: p.Patient_ID,
+        name: `${p.First_Name || ''} ${p.Last_Name || ''}`.trim() || p.Patient_ID,
+        gender: p.Gender || '-',
+        age: p.Age || '-',
+        status: visit ? ((visitCountMap[p.Patient_ID] || 0) > 1 ? 'ເກົ່າ' : 'ໃໝ່') : '-',
+        department: visit?.Department || visit?.Visit_Type || 'OPD',
+        type: visit?.Visit_Type || 'OPD',
+        latestVisit: visit,
+      };
+    }).sort((a, b) => (b._sortDate > a._sortDate ? 1 : -1));
+
     window.renderReportPage(processed);
   } catch (err) {
     console.error('Report Fetch Error:', err);
@@ -1311,33 +1363,60 @@ window._fetchReportData = async function (sDate, eDate) {
 window.renderReportPage = function (res) {
   currentReportData = res || [];
   if ($.fn.DataTable.isDataTable('#reportTable')) $('#reportTable').DataTable().destroy();
+
+  // Update summary cards
+  const total = res.length;
+  const done = res.filter(r => window.getPatientStage(r.latestVisit) === 5).length;
+  const inProgress = res.filter(r => { const s = window.getPatientStage(r.latestVisit); return s >= 2 && s < 5; }).length;
+  const noVisit = res.filter(r => !r.latestVisit).length;
+  $('#repTotal').text(total);
+  $('#repDone').text(done);
+  $('#repInProgress').text(inProgress);
+  $('#repNoVisit').text(noVisit);
+
   if (!res || res.length === 0) {
     $('#reportTable tbody').empty();
-    $('#reportTable').DataTable({ responsive: true, language: { emptyTable: "ບໍ່ມີຂໍ້ມູນ", search: "ຄົ້ນຫາ:" } });
+    $('#reportTable').DataTable({ language: { emptyTable: "ບໍ່ມີຂໍ້ມູນໃນຊ່ວງວັນທີນີ້", search: "ຄົ້ນຫາ:" } });
     return;
   }
 
   let h = '';
   res.forEach((r, i) => {
-    let bs = r.status === 'ໃໝ່' ? '<span class="badge bg-success">ໃໝ່</span>' : '<span class="badge bg-secondary">ເກົ່າ</span>';
-    let bt = r.type === 'IPD' ? '<span class="badge bg-warning text-dark">IPD</span>' : '<span class="badge bg-light text-dark border">OPD</span>';
-    let bc = r.category === 'GN' ? 'ທົ່ວໄປ (GN)' : '<span class="text-danger fw-bold">ປະກັນ/ອົງກອນ</span>';
-    let acts = `<button class="btn btn-sm btn-outline-primary fw-bold shadow-sm" onclick="window.viewReportDetail(${i})"><i class="fas fa-eye me-1"></i> View</button>`;
+    const stage = window.getPatientStage(r.latestVisit);
+    const pipeline = window.renderPipeline(stage);
+    const patientStatus = r.status === 'ໃໝ່'
+      ? '<span class="badge bg-success-subtle text-success border border-success-subtle px-2 py-1">ຄົນເຈັບໃໝ່</span>'
+      : r.status === 'ເກົ່າ'
+        ? '<span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle px-2 py-1">ຄົນເຈັບເກົ່າ</span>'
+        : '<span class="badge bg-light text-muted border px-2 py-1">ຍັງບໍ່ເຂົ້າກວດ</span>';
+    const departmentBadge = `<span class="badge bg-light text-dark border px-2 py-1">${r.department || 'OPD'}</span>`;
+    const act = `<button class="btn btn-sm btn-outline-primary shadow-sm" onclick="window.viewReportDetail(${i})"><i class="fas fa-eye me-1"></i>View</button>`;
     h += `<tr>
-                <td data-order="${r.Date}">${r.date}</td>
-                <td data-order="${r.Date}">${r.time}</td>
-                <td class="text-primary fw-bold">${r.id}</td>
-                <td class="fw-bold">${r.name}</td>
-                <td>${r.gender}</td>
-                <td>${r.age}</td>
-                <td>${bt}</td>
-                <td>${bs}</td>
-                <td>${bc}</td>
-                <td class="text-center">${acts}</td>
-              </tr>`;
+      <td data-order="${r.Registration_Date || ''}">${r.date}</td>
+      <td>${r.time}</td>
+      <td class="text-primary fw-bold" style="font-size:12px">${r.id}</td>
+      <td class="fw-bold">${r.name}</td>
+      <td>${r.gender}</td>
+      <td>${r.age}</td>
+      <td>${patientStatus}</td>
+      <td>${departmentBadge}</td>
+      <td style="min-width:300px;padding:6px 8px">${pipeline}</td>
+      <td class="text-center">${act}</td>
+    </tr>`;
   });
+
   $('#reportTable tbody').html(h);
-  $('#reportTable').DataTable({ responsive: true, pageLength: 15, order: [[0, "desc"], [1, "desc"]], language: { search: "ຄົ້ນຫາ:", lengthMenu: "ສະແດງ _MENU_", info: "ສະແດງ _START_ ຫາ _END_ ຈາກ _TOTAL_ ລາຍການ", paginate: { previous: "ກ່ອນໜ້າ", next: "ຕໍ່ໄປ" } } });
+  $('#reportTable').DataTable({
+    pageLength: 15,
+    order: [[0, 'desc']],
+    columnDefs: [{ orderable: false, targets: [8, 9] }],
+    language: {
+      search: "ຄົ້ນຫາ:", lengthMenu: "ສະແດງ _MENU_",
+      info: "ສະແດງ _START_ ຫາ _END_ ຈາກ _TOTAL_ ລາຍການ",
+      paginate: { previous: "ກ່ອນໜ້າ", next: "ຕໍ່ໄປ" },
+      emptyTable: "ບໍ່ມີຂໍ້ມູນ"
+    }
+  });
 };
 
 window.searchReportTable = function () {
@@ -1350,7 +1429,16 @@ window.searchReportTable = function () {
 
 window.exportReportExcel = function () {
   if (!currentReportData || currentReportData.length === 0) return Swal.fire('ແຈ້ງເຕືອນ', 'ບໍ່ມີຂໍ້ມູນສຳລັບ Export', 'warning');
-  const exportArr = currentReportData.map(r => ({ "ວັນທີ": r.date, "ເວລາ": r.time, "ລະຫັດ": r.id, "ຊື່ ແລະ ນາມສະກຸນ": r.name, "ເພດ": r.gender, "ອາຍຸ": r.age, "ປະເພດ": r.type, "ສະຖານະ": r.status, "ໝວດໝູ່": r.category }));
+  const stageLabels = ['', 'ລົງທະບຽນ', 'ຊັກປະຫວັດ', 'ຫ້ອງກວດ', 'ຖ້າຜົນ', 'ສຳເລັດ'];
+  const exportArr = currentReportData.map(r => ({
+    "ວັນທີ": r.date, "ເວລາ": r.time, "ລະຫັດ": r.id,
+    "ຊື່ ແລະ ນາມສະກຸນ": r.name, "ເພດ": r.gender, "ອາຍຸ": r.age,
+    "ໃໝ່/ເກົ່າ": r.status === 'ໃໝ່' ? 'ຄົນເຈັບໃໝ່' : r.status === 'ເກົ່າ' ? 'ຄົນເຈັບເກົ່າ' : 'ຍັງບໍ່ເຂົ້າກວດ',
+    "ພະແນກ": r.department || r.type,
+    "ສະຖານະ (ຂັ້ນ)": stageLabels[window.getPatientStage(r.latestVisit)] || '-',
+    "ສາຍຫາ": r.latestVisit?.Doctor_Name || '-',
+    "ພະຍາດ": r.latestVisit?.Diagnosis || '-',
+  }));
   const ws = XLSX.utils.json_to_sheet(exportArr);
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, "Report");
@@ -1982,13 +2070,7 @@ window.sendToTriageFlow = async function (id, n) {
                   : `ບໍ່ສາມາດເຂົ້າເຖິງ table Visits: ${testErr.message}`,
         'error');
     }
-    const { data: lastVisit } = await supabaseClient.from('Visits').select('Visit_ID').order('Visit_ID', { ascending: false }).limit(1);
-    let lastNum = 0;
-    if (lastVisit && lastVisit.length > 0) {
-      const m = (lastVisit[0].Visit_ID || "").match(/\d+$/);
-      if (m) lastNum = parseInt(m[0]);
-    }
-    const vId = "V" + new Date().getFullYear().toString().slice(-2) + "-" + ("0000" + (lastNum + 1)).slice(-4);
+    const vId = await window.generateUniqueVisitId();
     const { error } = await supabaseClient.from('Visits').insert({
       Visit_ID: vId, Date: new Date().toISOString(),
       Patient_ID: id, Patient_Name: n, Status: 'Triage'
@@ -2089,6 +2171,7 @@ window.executeTriageSave = async function (fd) {
     window.logAction('Save', 'Triage saved - Visit ' + fd.visitId, 'Triage');
     Swal.fire('ສຳເລັດ!', 'ສົ່ງເຂົ້າຫ້ອງກວດແລ້ວ', 'success');
     window.loadTriageQueue();
+    window.loadQueue();
   }
 };
 
@@ -2108,13 +2191,24 @@ window.addLabToEMRList = function () {
 window.renderEMRLabTable = function () {
   let h = '';
   if (currentEMRLabs.length === 0) {
-    h = '<tr><td colspan="2" class="text-center text-muted small py-2">ຍັງບໍ່ມີລາຍການ</td></tr>';
+    h = `<div class="emr-order-empty">
+            <i class="fas fa-flask"></i>
+            <strong>ຍັງບໍ່ມີລາຍການ Lab</strong>
+            <span>ກົດປຸ່ມ "ເພີ່ມ Lab" ເພື່ອເລືອກລາຍການກວດ</span>
+          </div>`;
   } else {
     currentEMRLabs.forEach((x, i) => {
-      h += `<tr>
-                    <td class="text-primary fw-bold">${x.name}</td>
-                    <td class="text-center"><button type="button" class="btn btn-sm btn-danger py-0 px-2" onclick="window.removeEMRLab(${i})"><i class="fas fa-times"></i></button></td>
-                  </tr>`;
+      h += `<div class="emr-order-item">
+              <div class="emr-order-item-main">
+                <div class="emr-order-item-title"><i class="fas fa-vial"></i><span>${x.name}</span></div>
+                <div class="emr-order-meta">
+                  <span class="emr-order-chip"><i class="fas fa-circle-info"></i>ພ້ອມສົ່ງກວດ</span>
+                </div>
+              </div>
+              <button type="button" class="btn btn-outline-danger emr-order-delete" onclick="window.removeEMRLab(${i})" title="ລຶບລາຍການ">
+                <i class="fas fa-times"></i>
+              </button>
+            </div>`;
     });
   }
   $('#emrLabTableBody').html(h);
@@ -2147,26 +2241,26 @@ window.addDrugToEMRList = function () {
 window.renderEMRDrugTable = function () {
   let h = '';
   if (currentEMRDrugs.length === 0) {
-    h = '<tr><td colspan="4" class="text-center text-muted small py-3"><i class="fas fa-pills mb-2 opacity-50 fa-2x"></i><br>ຍັງບໍ່ມີລາຍການຢາ</td></tr>';
+    h = `<div class="emr-order-empty">
+            <i class="fas fa-pills"></i>
+            <strong>ຍັງບໍ່ມີລາຍການຢາ</strong>
+            <span>ເພີ່ມ prescription ເພື່ອສະແດງ dose ແລະ usage ແບບມາດຖານ</span>
+          </div>`;
   } else {
     currentEMRDrugs.forEach((x, i) => {
-      h += `<tr>
-                    <td class="p-2 border-bottom">
-                        <div class="d-flex justify-content-between align-items-center">
-                            <div class="d-flex flex-column">
-                                <span class="fw-bold text-success mb-1" style="font-size: 13.5px;"><i class="fas fa-capsules me-1 opacity-75"></i>${x.name}</span>
-                                <div class="d-flex align-items-center gap-2">
-                                    <span class="badge bg-light text-dark border border-secondary border-opacity-25 px-2 py-1"><i class="fas fa-cubes me-1 opacity-50"></i>${x.qty}</span>
-                                    <span class="badge border border-success text-success bg-success-subtle px-2 py-1 small">ໃຊ້ຄັ້ງລະ: ${x.dose || '1'}</span>
-                                    <span class="small text-muted"><i class="fas fa-info-circle me-1 opacity-50"></i>${x.usage}</span>
-                                </div>
-                            </div>
-                            <button type="button" class="btn btn-sm btn-outline-danger border-0 rounded-circle" style="width: 28px; height: 28px; padding: 0; display: flex; align-items: center; justify-content: center;" onclick="window.removeEMRDrug(${i})" title="ລຶບລາຍການ">
-                                <i class="fas fa-times"></i>
-                            </button>
-                        </div>
-                    </td>
-                  </tr>`;
+      h += `<div class="emr-order-item">
+              <div class="emr-order-item-main">
+                <div class="emr-order-item-title"><i class="fas fa-capsules"></i><span>${x.name}</span></div>
+                <div class="emr-order-meta">
+                  <span class="emr-order-chip"><i class="fas fa-box"></i>${x.qty}</span>
+                  <span class="emr-order-chip"><i class="fas fa-syringe"></i>ໃຊ້ຄັ້ງລະ ${x.dose || '1'}</span>
+                  <span class="emr-order-chip"><i class="fas fa-clock"></i>${x.usage || 'ບໍ່ລະບຸວິທີໃຊ້'}</span>
+                </div>
+              </div>
+              <button type="button" class="btn btn-outline-danger emr-order-delete" onclick="window.removeEMRDrug(${i})" title="ລຶບລາຍການ">
+                <i class="fas fa-times"></i>
+              </button>
+            </div>`;
     });
   }
   $('#emrDrugTableBody').html(h);
@@ -2209,6 +2303,32 @@ window._fetchTriageQueue = async function (sDate, eDate) {
       startRange += 1000;
       if (visits.length >= 10000) break; // Hard safety cap
     }
+
+    const duplicateVisitMap = {};
+    visits.forEach(v => {
+      if (!v?.Visit_ID) return;
+      duplicateVisitMap[v.Visit_ID] = (duplicateVisitMap[v.Visit_ID] || 0) + 1;
+    });
+
+    // Keep only the latest record per Visit_ID and show only triage-stage rows.
+    const visitById = {};
+    visits.forEach(v => {
+      if (!v?.Visit_ID || !v?.Patient_ID) return;
+      if (window.isSuspiciousDuplicateVisit(v, duplicateVisitMap)) return;
+      const existing = visitById[v.Visit_ID];
+      if (!existing) {
+        visitById[v.Visit_ID] = v;
+        return;
+      }
+      const existingTime = existing.Date ? new Date(existing.Date).getTime() : 0;
+      const nextTime = v.Date ? new Date(v.Date).getTime() : 0;
+      if (nextTime >= existingTime) visitById[v.Visit_ID] = v;
+    });
+
+    visits = Object.values(visitById).filter(v => {
+      const status = window.normalizeVisitStatus(v.Status);
+      return ['Triage', 'Calling Triage', 'Waiting Triage', 'Waiting OPD', 'Calling OPD', 'Waiting Lab', 'Calling Lab', 'Completed', 'Done', 'Pharmacy', 'Transfer', 'Admit'].includes(status);
+    });
 
     if (visits.length === 0) return [];
 
@@ -2323,7 +2443,7 @@ window._fetchTriageQueue = async function (sDate, eDate) {
           date: r.Date ? dObj.toLocaleDateString('en-GB') : '-',
           time: r.Date ? dObj.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) : '-',
           patientId: r.Patient_ID, patientName: r.Patient_Name,
-          status: r.Status, department: r.Department || 'OPD',
+          status: window.normalizeVisitStatus(r.Status), department: r.Department || 'OPD',
           isNew: !hasPreviousVisitMap[visitKey], // Check visit-specific key
           // Prefer record data (Visits), fallback to patient profile
           age: r.Age || p?.Age || 0,
@@ -2372,7 +2492,7 @@ window._fetchOpdQueue = async function (sDate, eDate) {
       const { data: visitsActive } = await supabaseClient.from('Visits')
         .select('*')
         .in('Status', ['Waiting OPD', 'Calling OPD', 'Waiting Lab', 'Calling Lab', 'Triage', 'Waiting Triage'])
-        .order('created_at', { ascending: false })
+        .order('Date', { ascending: false })
         .limit(200);
 
       // Filter fallback results to TODAY only
@@ -2386,13 +2506,33 @@ window._fetchOpdQueue = async function (sDate, eDate) {
       console.log(`OPD Fallback: ${rawVisits.length} visits found for today`);
     }
     
-    // De-duplicate by Visit_ID
-    const seenV = new Set();
-    const data = rawVisits.filter(v => {
-      if (!v.Visit_ID || seenV.has(v.Visit_ID)) return false;
-      if (!v.Patient_ID) return false; 
-      seenV.add(v.Visit_ID);
-      return true;
+    const duplicateVisitMap = {};
+    rawVisits.forEach(v => {
+      if (!v?.Visit_ID) return;
+      duplicateVisitMap[v.Visit_ID] = (duplicateVisitMap[v.Visit_ID] || 0) + 1;
+    });
+
+    // Keep the latest record per Visit_ID, then exclude only Triage-stage rows.
+    const visitById = {};
+    rawVisits.forEach(v => {
+      if (!v?.Visit_ID || !v?.Patient_ID) return;
+      if (window.isSuspiciousDuplicateVisit(v, duplicateVisitMap)) return;
+      const existing = visitById[v.Visit_ID];
+      if (!existing) {
+        visitById[v.Visit_ID] = v;
+        return;
+      }
+      const existingTime = existing.Date ? new Date(existing.Date).getTime() : 0;
+      const nextTime = v.Date ? new Date(v.Date).getTime() : 0;
+      if (nextTime >= existingTime) visitById[v.Visit_ID] = v;
+    });
+
+    const data = Object.values(visitById).filter(v => {
+      const normalizedStatus = window.normalizeVisitStatus(v.Status);
+      if (!normalizedStatus) {
+        return !!v.Department && !/triage/i.test(v.Department);
+      }
+      return !['Triage', 'Calling Triage', 'Waiting Triage'].includes(normalizedStatus);
     });
 
     if (data.length === 0) return [];
@@ -2475,7 +2615,7 @@ window._fetchOpdQueue = async function (sDate, eDate) {
         date: r.Date ? dObj.toLocaleDateString('en-GB') : '-',
         time: r.Date ? dObj.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) : '-',
         patientId: r.Patient_ID, patientName: r.Patient_Name,
-        status: r.Status, department: r.Department || 'OPD',
+        status: window.normalizeVisitStatus(r.Status), department: r.Department || 'OPD',
         isNew: !hasPreviousVisitMap[visitKey], // Check visit-specific key
         // Prefer record data (Visits), fallback to patient profile
         age: r.Age || p?.Age || 0,
@@ -2649,7 +2789,7 @@ window.openTriage = function (i) {
 
   // Clear "Calling" status if opening
   if (r.status === 'Calling Triage') {
-    supabaseClient.from('Visits').update({ Status: 'Triage' }).eq('Visit_ID', r.visitId);
+    supabaseClient.from('Visits').update({ Status: 'Triage' }).eq('Visit_ID', r.visitId).eq('Patient_ID', r.patientId);
   }
 
   if (document.activeElement) document.activeElement.blur();
@@ -2727,9 +2867,7 @@ window.loadQueue = async function () {
     let h = '';
     if (q && q.length > 0) {
       q.forEach((r, i) => {
-        const status = r.status || '';
-        // Skip patients still in Triage
-        if (status === 'Triage' || status === 'Calling Triage') return;
+        const status = window.normalizeVisitStatus(r.status);
 
         let b = '', a = '';
         let isCalling = status.startsWith('Calling');
@@ -2982,7 +3120,7 @@ window.openEMR = function (i) {
   // Clear "Calling" status if opening
   if (q.status === 'Calling OPD' || q.status === 'Calling Lab') {
     let resetStatus = q.status === 'Calling OPD' ? 'Waiting OPD' : 'Waiting Lab';
-    supabaseClient.from('Visits').update({ Status: resetStatus }).eq('Visit_ID', q.visitId);
+    supabaseClient.from('Visits').update({ Status: resetStatus }).eq('Visit_ID', q.visitId).eq('Patient_ID', q.patientId);
   }
 
   if (document.activeElement) document.activeElement.blur();
@@ -3006,6 +3144,7 @@ window.submitEMRForm = async function (e) {
   Swal.fire({ title: 'ກຳລັງບັນທຶກ...', didOpen: () => Swal.showLoading() });
 
   let visitId = $('#emrRowIdx').val();
+  let patientId = $('#emrPatientId').text().trim();
   let statusMap = {
     "ລໍຖ້າຜົນແລັບ (Waiting Lab)": "Waiting Lab",
     "ນອນຕິດຕາມ (Admit / IPD)": "Admit",
@@ -3022,7 +3161,7 @@ window.submitEMRForm = async function (e) {
     Services_List: $('#emrService').val() ? $('#emrService').val().join(', ') : '',
     Mapped_Specialist: $('#emrSpecialist').val() || '', Revenue_Group: $('#emrRevenue').val() || '',
     Lab_Orders_JSON: labJson, Discharge_Status: ds || ''
-  }).eq('Visit_ID', visitId);
+  }).eq('Visit_ID', visitId).eq('Patient_ID', patientId);
 
   if (updateError) {
     Swal.fire('ຜິດພາດ!', updateError.message, 'error');
@@ -5126,8 +5265,11 @@ window.bulkDelete = async function (type) {
  * @param {string} details e.g. 'Patient P25-0001 (John Doe)'
  * @param {string} module  e.g. 'Patients', 'Triage', 'OPD'
  */
+window._activityLogWriteDisabled = false;
+
 window.logAction = function (action, details, module) {
   try {
+    if (window._activityLogWriteDisabled) return;
     const userId = currentUser ? currentUser.id : '-';
     const userName = currentUser ? currentUser.name : 'System';
     supabaseClient.from('activity_logs').insert({
@@ -5138,7 +5280,14 @@ window.logAction = function (action, details, module) {
       details: details || '',
       module: module || ''
     }).then(({ error }) => {
-      if (error) console.warn('logAction error:', error.message);
+      if (!error) return;
+      const msg = (error.message || '').toLowerCase();
+      const code = (error.code || '').toString();
+      if (code === '42501' || msg.includes('row-level security') || msg.includes('permission denied')) {
+        window._activityLogWriteDisabled = true;
+        return;
+      }
+      console.warn('logAction error:', error.message);
     });
   } catch (e) {
     console.warn('logAction exception:', e);
@@ -5367,7 +5516,7 @@ window.triggerPublicCall = async function (visitId, cn, dept) {
   
   try {
     // Set to Calling
-    const { error } = await supabaseClient.from('Visits').update({ Status: newStatus }).eq('Visit_ID', visitId);
+    const { error } = await supabaseClient.from('Visits').update({ Status: newStatus }).eq('Visit_ID', visitId).eq('Patient_ID', cn);
     if (error) throw error;
     
     // Refresh local views immediately
@@ -5569,25 +5718,31 @@ window.searchIPDTable = function () {
 
 // Load IPD Patients
 window.loadIPDPatients = async function () {
-  const sDate = $('#ipdStartDate').val() || new Date().toISOString().split('T')[0];
-  const eDate = $('#ipdEndDate').val() || new Date().toISOString().split('T')[0];
+  const sDate = $('#ipdStartDate').val();
+  const eDate = $('#ipdEndDate').val();
   
   $('#ipdTable tbody').html('<tr><td colspan="9" class="text-center py-4"><div class="spinner-border text-primary spinner-border-sm"></div> ກຳລັງໂຫຼດ...</td></tr>');
   
   try {
-    const { data: admissions, error } = await supabaseClient
+    let query = supabaseClient
       .from('Admissions')
       .select('*')
       .eq('Status', 'Admitted')
-      .gte('Admission_Date', sDate)
-      .lte('Admission_Date', eDate)
       .order('Admission_Date', { ascending: false });
+
+    if (sDate) query = query.gte('Admission_Date', sDate);
+    if (eDate) query = query.lte('Admission_Date', eDate);
+
+    const { data: admissions, error } = await query;
     
     if (error) throw error;
     
     if (!admissions || admissions.length === 0) {
-      $('#ipdTable tbody').html('<tr><td colspan="9" class="text-center py-4 text-muted">ບໍ່ມີຄົນເຈັບນອນໃນຊ່ວງວັນທີນີ້</td></tr>');
-      updateIPDStats(0);
+      const emptyMessage = (sDate || eDate)
+        ? 'ບໍ່ມີຄົນເຈັບນອນໃນຊ່ວງວັນທີທີ່ເລືອກ'
+        : 'ບໍ່ມີຄົນເຈັບນອນປັດຈຸບັນ';
+      $('#ipdTable tbody').html(`<tr><td colspan="9" class="text-center py-4 text-muted">${emptyMessage}</td></tr>`);
+      await updateIPDStats(0);
       return;
     }
     
@@ -5625,9 +5780,8 @@ window.loadIPDPatients = async function () {
         </td>
       </tr>`;
     }
-    
     $('#ipdTable tbody').html(h);
-    updateIPDStats(admissions.length);
+    await updateIPDStats(admissions.length);
     
   } catch (err) {
     console.error('Error loading IPD patients:', err);
@@ -5635,12 +5789,29 @@ window.loadIPDPatients = async function () {
   }
 };
 
-// Update IPD Statistics
-function updateIPDStats(totalPatients) {
+async function updateIPDStats(totalPatients) {
   $('#ipdTotalPatients').text(totalPatients);
-  $('#ipdAvailableBeds').text('10'); // TODO: Calculate from Beds table
-  $('#ipdOccupiedBeds').text(totalPatients);
-  $('#ipdDischargedToday').text('0'); // TODO: Calculate from discharges today
+
+  const today = new Date().toISOString().split('T')[0];
+  const [bedsResult, dischargedResult] = await Promise.all([
+    supabaseClient.from('Beds').select('Status'),
+    supabaseClient
+      .from('Admissions')
+      .select('Admission_ID')
+      .eq('Status', 'Discharged')
+      .eq('Discharge_Date', today)
+  ]);
+
+  if (bedsResult.error) throw bedsResult.error;
+  if (dischargedResult.error) throw dischargedResult.error;
+
+  const beds = bedsResult.data || [];
+  const availableBeds = beds.filter(bed => (bed.Status || '').toLowerCase() === 'available').length;
+  const occupiedBeds = beds.filter(bed => (bed.Status || '').toLowerCase() === 'occupied').length;
+
+  $('#ipdAvailableBeds').text(availableBeds);
+  $('#ipdOccupiedBeds').text(occupiedBeds);
+  $('#ipdDischargedToday').text((dischargedResult.data || []).length);
 }
 
 // Open IPD Admission Modal
@@ -5831,6 +6002,7 @@ window.submitIPDAdmission = async function (e) {
 
 // Load IPD Wards Management
 window.loadIPDWards = async function () {
+  window._wardManagerNeedsReopen = false;
   // Load wards, rooms, and beds
   const { data: wards } = await supabaseClient.from('Wards').select('*').order('Ward_Name');
   const { data: rooms } = await supabaseClient.from('Rooms').select('*').order('Room_Number');
@@ -5867,7 +6039,11 @@ window.loadIPDWards = async function () {
               <div class="card border-info h-100">
                 <div class="card-header bg-light d-flex justify-content-between align-items-center">
                   <strong><i class="fas fa-door-open me-2"></i>${room.Room_Number}</strong>
-                  <span class="badge bg-info">${room.Room_Type || 'N/A'}</span>
+                  <div class="d-flex align-items-center gap-2">
+                    <span class="badge bg-info">${room.Room_Type || 'N/A'}</span>
+                    <button class="btn btn-sm btn-outline-primary" onclick="window.openRoomModal('${ward.Ward_ID}', '${room.Room_ID}', '${String(room.Room_Number || '').replace(/'/g, "\\'")}', '${String(room.Room_Type || '').replace(/'/g, "\\'")}', '${room.Capacity || 1}')" title="ແກ້ໄຂຫ້ອງ"><i class="fas fa-edit"></i></button>
+                    <button class="btn btn-sm btn-outline-danger" onclick="window.deleteRoom('${room.Room_ID}')" title="ລົບຫ້ອງ"><i class="fas fa-trash"></i></button>
+                  </div>
                 </div>
                 <div class="card-body">
                   <div class="d-flex justify-content-between mb-2">
@@ -5882,9 +6058,13 @@ window.loadIPDWards = async function () {
             const bedIcon = bed.Status === 'Available' ? 'fa-check' : 'fa-user';
             
             html += `
-              <button class="btn btn-sm btn-outline-${bedColor}" title="${bed.Bed_Number} - ${bed.Status}">
-                <i class="fas ${bedIcon} me-1"></i>${bed.Bed_Number}
-              </button>
+              <div class="btn-group btn-group-sm" role="group">
+                <button class="btn btn-sm btn-outline-${bedColor}" title="${bed.Bed_Number} - ${bed.Status}">
+                  <i class="fas ${bedIcon} me-1"></i>${bed.Bed_Number}
+                </button>
+                <button class="btn btn-sm btn-outline-primary" onclick="window.openBedModal('${room.Room_ID}', '${bed.Bed_ID}', '${String(bed.Bed_Number || '').replace(/'/g, "\\'")}')" title="ແກ້ໄຂຕຽງ"><i class="fas fa-edit"></i></button>
+                <button class="btn btn-sm btn-outline-danger" onclick="window.deleteBed('${bed.Bed_ID}')" title="ລົບຕຽງ"><i class="fas fa-trash"></i></button>
+              </div>
             `;
           });
           
@@ -5921,17 +6101,23 @@ window.loadIPDWards = async function () {
 };
 
 // Open Room Modal
-window.openRoomModal = function (wardId) {
+window.openRoomModal = function (wardId, roomId = '', roomNumber = '', roomType = 'General', capacity = 1) {
+  window._wardManagerNeedsReopen = true;
+  Swal.close();
   $('#roomWardId').val(wardId);
   $('#roomForm')[0].reset();
-  $('#roomModal').modal('show');
+  $('#roomEditId').val(roomId || '');
+  $('#roomNumber').val(roomNumber || '');
+  $('#roomType').val(roomType || 'General');
+  $('#roomCapacity').val(capacity || 1);
+  $('#roomModalTitle').html(`<i class="fas fa-door-open me-2"></i>${roomId ? 'ແກ້ໄຂຫ້ອງ' : 'ເພີ່ມຫ້ອງ'}`);
+  setTimeout(() => $('#roomModal').modal('show'), 150);
 };
 
 // Submit Room
 window.submitRoom = async function (e) {
   if (e) e.preventDefault();
-  
-  const roomId = 'ROOM' + Date.now();
+  const roomId = $('#roomEditId').val() || ('ROOM' + Date.now());
   const roomData = {
     Room_ID: roomId,
     Ward_ID: $('#roomWardId').val(),
@@ -5942,31 +6128,36 @@ window.submitRoom = async function (e) {
   };
   
   Swal.fire({ title: 'ກຳລັງບັນທຶກ...', didOpen: () => Swal.showLoading() });
-  
-  const { error } = await supabaseClient.from('Rooms').insert(roomData);
+  const isEdit = !!$('#roomEditId').val();
+  const { error } = isEdit
+    ? await supabaseClient.from('Rooms').update(roomData).eq('Room_ID', roomId)
+    : await supabaseClient.from('Rooms').insert(roomData);
   
   if (error) {
     Swal.fire('ຜິດພາດ!', error.message, 'error');
     return;
   }
   
-  Swal.fire('ສຳເລັດ!', 'ເພີ່ມຫ້ອງແລ້ວ', 'success');
+  Swal.fire('ສຳເລັດ!', isEdit ? 'ແກ້ໄຂຫ້ອງແລ້ວ' : 'ເພີ່ມຫ້ອງແລ້ວ', 'success');
   $('#roomModal').modal('hide');
-  window.loadIPDWards();
 };
 
 // Open Bed Modal
-window.openBedModal = function (roomId) {
+window.openBedModal = function (roomId, bedId = '', bedNumber = '') {
+  window._wardManagerNeedsReopen = true;
+  Swal.close();
   $('#bedRoomId').val(roomId);
   $('#bedForm')[0].reset();
-  $('#bedModal').modal('show');
+  $('#bedEditId').val(bedId || '');
+  $('#bedNumber').val(bedNumber || '');
+  $('#bedModalTitle').html(`<i class="fas fa-bed me-2"></i>${bedId ? 'ແກ້ໄຂຕຽງ' : 'ເພີ່ມຕຽງ'}`);
+  setTimeout(() => $('#bedModal').modal('show'), 150);
 };
 
 // Submit Bed
 window.submitBed = async function (e) {
   if (e) e.preventDefault();
-  
-  const bedId = 'BED' + Date.now();
+  const bedId = $('#bedEditId').val() || ('BED' + Date.now());
   const bedData = {
     Bed_ID: bedId,
     Room_ID: $('#bedRoomId').val(),
@@ -5975,18 +6166,60 @@ window.submitBed = async function (e) {
   };
   
   Swal.fire({ title: 'ກຳລັງບັນທຶກ...', didOpen: () => Swal.showLoading() });
-  
-  const { error } = await supabaseClient.from('Beds').insert(bedData);
+  const isEdit = !!$('#bedEditId').val();
+  const { error } = isEdit
+    ? await supabaseClient.from('Beds').update(bedData).eq('Bed_ID', bedId)
+    : await supabaseClient.from('Beds').insert(bedData);
   
   if (error) {
     Swal.fire('ຜິດພາດ!', error.message, 'error');
     return;
   }
   
-  Swal.fire('ສຳເລັດ!', 'ເພີ່ມຕຽງແລ້ວ', 'success');
+  Swal.fire('ສຳເລັດ!', isEdit ? 'ແກ້ໄຂຕຽງແລ້ວ' : 'ເພີ່ມຕຽງແລ້ວ', 'success');
   $('#bedModal').modal('hide');
+};
+
+window.deleteRoom = async function (roomId) {
+  const { data: beds } = await supabaseClient.from('Beds').select('Bed_ID,Status').eq('Room_ID', roomId);
+  if ((beds || []).some(b => b.Status === 'Occupied')) {
+    return Swal.fire('ແຈ້ງເຕືອນ', 'ບໍ່ສາມາດລົບຫ້ອງໄດ້ ເພາະຍັງມີຕຽງທີ່ຖືກໃຊ້ງານ', 'warning');
+  }
+  const r = await Swal.fire({ title: 'ລົບຫ້ອງ?', icon: 'warning', showCancelButton: true, confirmButtonText: 'ລົບ' });
+  if (!r.isConfirmed) return;
+  Swal.fire({ title: 'ກຳລັງລົບ...', didOpen: () => Swal.showLoading() });
+  await supabaseClient.from('Beds').delete().eq('Room_ID', roomId);
+  const { error } = await supabaseClient.from('Rooms').delete().eq('Room_ID', roomId);
+  if (error) return Swal.fire('ຜິດພາດ!', error.message, 'error');
+  Swal.fire('ສຳເລັດ!', 'ລົບຫ້ອງແລ້ວ', 'success');
   window.loadIPDWards();
 };
+
+window.deleteBed = async function (bedId) {
+  const { data: bed } = await supabaseClient.from('Beds').select('Status').eq('Bed_ID', bedId).single();
+  if (bed && bed.Status === 'Occupied') {
+    return Swal.fire('ແຈ້ງເຕືອນ', 'ບໍ່ສາມາດລົບຕຽງທີ່ກຳລັງຖືກໃຊ້ງານໄດ້', 'warning');
+  }
+  const r = await Swal.fire({ title: 'ລົບຕຽງ?', icon: 'warning', showCancelButton: true, confirmButtonText: 'ລົບ' });
+  if (!r.isConfirmed) return;
+  Swal.fire({ title: 'ກຳລັງລົບ...', didOpen: () => Swal.showLoading() });
+  const { error } = await supabaseClient.from('Beds').delete().eq('Bed_ID', bedId);
+  if (error) return Swal.fire('ຜິດພາດ!', error.message, 'error');
+  Swal.fire('ສຳເລັດ!', 'ລົບຕຽງແລ້ວ', 'success');
+  window.loadIPDWards();
+};
+
+$('#roomModal').on('hidden.bs.modal', function () {
+  if (!window._wardManagerNeedsReopen) return;
+  window._wardManagerNeedsReopen = false;
+  window.loadIPDWards();
+});
+
+$('#bedModal').on('hidden.bs.modal', function () {
+  if (!window._wardManagerNeedsReopen) return;
+  window._wardManagerNeedsReopen = false;
+  window.loadIPDWards();
+});
 
 // Open IPD Detail Modal
 window.openIPDDetail = async function (admissionId) {

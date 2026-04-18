@@ -1,42 +1,83 @@
 <div id="view-report" style="display:none;">
-  <div class="d-flex flex-wrap justify-content-between align-items-center mb-4 gap-2 pb-3" style="border-bottom:2px solid var(--border-color);">
+  <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2 pb-2" style="border-bottom:2px solid var(--border-color);">
     <div>
-      <h3 class="fw-bold m-0 text-dark"><i class="fas fa-file-invoice text-primary me-2"></i>ລາຍງານສະຫຼຸບ (Summary Report)</h3>
-      <p class="text-muted mb-0 mt-1" style="font-size:11.5px;">ສະຫຼຸບຂໍ້ມູນຜູ້ໃຊ້ບໍລິການ — Export Excel</p>
+      <h4 class="fw-bold m-0 text-dark"><i class="fas fa-file-invoice text-primary me-2"></i>ລາຍງານສະຫຼຸບ (Summary Report)</h4>
+      <p class="text-muted mb-0 mt-0" style="font-size:11px;">ສະຫຼຸບຂໍ້ມູນຜູ້ໃຊ້ບໍລິການ — ສະແດງທຸກຄົນທີ່ຜ່ານລະບົບຕາມວັນທີ</p>
     </div>
     <div class="d-flex flex-wrap gap-2 align-items-center bg-white p-2 rounded shadow-sm border">
-      <span class="text-muted small ms-2" id="repRefreshTime">ອັບເດດ: -</span>
-      <div class="btn-group ms-2">
+      <span class="text-muted" style="font-size:11px;" id="repRefreshTime">ອັບເດດ: -</span>
+      <div class="btn-group">
         <button class="btn btn-sm btn-primary active" id="btnRepToday" onclick="window.setReportRange('today')">ມື້ນີ້</button>
         <button class="btn btn-sm btn-outline-primary" id="btnRepWeek" onclick="window.setReportRange('week')">ອາທິດນີ້</button>
         <button class="btn btn-sm btn-outline-primary" id="btnRepMonth" onclick="window.setReportRange('month')">ເດືອນນີ້</button>
         <button class="btn btn-sm btn-outline-primary" id="btnRepYear" onclick="window.setReportRange('year')">ປີນີ້</button>
       </div>
-      <div class="input-group input-group-sm ms-2" style="width: auto;">
+      <div class="input-group input-group-sm" style="width:auto;">
         <span class="input-group-text bg-light">ຈາກ</span>
         <input type="date" id="repStartDate" class="form-control" onchange="window.fetchReportData()">
         <span class="input-group-text bg-light">ຫາ</span>
         <input type="date" id="repEndDate" class="form-control" onchange="window.fetchReportData()">
       </div>
-      <div class="input-group input-group-sm ms-2" style="width: 250px;">
+      <div class="input-group input-group-sm" style="width:190px;">
         <input type="text" id="repSearchInput" class="form-control" placeholder="🔍 ຄົ້ນຫາ ຊື່, CN..." onkeyup="window.searchReportTable()">
       </div>
-      <button class="btn btn-sm btn-success ms-2 fw-bold shadow-sm" onclick="window.exportReportExcel()"><i class="fas fa-file-excel me-1"></i> Excel</button>
+      <button class="btn btn-sm btn-success fw-bold shadow-sm" onclick="window.exportReportExcel()"><i class="fas fa-file-excel me-1"></i>Excel</button>
     </div>
   </div>
-  <div class="card card-outline card-primary shadow-sm">
-    <div class="card-header border-0"><h5 class="card-title fw-bold text-primary"><i class="fas fa-list me-2"></i>ລາຍຊື່ຜູ້ມາໃຊ້ບໍລິການ</h5></div>
-    <div class="card-body table-responsive">
-      <table id="reportTable" class="table table-hover table-striped w-100 align-middle">
-        <thead class="bg-light">
-          <tr>
-            <th>ວັນທີ</th><th>ເວລາ</th><th>ID</th><th>ຊື່ ແລະ ນາມສະກຸນ</th>
-            <th>ເພດ</th><th>ອາຍຸ</th><th>ປະເພດ (Type)</th><th>ສະຖານະ</th>
-            <th>ໝວດໝູ່ (Category)</th><th class="text-center">ຈັດການ</th>
-          </tr>
-        </thead>
-        <tbody></tbody>
-      </table>
+
+  <!-- Compact Summary Stats -->
+  <div class="d-flex gap-3 mb-3 flex-wrap">
+    <div class="d-flex align-items-center gap-3 px-4 py-3 rounded shadow-sm bg-white border flex-fill" style="border-left:4px solid #0ea5e9!important;min-width:220px;">
+      <i class="fas fa-users text-primary" style="font-size:22px;"></i>
+      <div>
+        <div style="font-size:11px;color:#64748b;font-weight:700;text-transform:uppercase;line-height:1.1;">ທັງໝົດ</div>
+        <div class="fw-bold text-primary" style="font-size:24px;line-height:1.2;" id="repTotal">0</div>
+      </div>
+    </div>
+    <div class="d-flex align-items-center gap-3 px-4 py-3 rounded shadow-sm bg-white border flex-fill" style="border-left:4px solid #22c55e!important;min-width:220px;">
+      <i class="fas fa-check-circle text-success" style="font-size:22px;"></i>
+      <div>
+        <div style="font-size:11px;color:#64748b;font-weight:700;text-transform:uppercase;line-height:1.1;">ສຳເລັດ</div>
+        <div class="fw-bold text-success" style="font-size:24px;line-height:1.2;" id="repDone">0</div>
+      </div>
+    </div>
+    <div class="d-flex align-items-center gap-3 px-4 py-3 rounded shadow-sm bg-white border flex-fill" style="border-left:4px solid #f59e0b!important;min-width:220px;">
+      <i class="fas fa-hourglass-half text-warning" style="font-size:22px;"></i>
+      <div>
+        <div style="font-size:11px;color:#64748b;font-weight:700;text-transform:uppercase;line-height:1.1;">ກຳລັງດຳເນີນ</div>
+        <div class="fw-bold text-warning" style="font-size:24px;line-height:1.2;" id="repInProgress">0</div>
+      </div>
+    </div>
+    <div class="d-flex align-items-center gap-3 px-4 py-3 rounded shadow-sm bg-white border flex-fill" style="border-left:4px solid #6366f1!important;min-width:250px;">
+      <i class="fas fa-user-clock" style="font-size:22px;color:#6366f1;"></i>
+      <div>
+        <div style="font-size:11px;color:#64748b;font-weight:700;text-transform:uppercase;line-height:1.1;">ຍັງບໍ່ໄດ້ຊັກປະຫວັດ</div>
+        <div class="fw-bold" style="font-size:24px;line-height:1.2;color:#6366f1;" id="repNoVisit">0</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card border-0 shadow-sm">
+    <div class="card-body p-0">
+      <div class="table-responsive">
+        <table id="reportTable" class="table table-hover w-100 align-middle mb-0" style="font-size:13px;">
+          <thead class="bg-light">
+            <tr>
+              <th style="min-width:85px;padding:8px 12px;">ວັນທີ</th>
+              <th style="min-width:55px;padding:8px 12px;">ເວລາ</th>
+              <th style="min-width:100px;padding:8px 12px;">CN</th>
+              <th style="min-width:150px;padding:8px 12px;">ຊື່ ແລະ ນາມສະກຸນ</th>
+              <th style="min-width:45px;padding:8px 12px;">ເພດ</th>
+              <th style="min-width:45px;padding:8px 12px;">ອາຍຸ</th>
+              <th style="min-width:120px;padding:8px 12px;">ໃໝ່/ເກົ່າ</th>
+              <th style="min-width:110px;padding:8px 12px;">ພະແນກ</th>
+              <th style="min-width:310px;padding:8px 12px;">ສາຍສະຖານະ</th>
+              <th class="text-center" style="min-width:70px;padding:8px 12px;">ຈັດການ</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
     </div>
   </div>
 </div>

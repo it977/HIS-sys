@@ -754,12 +754,13 @@
   <div class="modal-dialog">
     <div class="modal-content border-0 shadow">
       <div class="modal-header bg-primary text-white">
-        <h5 class="modal-title fw-bold"><i class="fas fa-door-open me-2"></i>ເພີ່ມຫ້ອງ</h5>
+        <h5 class="modal-title fw-bold" id="roomModalTitle"><i class="fas fa-door-open me-2"></i>ເພີ່ມຫ້ອງ</h5>
         <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
       </div>
       <div class="modal-body p-4">
         <form id="roomForm" onsubmit="window.submitRoom(event)">
           <input type="hidden" id="roomWardId">
+          <input type="hidden" id="roomEditId">
           <div class="mb-3">
             <label class="form-label fw-bold required">ເລກຫ້ອງ</label>
             <input type="text" class="form-control" id="roomNumber" required placeholder="ICU-1, GW-101...">
@@ -791,12 +792,13 @@
   <div class="modal-dialog">
     <div class="modal-content border-0 shadow">
       <div class="modal-header bg-info text-white">
-        <h5 class="modal-title fw-bold"><i class="fas fa-bed me-2"></i>ເພີ່ມຕຽງ</h5>
+        <h5 class="modal-title fw-bold" id="bedModalTitle"><i class="fas fa-bed me-2"></i>ເພີ່ມຕຽງ</h5>
         <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
       </div>
       <div class="modal-body p-4">
         <form id="bedForm" onsubmit="window.submitBed(event)">
           <input type="hidden" id="bedRoomId">
+          <input type="hidden" id="bedEditId">
           <div class="mb-3">
             <label class="form-label fw-bold required">ເລກຕຽງ</label>
             <input type="text" class="form-control" id="bedNumber" required placeholder="Bed-1, A1...">
