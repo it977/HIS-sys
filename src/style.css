@@ -13,6 +13,234 @@
   --patient-photo-size: 85px;
 }
 
+/* ===== MASTER DATA ADMIN ===== */
+.master-admin-shell {
+  background: linear-gradient(180deg, #f8fbff 0%, #f2f6fa 100%);
+}
+
+.master-topic-tabs {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 12px;
+}
+
+.master-topic-tab {
+  border: 1px solid #d9e6ef;
+  border-radius: 16px;
+  background: #fff;
+  padding: 14px 16px;
+  text-align: left;
+  transition: all 0.18s ease;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.05);
+}
+
+.master-topic-tab:hover {
+  transform: translateY(-2px);
+  border-color: #86efac;
+}
+
+.master-topic-tab.active {
+  background: linear-gradient(135deg, #15803d 0%, #16a34a 100%);
+  border-color: transparent;
+  color: #fff;
+  box-shadow: 0 14px 30px rgba(22, 163, 74, 0.24);
+}
+
+.master-topic-tab .topic-icon {
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  margin-bottom: 10px;
+  background: rgba(34, 197, 94, 0.12);
+  color: #15803d;
+}
+
+.master-topic-tab.active .topic-icon {
+  background: rgba(255, 255, 255, 0.18);
+  color: #fff;
+}
+
+.master-topic-tab strong {
+  display: block;
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.master-topic-tab span {
+  display: block;
+  margin-top: 4px;
+  font-size: 11.5px;
+  color: #64748b;
+}
+
+.master-topic-tab.active span {
+  color: rgba(255, 255, 255, 0.84);
+}
+
+.master-workspace-grid {
+  display: grid;
+  grid-template-columns: 310px minmax(0, 1fr);
+  gap: 18px;
+  align-items: start;
+}
+
+.master-sidebar-card,
+.master-detail-card {
+  border: 1px solid #d9e6ef;
+  border-radius: 18px;
+  background: #fff;
+  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.06);
+}
+
+.master-sidebar-card {
+  padding: 18px;
+  position: sticky;
+  top: 14px;
+}
+
+.master-sidebar-head,
+.master-detail-head {
+  margin-bottom: 14px;
+}
+
+.master-section-label {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #16a34a;
+  margin-bottom: 6px;
+}
+
+.master-sidebar-head h6,
+.master-detail-head h4 {
+  margin: 0;
+  color: #0f172a;
+  font-weight: 800;
+}
+
+.master-sidebar-head h6 {
+  font-size: 14px;
+}
+
+.master-sidebar-head p,
+.master-detail-head p {
+  margin: 6px 0 0;
+  color: #64748b;
+  font-size: 12px;
+}
+
+.master-category-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.master-category-btn {
+  width: 100%;
+  border: 1px solid #dbe7ef;
+  border-radius: 14px;
+  background: #f8fafc;
+  padding: 12px 14px;
+  text-align: left;
+  transition: all 0.18s ease;
+}
+
+.master-category-btn:hover {
+  background: #f0fdf4;
+  border-color: #86efac;
+}
+
+.master-category-btn.active {
+  background: linear-gradient(135deg, #effcf4 0%, #dcfce7 100%);
+  border-color: #22c55e;
+  box-shadow: inset 0 0 0 1px rgba(34, 197, 94, 0.14);
+}
+
+.master-category-btn strong {
+  display: block;
+  color: #0f172a;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.master-category-btn span {
+  display: block;
+  margin-top: 3px;
+  color: #64748b;
+  font-size: 11.5px;
+}
+
+.master-detail-card {
+  padding: 18px;
+}
+
+.master-detail-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+}
+
+.master-count-pill {
+  background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+  color: #fff;
+  border-radius: 999px;
+  padding: 10px 16px;
+  font-size: 12px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.master-count-pill span {
+  font-size: 16px;
+  margin-right: 4px;
+}
+
+.master-entry-toolbar {
+  border: 1px solid #dbe7ef;
+  border-radius: 16px;
+  background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+  padding: 16px;
+}
+
+.master-list-panel {
+  min-height: 260px;
+  border-radius: 16px;
+  overflow: hidden;
+}
+
+.master-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 220px;
+  color: #94a3b8;
+  text-align: center;
+  background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+}
+
+.master-empty-state i {
+  font-size: 26px;
+}
+
+@media (max-width: 991px) {
+  .master-workspace-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .master-sidebar-card {
+    position: static;
+  }
+}
+
 /* ===== PATIENT PHOTO ===== */
 .patient-photo-container {
   display: flex;

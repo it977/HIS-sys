@@ -562,6 +562,7 @@ window.loadView = function (v) {
       $('#setLogoUrl').val(s.logoUrl);
       $('#setOpdHeaderUrl').val(s.opdHeaderUrl);
       $('#setOpdFooterUrl').val(s.opdFooterUrl);
+      if (typeof window.renderMasterCategoryUI === 'function') window.renderMasterCategoryUI();
       window.loadMasterList();
     });
   }
@@ -4469,12 +4470,158 @@ window.loadMasterDataGlobal = async function () {
   }
 };
 
+window.masterCategoryGroups = [
+  {
+    key: 'clinical',
+    label: 'ຫ້ອງກວດ',
+    icon: 'fa-stethoscope',
+    summary: 'ໝວດຂໍ້ມູນສຳລັບການກວດ ແລະ ແພດ',
+    categories: [
+      { key: 'Department', label: 'ຫ້ອງກວດ', description: 'ຈັດການຊື່ພະແນກ ແລະ ຫ້ອງກວດ' },
+      { key: 'Doctor', label: 'ລາຍຊື່ແພດ', description: 'ເພີ່ມແລະຈັດການຊື່ແພດໃນລະບົບ' }
+    ]
+  },
+  {
+    key: 'patient',
+    label: 'ຄົນເຈັບ',
+    icon: 'fa-user-injured',
+    summary: 'ຂໍ້ມູນພື້ນຖານໃນ registration ແລະ profile ຄົນເຈັບ',
+    categories: [
+      { key: 'Title', label: 'ຄຳນຳໜ້າ', description: 'ຄຳນຳໜ້າຊື່ໃນ profile ຄົນເຈັບ' },
+      { key: 'Gender', label: 'ເພດ', description: 'ຕົວເລືອກເພດສຳລັບ registration' },
+      { key: 'Nationality', label: 'ສັນຊາດ', description: 'ລາຍການສັນຊາດທີ່ໃຊ້ໃນລະບົບ' },
+      { key: 'Occupation', label: 'ອາຊີບ', description: 'ຂໍ້ມູນອາຊີບສຳລັບຄົນເຈັບ' },
+      { key: 'BloodType', label: 'ໝວດເລືອດ', description: 'ມາດຕະຖານໝວດເລືອດໃນທາງການແພດ' }
+    ]
+  },
+  {
+    key: 'billing',
+    label: 'ອົງກອນ/ການຕະຫຼາດ',
+    icon: 'fa-building',
+    summary: 'ຂໍ້ມູນອົງກອນ, ປະກັນໄພ ແລະ ຊ່ອງທາງມາຮອດ',
+    categories: [
+      { key: 'InsCompany', label: 'ບໍລິສັດປະກັນໄພ', description: 'ລາຍຊື່ບໍລິສັດປະກັນ/ອົງກອນຄູ່ສັນຍາ' },
+      { key: 'Channel', label: 'ຊ່ອງທາງຮູ້ຈັກ', description: 'ຊ່ອງທາງທີ່ຄົນເຈັບຮູ້ຈັກໂຮງໝໍ' }
+    ]
+  },
+  {
+    key: 'location',
+    label: 'ສະຖານທີ່',
+    icon: 'fa-location-dot',
+    summary: 'ຂໍ້ມູນ site ແລະ ປະເພດຄົນເຈັບຕາມສະຖານທີ່',
+    categories: [
+      { key: 'Site', label: 'ສະຖານທີ່', description: 'ສາຂາ ຫຼື site ທີ່ໃຊ້ໃນລະບົບ' },
+      { key: 'PatientType_InSite', label: 'ປະເພດຄົນເຈັບ (In-site)', description: 'ປະເພດຄົນເຈັບພາຍໃນ site' },
+      { key: 'PatientType_Onsite', label: 'ປະເພດຄົນເຈັບ (On-site)', description: 'ປະເພດຄົນເຈັບນອກ site' }
+    ]
+  },
+  {
+    key: 'pharmacy',
+    label: 'ຢາ',
+    icon: 'fa-pills',
+    summary: 'ມາດຕະຖານຫົວໜ່ວຍຢາ ແລະ ວິທີໃຊ້',
+    categories: [
+      { key: 'DrugUnit', label: 'ຫົວໜ່ວຍຢາ', description: 'ໜ່ວຍນັບຢາທີ່ໃຊ້ໃນ prescription' },
+      { key: 'DrugUsage', label: 'ວິທີກິນ/ໃຊ້', description: 'ຄຳສັ່ງການໃຊ້ຢາມາດຕະຖານ' }
+    ]
+  },
+  {
+    key: 'operations',
+    label: 'ການປະຕິບັດງານ',
+    icon: 'fa-clock',
+    summary: 'ຂໍ້ມູນ shift ແລະ ຕາຕະລາງການເຮັດວຽກ',
+    categories: [
+      { key: 'Shift', label: 'ກະເວນ', description: 'ເວລາກະເວນຂອງພະນັກງານໂຮງໝໍ' }
+    ]
+  }
+];
+
+window.masterCategoryMeta = window.masterCategoryGroups.reduce((acc, group) => {
+  group.categories.forEach(category => {
+    acc[category.key] = { ...category, groupKey: group.key, groupLabel: group.label };
+  });
+  return acc;
+}, {});
+
+window.activeMasterGroupKey = window.activeMasterGroupKey || window.masterCategoryGroups[0].key;
+
+window.renderMasterCategoryUI = function () {
+  const groupHost = document.getElementById('masterGroupTabs');
+  const categoryHost = document.getElementById('masterCategoryButtons');
+  const categorySelect = document.getElementById('masterCategory');
+  if (!groupHost || !categoryHost || !categorySelect) return;
+
+  const currentCategory = categorySelect.value;
+  const selectedMeta = window.masterCategoryMeta[currentCategory];
+  if (selectedMeta) window.activeMasterGroupKey = selectedMeta.groupKey;
+
+  const activeGroup = window.masterCategoryGroups.find(group => group.key === window.activeMasterGroupKey) || window.masterCategoryGroups[0];
+
+  groupHost.innerHTML = window.masterCategoryGroups.map(group => `
+    <button type="button" class="master-topic-tab ${group.key === activeGroup.key ? 'active' : ''}" onclick="window.selectMasterGroup('${group.key}')">
+      <div class="topic-icon"><i class="fas ${group.icon}"></i></div>
+      <strong>${group.label}</strong>
+      <span>${group.summary}</span>
+    </button>
+  `).join('');
+
+  categoryHost.innerHTML = activeGroup.categories.map(category => `
+    <button type="button" class="master-category-btn ${category.key === currentCategory ? 'active' : ''}" onclick="window.selectMasterCategory('${category.key}')">
+      <strong>${category.label}</strong>
+      <span>${category.description}</span>
+    </button>
+  `).join('');
+
+  if (!currentCategory || !window.masterCategoryMeta[currentCategory]) {
+    window.selectMasterCategory(activeGroup.categories[0].key);
+    return;
+  }
+
+  $('#masterActiveCategoryName').text(window.masterCategoryMeta[currentCategory].label);
+  $('#masterActiveCategoryDesc').text(window.masterCategoryMeta[currentCategory].description);
+};
+
+window.selectMasterGroup = function (groupKey) {
+  window.activeMasterGroupKey = groupKey;
+  const group = window.masterCategoryGroups.find(item => item.key === groupKey) || window.masterCategoryGroups[0];
+  const currentCategory = $('#masterCategory').val();
+  const stillBelongs = group.categories.some(category => category.key === currentCategory);
+  if (!stillBelongs) {
+    window.selectMasterCategory(group.categories[0].key);
+    return;
+  }
+  window.renderMasterCategoryUI();
+};
+
+window.selectMasterCategory = function (categoryKey) {
+  $('#masterCategory').val(categoryKey);
+  const meta = window.masterCategoryMeta[categoryKey];
+  if (meta) {
+    window.activeMasterGroupKey = meta.groupKey;
+    $('#masterActiveCategoryName').text(meta.label);
+    $('#masterActiveCategoryDesc').text(meta.description);
+  }
+  window.renderMasterCategoryUI();
+  window.loadMasterList();
+};
+
 window.loadMasterList = function () {
   let c = $('#masterCategory').val();
-  if (!c) return;
+  if (!c) {
+    $('#masterItemCount').text('0');
+    $('#masterListUl').html(`
+      <li class="list-group-item border-0 master-empty-state">
+        <i class="fas fa-layer-group"></i>
+        <strong>ເລືອກຫົວຂໍ້ກ່ອນ</strong>
+        <span>ເລືອກ category ຈາກແຖບດ້ານຊ້າຍເພື່ອເບິ່ງລາຍການ</span>
+      </li>`);
+    return;
+  }
   let h = '';
-  if (masterDataStore[c]) {
-    masterDataStore[c].forEach(i => {
+  const items = masterDataStore[c] || [];
+  $('#masterItemCount').text(items.length);
+  if (items.length > 0) {
+    items.forEach(i => {
       h += `<li class="list-group-item d-flex justify-content-between align-items-center border-0 border-bottom mb-1 bg-transparent">
                     <span class="fw-bold text-dark">${i.value}</span> 
                     <div class="d-flex gap-2">
@@ -4483,6 +4630,12 @@ window.loadMasterList = function () {
                     </div>
                   </li>`;
     });
+  } else {
+    h = `<li class="list-group-item border-0 master-empty-state">
+          <i class="fas fa-folder-open"></i>
+          <strong>ຍັງບໍ່ມີຂໍ້ມູນໃນໝວດນີ້</strong>
+          <span>ເພີ່ມລາຍການໃໝ່ຈາກຊ່ອງດ້ານເທິງໄດ້ເລີຍ</span>
+        </li>`;
   }
   $('#masterListUl').html(h);
 };
@@ -4490,6 +4643,9 @@ window.loadMasterList = function () {
 window.addMaster = async function () {
   let c = $('#masterCategory').val();
   let v = $('#newMasterVal').val();
+  if (!c) {
+    return Swal.fire('ແຈ້ງເຕືອນ', 'ກະລຸນາເລືອກໝວດຂໍ້ມູນກ່ອນ', 'info');
+  }
   if (!v) return;
   $('#newMasterVal').val('');
 
