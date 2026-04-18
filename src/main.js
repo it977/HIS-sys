@@ -28,6 +28,35 @@ let labsMasterList = [];
 let currentEMRLabs = [];
 let currentEMRDrugs = [];
 
+window.decorateDataTableUi = function (tableNode) {
+  if (!tableNode) return;
+
+  const table = $(tableNode);
+  const wrapper = table.closest('.dataTables_wrapper');
+  if (!wrapper.length) return;
+
+  wrapper.addClass('his-datatable-shell');
+  wrapper.find('.row').addClass('his-datatable-row');
+  wrapper.find('.dataTables_length').addClass('his-datatable-length');
+  wrapper.find('.dataTables_filter').addClass('his-datatable-filter');
+  wrapper.find('.dataTables_info').addClass('his-datatable-info');
+  wrapper.find('.dataTables_paginate').addClass('his-datatable-pagination');
+  wrapper.find('.pagination').addClass('his-datatable-pagination-list');
+
+  const searchInput = wrapper.find('.dataTables_filter input');
+  searchInput
+    .attr('placeholder', searchInput.attr('placeholder') || 'ຄົ້ນຫາຂໍ້ມູນ...')
+    .addClass('his-datatable-search-input');
+
+  wrapper.find('.dataTables_length select').addClass('his-datatable-select');
+
+  wrapper.find('.dataTables_filter label').contents().filter(function () {
+    return this.nodeType === 3;
+  }).each(function () {
+    this.textContent = this.textContent.replace('Search:', '').replace('ຄົ້ນຫາ:', '').trim();
+  });
+};
+
 // ==========================================
 // PARTIAL LOADER — fetch & inject HTML files
 // ==========================================
@@ -74,6 +103,29 @@ async function loadPartials() {
 $(document).ready(async function () {
   // Load all HTML partials first, then init the app
   await loadPartials();
+
+  if ($.fn.dataTable) {
+    $.extend(true, $.fn.dataTable.defaults, {
+      responsive: true,
+      pageLength: 10,
+      language: {
+        search: 'ຄົ້ນຫາ:',
+        lengthMenu: 'ສະແດງ _MENU_',
+        info: 'ສະແດງ _START_ ຫາ _END_ ຈາກ _TOTAL_ ລາຍການ',
+        emptyTable: 'ບໍ່ມີຂໍ້ມູນ',
+        paginate: {
+          previous: 'ກ່ອນໜ້າ',
+          next: 'ຕໍ່ໄປ'
+        }
+      }
+    });
+  }
+
+  $(document).on('init.dt', function (e, settings) {
+    if (settings && settings.nTable) {
+      window.decorateDataTableUi(settings.nTable);
+    }
+  });
 
   $('#loading').hide();
 
@@ -1266,8 +1318,8 @@ window._fetchReportData = async function (sDate, eDate) {
     let visitsInRange = [];
     let vStart = 0;
     while (true) {
-      const { data: chunk, error: vErr } = await supabaseClient.from('Visits')
-          .select('Patient_ID, Patient_Name, Date, Status, Department, Visit_Type, Symptoms, Diagnosis, Doctor_Name, Lab_Orders_JSON, Prescription_JSON, Discharge_Status, Visit_ID')
+        const { data: chunk, error: vErr } = await supabaseClient.from('Visits')
+          .select('Patient_ID, Patient_Name, Date, Status, Department, Visit_Type, Symptoms, Diagnosis, Doctor_Name, Lab_Orders_JSON, Prescription_JSON, Discharge_Status, Visit_ID, BP, Temp, Pulse, Weight, Height, SpO2, Advice, Follow_Up, Physical_Exam')
         .gte('Date', sDate + 'T00:00:00Z')
         .lte('Date', eDate + 'T23:59:59Z')
         .not('Date', 'is', null)
@@ -1391,7 +1443,7 @@ window.renderReportPage = function (res) {
         ? '<span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle px-2 py-1">ຄົນເຈັບເກົ່າ</span>'
         : '<span class="badge bg-light text-muted border px-2 py-1">ຍັງບໍ່ເຂົ້າກວດ</span>';
     const departmentBadge = `<span class="badge bg-light text-dark border px-2 py-1">${r.department || 'OPD'}</span>`;
-    const act = `<button class="btn btn-sm btn-outline-primary shadow-sm" onclick="window.viewReportDetail(${i})"><i class="fas fa-eye me-1"></i>View</button>`;
+    const act = `<button class="btn btn-sm btn-outline-primary shadow-sm" onclick="window.viewReportDetail(${i})"><i class="fas fa-eye me-1"></i>ເບິ່ງ</button>`;
     h += `<tr>
       <td data-order="${r.Registration_Date || ''}">${r.date}</td>
       <td>${r.time}</td>
@@ -1450,110 +1502,123 @@ window.viewReportDetail = function (i) {
   const r = currentReportData[i];
   if (!r) return;
 
-  let labList = "ບໍ່ມີການສັ່ງກວດ", drugList = "ບໍ່ມີການສັ່ງຢາ";
-  try {
-    let labs = r.Lab_Orders_JSON ? JSON.parse(r.Lab_Orders_JSON) : [];
-    if (labs.length > 0) {
-      labList = "<ul class='mb-0 text-start ps-3'>";
-      labs.forEach(l => labList += `<li class="mb-1">${l.name}</li>`);
-      labList += "</ul>";
+  const visit = r.latestVisit || r;
+  const parseJsonArray = (value) => {
+    if (!value) return [];
+    try {
+      const parsed = typeof value === 'string' ? JSON.parse(value) : value;
+      return Array.isArray(parsed) ? parsed : [];
+    } catch (e) {
+      return [];
     }
-  } catch (e) { }
+  };
 
-  try {
-    let drugs = r.Prescription_JSON ? JSON.parse(r.Prescription_JSON) : [];
-    if (drugs.length > 0) {
-      drugList = "<ul class='mb-0 text-start ps-3'>";
-      drugs.forEach(d => drugList += `<li class="mb-1"><b>${d.name}</b>: <span class="badge bg-secondary">${d.qty}</span> <div class="small text-muted">${d.usage}</div></li>`);
-      drugList += "</ul>";
-    }
-  } catch (e) { }
+  const formatMetric = (value, suffix = '') => {
+    if (value === null || value === undefined || value === '') return '-';
+    return `${value}${suffix}`;
+  };
+
+  let labList = "ບໍ່ມີການສັ່ງກວດ", drugList = "ບໍ່ມີການສັ່ງຢາ";
+  const labs = parseJsonArray(visit.Lab_Orders_JSON);
+  if (labs.length > 0) {
+    labList = "<ul class='mb-0 text-start ps-3 report-detail-list'>";
+    labs.forEach(l => {
+      const label = typeof l === 'string' ? l : (l.name || l.label || '-');
+      labList += `<li class="mb-1">${label}</li>`;
+    });
+    labList += "</ul>";
+  }
+
+  const drugs = parseJsonArray(visit.Prescription_JSON);
+  if (drugs.length > 0) {
+    drugList = "<ul class='mb-0 text-start ps-3 report-detail-list'>";
+    drugs.forEach(d => {
+      const name = d.name || '-';
+      const qty = d.qty || '-';
+      const usage = d.usage || 'ບໍ່ລະບຸ';
+      drugList += `<li class="mb-2"><strong>${name}</strong> <span class="text-muted">${qty}</span><div class="small text-muted">${usage}</div></li>`;
+    });
+    drugList += "</ul>";
+  }
+
+  const adviceParts = [visit.Advice, visit.Follow_Up].filter(Boolean);
+  const symptoms = visit.Symptoms || '-';
+  const diagnosis = visit.Diagnosis || 'ຍັງບໍ່ມີຂໍ້ມູນ';
+  const physicalExam = visit.Physical_Exam || '-';
+  const doctorName = visit.Doctor_Name || '-';
 
   let html = `
-        <div class="p-4">
-            <!-- Patient Profile Header -->
-            <div class="d-flex align-items-center mb-4 p-3 rounded" style="background: linear-gradient(135deg, #0ea5e9, #6366f1); color: white; box-shadow: 0 4px 15px rgba(14, 165, 233, 0.2);">
-                <div class="rounded-circle bg-white text-primary d-flex align-items-center justify-content-center me-3" style="width: 55px; height: 55px; font-size: 24px;">
-                    <i class="fas fa-user-circle"></i>
+        <div class="report-detail-body">
+          <div class="report-detail-patient-bar">
+            <div class="report-detail-avatar"><i class="fas fa-user"></i></div>
+            <div class="report-detail-patient-meta">
+              <h4>${r.name}</h4>
+              <div class="report-detail-submeta">
+                <span class="report-detail-chip">${r.id}</span>
+                <span>${r.gender || '-'}${r.age ? `, ${r.age} ປີ` : ''}</span>
+              </div>
+            </div>
+            <div class="report-detail-visit-meta">
+              <div><i class="far fa-calendar-alt me-1"></i>${r.date}</div>
+              <div><i class="far fa-clock me-1"></i>${r.time}</div>
+            </div>
+          </div>
+
+          <div class="row g-3 mt-1">
+            <div class="col-md-5">
+              <section class="report-detail-card h-100">
+                <h6 class="report-detail-section-title">ຂໍ້ມູນພື້ນຖານ</h6>
+                <div class="report-detail-vitals-grid">
+                  <div class="report-detail-vital-box"><span>BP</span><strong>${formatMetric(visit.BP)}</strong></div>
+                  <div class="report-detail-vital-box"><span>Temp</span><strong>${formatMetric(visit.Temp, ' °C')}</strong></div>
+                  <div class="report-detail-vital-box"><span>Pulse</span><strong>${formatMetric(visit.Pulse)}</strong></div>
+                  <div class="report-detail-vital-box"><span>Weight</span><strong>${formatMetric(visit.Weight, ' kg')}</strong></div>
+                  <div class="report-detail-vital-box"><span>Height</span><strong>${formatMetric(visit.Height, ' cm')}</strong></div>
+                  <div class="report-detail-vital-box"><span>SpO2</span><strong>${formatMetric(visit.SpO2, '%')}</strong></div>
                 </div>
-                <div>
-                    <h4 class="m-0 fw-bold">${r.name}</h4>
-                    <span class="badge bg-light text-primary mt-1 shadow-sm">${r.id}</span>
+
+                <div class="report-detail-text-block">
+                  <label>ອາການເບື້ອງຕົ້ນ</label>
+                  <p>${symptoms}</p>
                 </div>
-                <div class="ms-auto text-end">
-                    <div class="small opacity-75"><i class="far fa-calendar-alt me-1"></i> ${r.date}</div>
-                    <div class="fw-bold"><i class="far fa-clock me-1"></i> ${r.time}</div>
+                <div class="report-detail-text-block">
+                  <label>ແພດຜູ້ກວດ</label>
+                  <p>${doctorName}</p>
                 </div>
+                <div class="report-detail-text-block mb-0">
+                  <label>ການກວດຮ່າງກາຍ</label>
+                  <p>${physicalExam}</p>
+                </div>
+              </section>
             </div>
 
-            <div class="row g-3">
-                <!-- Vitals & Basic Info -->
-                <div class="col-md-5">
-                    <div class="card border-0 shadow-sm mb-3" style="border-radius: 12px; height: 100%;">
-                        <div class="card-header bg-white border-0 pt-3 pb-0">
-                            <h6 class="fw-bold text-muted small text-uppercase mb-0"><i class="fas fa-heartbeat text-danger me-2"></i>ຂໍ້ມູນຊີວະສັນຍານ</h6>
-                        </div>
-                        <div class="card-body">
-                            <div class="d-flex flex-wrap gap-2 mb-3">
-                                <div class="p-2 border rounded text-center" style="min-width: 70px; background: #fff;">
-                                    <div class="small text-muted">BP</div>
-                                    <div class="fw-bold text-primary">${r.BP || '-'}</div>
-                                </div>
-                                <div class="p-2 border rounded text-center" style="min-width: 70px; background: #fff;">
-                                    <div class="small text-muted">Temp</div>
-                                    <div class="fw-bold text-danger">${r.Temp || '-'} °C</div>
-                                </div>
-                                <div class="p-2 border rounded text-center" style="min-width: 70px; background: #fff;">
-                                    <div class="small text-muted">Pulse</div>
-                                    <div class="fw-bold text-warning">${r.Pulse || '-'}</div>
-                                </div>
-                                <div class="p-2 border rounded text-center" style="min-width: 70px; background: #fff;">
-                                    <div class="small text-muted">Weight</div>
-                                    <div class="fw-bold text-success">${r.Weight || '-'} kg</div>
-                                </div>
-                            </div>
-                            <div class="border-top pt-3">
-                                <p class="mb-2"><b>ອາການເບື້ອງຕົ້ນ:</b><br><span class="text-muted">${r.Symptoms || '-'}</span></p>
-                                <p class="mb-0"><b>ແພດຜູ້ກວດ:</b><br><span class="text-primary fw-bold"><i class="fas fa-user-md me-1"></i>${r.Doctor_Name || '-'}</span></p>
-                            </div>
-                        </div>
+            <div class="col-md-7">
+              <section class="report-detail-card">
+                <h6 class="report-detail-section-title">ການວິນິດໄສ</h6>
+                <div class="report-detail-diagnosis-box">${diagnosis}</div>
+
+                <div class="row g-3 mt-1">
+                  <div class="col-md-6">
+                    <div class="report-detail-subcard">
+                      <h6><i class="fas fa-flask me-2"></i>ລາຍການແລັບ</h6>
+                      <div class="small">${labList}</div>
                     </div>
+                  </div>
+                  <div class="col-md-6">
+                    <div class="report-detail-subcard">
+                      <h6><i class="fas fa-pills me-2"></i>ລາຍການຢາ</h6>
+                      <div class="small">${drugList}</div>
+                    </div>
+                  </div>
                 </div>
 
-                <!-- Diagnosis & Treatment -->
-                <div class="col-md-7">
-                    <div class="card border-0 shadow-sm mb-3" style="border-radius: 12px;">
-                        <div class="card-body">
-                            <div class="mb-3">
-                                <h6 class="fw-bold text-danger"><i class="fas fa-stethoscope me-2"></i>ການວິນິດໄສ (Diagnosis)</h6>
-                                <div class="p-3 bg-light rounded border-start border-danger border-4 mt-2">
-                                    <h5 class="m-0 fw-bold">${r.Diagnosis || 'ຍັງບໍ່ມີຂໍ້ມູນ'}</h5>
-                                </div>
-                            </div>
-                            
-                            <div class="row g-2">
-                                <div class="col-6">
-                                    <div class="p-2 border rounded h-100 bg-white">
-                                        <h6 class="fw-bold text-primary small"><i class="fas fa-flask me-2"></i>ລາຍການແລັບ</h6>
-                                        <div class="small mt-1">${labList}</div>
-                                    </div>
-                                </div>
-                                <div class="col-6">
-                                    <div class="p-2 border rounded h-100 bg-white">
-                                        <h6 class="fw-bold text-success small"><i class="fas fa-pills me-2"></i>ລາຍການຢາ</h6>
-                                        <div class="small mt-1">${drugList}</div>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div class="mt-3 p-3 rounded" style="background-color: #fef9c3; border: 1px dashed #f59e0b;">
-                                <h6 class="fw-bold text-warning-emphasis small mb-1"><i class="fas fa-info-circle me-2"></i>ຄຳແນະນຳ/ຕິດຕາມ</h6>
-                                <div class="small">${r.Advice || r.Follow_Up ? (r.Advice + ' ' + (r.Follow_Up || '')) : 'ບໍ່ມີຄຳແນະນຳເພີ່ມເຕີມ'}</div>
-                            </div>
-                        </div>
-                    </div>
+                <div class="report-detail-note-box mt-3">
+                  <h6><i class="fas fa-notes-medical me-2"></i>ຄຳແນະນຳ / ຕິດຕາມ</h6>
+                  <p class="mb-0">${adviceParts.length > 0 ? adviceParts.join(' | ') : 'ບໍ່ມີຄຳແນະນຳເພີ່ມເຕີມ'}</p>
                 </div>
+              </section>
             </div>
+          </div>
         </div>
     `;
   $('#reportDetailContent').html(html);
@@ -1660,6 +1725,24 @@ window.viewPatientDetail = async function (id) {
 };
 
 window.initPatientTable = async function () {
+  if (!window.__patientDateFilterInstalled) {
+    $.fn.dataTable.ext.search.push(function (settings, rowData) {
+      if (!settings || settings.nTable.id !== 'patientTable') return true;
+
+      const fromValue = $('#patientDateFrom').val();
+      const toValue = $('#patientDateTo').val();
+      const rowDate = rowData && rowData[0] ? new Date(`${rowData[0]}T00:00:00`) : null;
+      const fromDate = fromValue ? new Date(`${fromValue}T00:00:00`) : null;
+      const toDate = toValue ? new Date(`${toValue}T00:00:00`) : null;
+
+      if (!rowDate || Number.isNaN(rowDate.getTime())) return true;
+      if (fromDate && !Number.isNaN(fromDate.getTime()) && rowDate < fromDate) return false;
+      if (toDate && !Number.isNaN(toDate.getTime()) && rowDate > toDate) return false;
+      return true;
+    });
+    window.__patientDateFilterInstalled = true;
+  }
+
   if ($.fn.DataTable.isDataTable('#patientTable')) {
     $('#patientTable').DataTable().destroy();
   }
@@ -1716,7 +1799,7 @@ window.initPatientTable = async function () {
 
       // View button
       if (window.can('patients', 'view')) {
-        acts += `<button class="btn btn-sm btn-info text-white shadow-sm fw-bold" title="ເບິ່ງລາຍລະອຽດ" onclick="window.viewPatientDetail('${r.Patient_ID}')"><i class="fas fa-eye me-1"></i> View</button>`;
+        acts += `<button class="btn btn-sm btn-info text-white shadow-sm fw-bold" title="ເບິ່ງລາຍລະອຽດ" onclick="window.viewPatientDetail('${r.Patient_ID}')"><i class="fas fa-eye me-1"></i> ເບິ່ງ</button>`;
       }
 
       // Triage button
@@ -1756,7 +1839,7 @@ window.initPatientTable = async function () {
     });
 
     $('#patientTable tbody').html(h);
-    $('#patientTable').DataTable({
+    const patientTable = $('#patientTable').DataTable({
       responsive: true,
       pageLength: 10,
       order: [[0, "desc"], [1, "desc"]],
@@ -1766,6 +1849,30 @@ window.initPatientTable = async function () {
         info: "ສະແດງ _START_ ຫາ _END_ ຈາກ _TOTAL_ ລາຍການ",
         paginate: { previous: "ກ່ອນໜ້າ", next: "ຕໍ່ໄປ" }
       }
+    });
+
+    const patientFilter = $('#patientTable_filter');
+    if (patientFilter.length && !patientFilter.find('.patient-date-filter-group').length) {
+      patientFilter.closest('.dataTables_wrapper').addClass('patient-datatable-shell');
+      patientFilter.addClass('patient-table-filter-wrap');
+      patientFilter.append(`
+        <div class="patient-date-filter-group">
+          <label class="patient-date-filter-item mb-0">
+            <span>ຈາກວັນທີ</span>
+            <input type="date" id="patientDateFrom" class="form-control form-control-sm">
+          </label>
+          <label class="patient-date-filter-item mb-0">
+            <span>ຫາວັນທີ</span>
+            <input type="date" id="patientDateTo" class="form-control form-control-sm">
+          </label>
+        </div>
+      `);
+    }
+
+    patientFilter.closest('.dataTables_wrapper').addClass('patient-datatable-shell');
+
+    $('#patientDateFrom, #patientDateTo').off('.patientDateFilter').on('change.patientDateFilter', function () {
+      patientTable.draw();
     });
 
   } catch (err) {
@@ -2652,7 +2759,9 @@ window.loadTriageQueue = async function () {
       let sb = status === 'Triage' || isCalling ? '<span class="badge bg-warning text-dark"><i class="fas fa-hourglass-half"></i> ລໍຖ້າວັດແທກ</span>' : `<span class="badge bg-success"><i class="fas fa-check-circle"></i> ໄປ ${r.department} ແລ້ວ</span>`;
       if (isCalling) sb = '<span class="badge bg-danger animate__animated animate__flash animate__infinite"><i class="fas fa-volume-up"></i> ກຳລັງເອີ້ນ...</span>';
       
-      let nb = r.isNew ? '<span class="badge bg-success ms-2">ໃໝ່</span>' : '<span class="badge bg-secondary ms-2">ເກົ່າ</span>';
+      let nb = r.isNew
+        ? '<span class="badge patient-badge patient-badge-new ms-2">ຄົນເຈັບໃໝ່</span>'
+        : '<span class="badge patient-badge patient-badge-returning ms-2">ຄົນເຈັບເກົ່າ</span>';
       let btnHtml = `<button class="btn btn-sm btn-info text-white shadow-sm me-1" onclick="window.viewTriage(${i})" title="ເບິ່ງລາຍລະອຽດ"><i class="fas fa-eye"></i></button>`;
       if (r.status === 'Triage' || isCalling) {
         btnHtml += `<button class="btn btn-sm btn-danger fw-bold shadow-sm me-1" onclick="window.openTriage(${i})" title="ວັດແທກ"><i class="fas fa-stethoscope"></i> ວັດແທກ</button>`;
@@ -2686,14 +2795,14 @@ window.viewTriage = function (i) {
     ? `<span class="badge bg-success fs-6 px-3 py-2"><i class="fas fa-check-circle me-1"></i> ສົ່ງຫ້ອງກວດແລ້ວ</span>`
     : `<span class="badge bg-warning text-dark fs-6 px-3 py-2"><i class="fas fa-hourglass-half me-1"></i> ລໍຖ້າວັດແທກ</span>`;
   let newBadge = r.isNew
-    ? `<span class="badge bg-success ms-2">ຄົນເຈັບໃໝ່</span>`
-    : `<span class="badge bg-secondary ms-2">ຄົນເຈັບເກົ່າ</span>`;
+    ? `<span class="badge patient-badge patient-badge-new ms-2">ຄົນເຈັບໃໝ່</span>`
+    : `<span class="badge patient-badge patient-badge-returning ms-2">ຄົນເຈັບເກົ່າ</span>`;
 
-  const makeStat = (label, val, unit, color) =>
+  const makeStat = (label, val, unit, colorClass = '') =>
     `<div class="col-6 col-md-4 mb-3">
-            <div class="p-3 border rounded text-center h-100" style="background:#f8fafc;">
+            <div class="triage-view-stat-card text-center h-100">
                 <div class="small text-muted fw-bold mb-1">${label}</div>
-                <div class="fw-bold fs-5 text-${color}">${val || '<span class="text-muted">-</span>'}</div>
+                <div class="fw-bold triage-view-stat-value ${colorClass}">${val || '<span class="text-muted">-</span>'}</div>
                 ${unit ? `<div class="small text-muted">${unit}</div>` : ''}
             </div>
         </div>`;
@@ -2703,56 +2812,55 @@ window.viewTriage = function (i) {
   if (r.bp && r.bp.includes('/')) {
     let parts = r.bp.split('/').map(Number);
     if (!isNaN(parts[0]) && !isNaN(parts[1])) {
-      if (parts[0] >= 140 || parts[1] >= 90) bpColor = 'danger';
-      else if (parts[0] <= 90 || parts[1] <= 60) bpColor = 'warning';
-      else bpColor = 'success';
+        if (parts[0] >= 140 || parts[1] >= 90) bpColor = 'triage-stat-danger';
+        else if (parts[0] <= 90 || parts[1] <= 60) bpColor = 'triage-stat-warn';
+        else bpColor = 'triage-stat-ok';
     }
   }
 
   let vitalsHtml = isDone ? `
         <div class="row g-2">
-            ${makeStat('<i class="fas fa-heart me-1"></i> BP', r.bp, 'mmHg', bpColor)}
-            ${makeStat('<i class="fas fa-thermometer-half me-1"></i> Temp', r.temp ? r.temp + ' °C' : null, null, parseFloat(r.temp) >= 37.5 ? 'danger' : 'info')}
-            ${makeStat('<i class="fas fa-tint me-1"></i> Pulse', r.pulse, 'bpm', 'warning')}
-            ${makeStat('<i class="fas fa-lungs me-1"></i> SpO2', r.spo2 ? r.spo2 + ' %' : null, null, parseFloat(r.spo2) < 95 ? 'danger' : 'success')}
-            ${makeStat('<i class="fas fa-weight me-1"></i> Weight', r.weight, 'kg', 'secondary')}
-            ${makeStat('<i class="fas fa-ruler-vertical me-1"></i> Height', r.height, 'cm', 'secondary')}
+          ${makeStat('<i class="fas fa-heart me-1"></i> BP', r.bp, 'mmHg', bpColor)}
+          ${makeStat('<i class="fas fa-thermometer-half me-1"></i> Temp', r.temp ? r.temp + ' °C' : null, null, parseFloat(r.temp) >= 37.5 ? 'triage-stat-danger' : 'triage-stat-info')}
+          ${makeStat('<i class="fas fa-tint me-1"></i> Pulse', r.pulse, 'bpm', 'triage-stat-warn')}
+          ${makeStat('<i class="fas fa-lungs me-1"></i> SpO2', r.spo2 ? r.spo2 + ' %' : null, null, parseFloat(r.spo2) < 95 ? 'triage-stat-danger' : 'triage-stat-ok')}
+          ${makeStat('<i class="fas fa-weight me-1"></i> Weight', r.weight, 'kg', 'triage-stat-muted')}
+          ${makeStat('<i class="fas fa-ruler-vertical me-1"></i> Height', r.height, 'cm', 'triage-stat-muted')}
         </div>
-        ${r.symptoms ? `<div class="alert alert-light border mt-2 py-2"><b><i class="fas fa-comment-medical text-danger me-1"></i> ອາການ (CC):</b> ${r.symptoms}</div>` : ''}
+        ${r.symptoms ? `<div class="triage-view-note mt-2"><b><i class="fas fa-comment-medical me-1"></i> ອາການເບື້ອງຕົ້ນ:</b> ${r.symptoms}</div>` : ''}
     ` : `<div class="text-center py-4">
-        <i class="fas fa-hourglass-half fa-3x text-warning mb-3 d-block"></i>
+        <i class="fas fa-hourglass-half fa-3x text-muted mb-3 d-block"></i>
         <p class="text-muted">ຍັງບໍ່ໄດ້ວັດ Vital Signs</p>
     </div>`;
 
   Swal.fire({
-    title: `<span style="font-size:16px; font-weight:700;"><i class="fas fa-heartbeat text-danger me-2"></i>${r.patientName} ${newBadge}</span>`,
+      title: `<span class="triage-view-title"><i class="fas fa-heartbeat me-2"></i>${r.patientName} ${newBadge}</span>`,
     html: `
-            <div class="text-start">
-                <div class="d-flex align-items-center justify-content-between mb-3 p-3 rounded"
-                     style="background: linear-gradient(135deg, #1e293b, #334155); color:white; border-radius: 10px;">
+          <div class="text-start triage-view-shell">
+            <div class="triage-view-header mb-3">
                     <div class="d-flex align-items-center gap-3">
-                        <div style="width: 50px; height: 50px; border-radius: 50%; overflow: hidden; background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.4); display: flex; align-items: center; justify-content: center;">
-                            ${r.photoUrl ? `<img src="${r.photoUrl}" style="width: 100%; height: 100%; object-fit: cover;">` : `<i class="fas fa-user text-white-50"></i>`}
+                <div class="triage-view-avatar">
+                  ${r.photoUrl ? `<img src="${r.photoUrl}" style="width: 100%; height: 100%; object-fit: cover;">` : `<i class="fas fa-user text-muted"></i>`}
                         </div>
                         <div>
-                            <div class="fw-bold fs-6">${r.patientId}</div>
-                            <div class="small opacity-75"><i class="fas fa-clock me-1"></i>${r.date} ${r.time}</div>
-                            <div class="small mt-1"><span class="badge bg-light text-dark">${r.gender || '-'}</span> <span class="badge bg-info">${r.age} ປີ</span></div>
+                  <div class="fw-bold fs-6">${r.patientId}</div>
+                  <div class="small text-muted"><i class="fas fa-clock me-1"></i>${r.date} ${r.time}</div>
+                  <div class="small mt-1"><span class="badge patient-badge patient-badge-neutral">${r.gender || '-'}</span> <span class="badge patient-badge patient-badge-age">${r.age} ປີ</span></div>
                         </div>
                     </div>
-                    <div class="text-end">
+              <div class="text-end triage-view-meta">
                         ${statusBadge}
-                        <div class="small mt-1 opacity-75"><i class="fas fa-door-open me-1"></i>${r.department || 'OPD'}</div>
+                <div class="small mt-1 text-muted"><i class="fas fa-door-open me-1"></i>${r.department || 'OPD'}</div>
                     </div>
                 </div>
                 ${vitalsHtml}
             </div>`,
     width: '600px',
-    confirmButtonText: isDone ? '<i class="fas fa-edit me-1"></i> แก้ไข' : '<i class="fas fa-stethoscope me-1"></i> ວັດແທກຕອນນີ້',
-    confirmButtonColor: isDone ? '#0ea5e9' : '#ef4444',
+      confirmButtonText: isDone ? '<i class="fas fa-edit me-1"></i> ແກ້ໄຂ' : '<i class="fas fa-stethoscope me-1"></i> ວັດແທກຕອນນີ້',
+      confirmButtonColor: '#6f6cf6',
     showCancelButton: true,
     cancelButtonText: 'ປິດ',
-    customClass: { popup: 'shadow-lg' }
+      customClass: { popup: 'shadow-lg triage-view-popup' }
   }).then(res => { if (res.isConfirmed) window.openTriage(i); });
 };
 
@@ -5072,7 +5180,9 @@ window.editService = function (id, sv, sp, rv) {
 
 window.setBrandName = function (name) {
   var el = document.getElementById('topnavBrandName');
-  if (el && name) el.textContent = name;
+  if (el) {
+    el.textContent = name && /one\s+medical/i.test(name) ? 'ONE Meds' : (name || 'ONE Meds');
+  }
 };
 
 window.handlePatientExcelUpload = function (e) {
@@ -5710,9 +5820,10 @@ window.speakQueue = function (cn, dept) {
 
   // 1. Voice Selection
   let localVoice = voices.find(v => (v.name.includes('Achara') || v.name.includes('Premwadee')) && v.name.includes('Natural'));
-  if (!localVoice) localVoice = voices.find(v => v.name.includes('Google ภาษาไทย'));
-  if (!localVoice) localVoice = voices.find(v => (v.lang.includes('th') || v.lang.includes('lo')) && v.name.toLowerCase().includes('female'));
-  if (!localVoice) localVoice = voices.find(v => v.lang.includes('th') || v.lang.includes('lo'));
+  if (!localVoice) localVoice = voices.find(v => v.name.toLowerCase().includes('lao') || v.lang.includes('lo'));
+  if (!localVoice) localVoice = voices.find(v => v.lang.includes('lo') && v.name.toLowerCase().includes('female'));
+  if (!localVoice) localVoice = voices.find(v => v.lang.includes('lo'));
+  if (!localVoice) localVoice = voices.find(v => v.lang.includes('en') && v.name.toLowerCase().includes('female'));
 
   let enVoice = voices.find(v => (v.name.includes('Sonia') || v.name.includes('Jenny') || v.name.includes('Aria')) && v.name.includes('Natural'));
   if (!enVoice) enVoice = voices.find(v => v.lang.includes('en') && v.name.toLowerCase().includes('female'));
