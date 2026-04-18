@@ -421,9 +421,11 @@ window.initApp = async function () {
 
     // 2. Fetch all other data in parallel
     await Promise.all([
-      supabaseClient.from('MasterData').select('ID,Category,Value').order('Category').then(({ data }) => {
+      supabaseClient.from('MasterData').select('ID,Category,Value').order('Category').then(({ data, error }) => {
+        if (error) { console.error('MasterData load error:', error); return; }
         const map = {};
         (data || []).forEach(r => { if (!map[r.Category]) map[r.Category] = []; map[r.Category].push({ id: r.ID, value: r.Value }); });
+        console.log('MasterData loaded, categories:', Object.keys(map));
         window.loadMasterDataGlobalCallback(map);
       }),
       supabaseClient.from('Service_Lists').select('*').order('ID').then(({ data }) => {
@@ -1777,6 +1779,9 @@ window.uploadPatientPhoto = async function (pId) {
 };
 
 window.openNewPatientModal = function () {
+  // Re-populate all master dropdowns to ensure they're never empty
+  window.loadMasterDataGlobalCallback(masterDataStore);
+
   $('#patientForm')[0].reset();
   $('#p_action').val("new");
   $('#p_id').val("");
@@ -1882,7 +1887,13 @@ window.submitPatientForm = async function (e) {
   if (isEdit) result = await supabaseClient.from('Patients').update(row).eq('Patient_ID', pId);
   else result = await supabaseClient.from('Patients').insert(row);
   Swal.close();
-  if (result.error) { Swal.fire('ຜິດພາດ', result.error.message, 'error'); return; }
+  if (result.error) {
+    const isRls = result.error.message && (result.error.message.includes('row-level security') || result.error.message.includes('permission denied') || result.error.code === '42501');
+    const msg = isRls
+      ? `ບໍ່ມີສິດ INSERT ໃນ table Patients.\n\nກະລຸນາໄປ Supabase Dashboard → Table Editor → Patients → RLS Policies → ເພີ່ມ Policy INSERT ສຳລັບ role "anon"`
+      : result.error.message;
+    Swal.fire('ຜິດພາດ', msg, 'error'); return;
+  }
   $('#patientModal').modal('hide');
   window.logAction(isEdit ? 'Edit' : 'Add', `${isEdit ? 'ແກ້ໄຂ' : 'ເພີ່ມ'}ຄົນເຈັບ: ${pId} - ${row.First_Name} ${row.Last_Name}`, 'Patients');
   window.initPatientTable();
@@ -1962,6 +1973,15 @@ window.sendToTriageFlow = async function (id, n) {
   });
   if (result.isConfirmed) {
     Swal.fire({ title: 'ກຳລັງສົ່ງເຂົ້າຄິວ...', didOpen: () => Swal.showLoading() });
+    // Test if Visits table is accessible first
+    const { data: testVisit, error: testErr } = await supabaseClient.from('Visits').select('Visit_ID').limit(1);
+    if (testErr) {
+      const isNoTable = testErr.message && testErr.message.includes('does not exist');
+      return Swal.fire('ຜິດພາດ!',
+        isNoTable ? `ບໍ່ພົບ table "Visits" ໃນ Supabase.\nກາລຸນາສ້າງ table ຊື່ "Visits" ໃນ Supabase Dashboard.`
+                  : `ບໍ່ສາມາດເຂົ້າເຖິງ table Visits: ${testErr.message}`,
+        'error');
+    }
     const { data: lastVisit } = await supabaseClient.from('Visits').select('Visit_ID').order('Visit_ID', { ascending: false }).limit(1);
     let lastNum = 0;
     if (lastVisit && lastVisit.length > 0) {
@@ -1973,8 +1993,14 @@ window.sendToTriageFlow = async function (id, n) {
       Visit_ID: vId, Date: new Date().toISOString(),
       Patient_ID: id, Patient_Name: n, Status: 'Triage'
     });
-    if (error) Swal.fire('ຜິດພາດ!', error.message, 'error');
-    else {
+    if (error) {
+      const isRls = error.message && (error.message.includes('row-level security') || error.message.includes('permission denied') || error.code === '42501');
+      const isNoTable = error.message && error.message.includes('does not exist');
+      let msg = error.message;
+      if (isRls) msg = `ບໍ່ມີສິດ INSERT ໃນ table Visits.\n\nກາລຸນາໄປ Supabase Dashboard → Table Editor → Visits → RLS Policies → ເພີ່ມ Policy ໃຫ້ anon role`;
+      if (isNoTable) msg = `ບໍ່ພົບ table "Visits" ໃນ Supabase.\n\nກາລຸນາກວດສອບຊື່ table ໃນ Supabase Dashboard.`;
+      Swal.fire('ຜິດພາດ!', msg, 'error');
+    } else {
       window.logAction('Add', 'Send to Triage: ' + n + ' (' + id + ')', 'Triage');
       Swal.fire('ສຳເລັດ!', 'ສົ່ງເຂົ້າ Triage ແລ້ວ', 'success');
     }
@@ -4191,40 +4217,67 @@ window.fetchOrg = async function () {
   }
 };
 
+window._masterDataFallback = {
+  Title: ["ທ່ານ","ນາງ","ນາງສາວ","ດຣ.","ທ່ານ ດຣ.","ນາງ ດຣ.","ພ.ທ.","ຜ.ສ."],
+  Gender: ["ຊາຍ","ຍິງ","ອື່ນໆ"],
+  BloodType: ["A+","A-","B+","B-","AB+","AB-","O+","O-"],
+  Nationality: ["ລາວ","ໄທ","ຈີນ","ຫວຽດນາມ","ກຳປູເຈຍ","ມຽນມາ","ສິງກະໂປ","ມາເລເຊຍ","ຍີ່ປຸ່ນ","ເກົາຫຼີ","ອັງກິດ","ອາເມລິກາ","ຝຣັ່ງ","ອື່ນໆ"],
+  Occupation: ["ພະນັກງານລັດ","ພະນັກງານເອກະຊົນ","ທຸລະກິດສ່ວນຕົວ","ຊາວນາ","ນັກສຶກສາ","ຄ້າຂາຍ","ທ່ອງທ່ຽວ","ຫວ່າງງານ","ອື່ນໆ"],
+  Shift: ["ເຊົ້າ (08:00-16:00)","ແລງ (16:00-24:00)","ດຶກ (00:00-08:00)"],
+  Channel: ["ໂທລະສັບ","ສອດ","Facebook","Line","ຍາດພີ່ນ້ອງແນະນຳ","ຜ່ານ ຮພ. ອື່ນ","ສື່ໂຄສະນາ","ອື່ນໆ"],
+  InsCompany: ["ບໍ່ມີ","LSMI","PVI","Axa","Prudential","Allianz","BCEL-AXA","ອື່ນໆ"],
+  Department: ["OPD ທົ່ວໄປ","ຫ້ອງສຸກເສີນ","ຫ້ອງຜ່າຕັດ","ຫ້ອງເດັກ","ຫ້ອງໃນ (IPD)","ກວດສະເພາະທາງ","ທັນຕະກຳ","ຕາ ຫູ ຄໍ ຈະມູກ"],
+  DrugUnit: ["ເມັດ (Tab)","ແຄັບຊູນ (Cap)","ມິນລິລິດ (ml)","ກຣາມ (g)","ຫຼອດ (Amp)","ຕຸກ (Bottle)","ຊອງ (Sachet)","Dose","ບ່ວງ (Spoon)"],
+  DrugUsage: ["ac (ກ່ອນອາຫານ 30 ນາທີ)","pc (ຫຼັງອາຫານ 15-30 ນາທີ)","am (ຕອນເຊົ້າ)","pm (ຕອນແລງ)","hs (ກ່ອນນອນ)","bid (ວັນລະ 2 ຄັ້ງ)","tid (ວັນລະ 3 ຄັ້ງ)","qid (ວັນລະ 4 ຄັ້ງ)","prn (ກິນເວລາເຈັບ)","od (ວັນລະ 1 ຄັ້ງ)","stat (ກິນທັນທີ)"],
+};
+
 window.loadMasterDataGlobalCallback = function (data) {
   masterDataStore = data || {};
+  let missingCategories = [];
   ['Department', 'Shift', 'Title', 'Gender', 'Nationality', 'Occupation', 'BloodType', 'InsCompany', 'Channel', 'Doctor', 'Site', 'PatientType_InSite', 'PatientType_Onsite', 'DrugUnit', 'DrugUsage'].forEach(c => {
     let o = '<option value="">-- ເລືອກ --</option>';
-    if (masterDataStore[c]) {
-      masterDataStore[c].forEach(i => o += `<option value="${i.value}">${i.value}</option>`);
+    const sourceData = masterDataStore[c] || (window._masterDataFallback[c] ? window._masterDataFallback[c].map(v => ({ value: v })) : null);
+    if (!masterDataStore[c] && window._masterDataFallback[c]) missingCategories.push(c);
+    if (sourceData) {
+      sourceData.forEach(i => o += `<option value="${i.value}">${i.value}</option>`);
     }
     $('.dyn-' + c).html(o);
   });
+  if (missingCategories.length > 0) {
+    console.warn('MasterData: ໃຊ້ຂໍ້ມູນ fallback ສຳລັບ:', missingCategories.join(', '));
+    console.warn('ກວດສອບ RLS Policy ຂອງ table MasterData ໃນ Supabase Dashboard');
+  }
   if (document.getElementById('masterCategory')) window.loadMasterList();
 };
 
 window.seedMasterDefaults = async function () {
-  const usageDefaults = [
-    "ac (ກ່ອນອາຫານ 30 ນາທີ)", "pc (ຫຼັງອາຫານ 15-30 ນາທີ)", "am (ຕອນເຊົ້າ)", "pm (ຕອນແລງ)", "hs (ກ່ອນນອນ)",
-    "bid (ວັນລະ 2 ຄັ້ງ ເຊົ້າ-ແລງ)", "tid (ວັນລະ 3 ຄັ້ງ ເຊົ້າ-ສວຍ-ແລງ)", "qid (ວັນລະ 4 ຄັ້ງ ເຊົ້າ-ສວຍ-ແລງ-ກ່ອນນອນ)",
-    "q4h (ທຸກໆ 4 ຊົ່ວໂມງ)", "prn (ກິນເວລາເຈັບ/ເປັນໄຂ້)", "po (ຢາກິນ)", "iv (ສີດເຂົ້າເສັ້ນເລືອດ)",
-    "im (ສີດເຂົ້າກ້າມ)", "od (ວັນລະ 1 ຄັ້ງ)", "stat (ກິນທັນທີ)"
-  ];
-  const unitDefaults = ["ເມັດ (Tab)", "ແຄັບຊູນ (Cap)", "ມິນລິລິດ (ml)", "ກຣາມ (g)", "ຫຼອດ (Amp)", "ຕຸກ (Bottle)", "ຊອງ (Sachet)", "Dose", "ບ່ວງ (Spoon)"];
+  const defaults = {
+    DrugUsage: [
+      "ac (ກ່ອນອາຫານ 30 ນາທີ)", "pc (ຫຼັງອາຫານ 15-30 ນາທີ)", "am (ຕອນເຊົ້າ)", "pm (ຕອນແລງ)", "hs (ກ່ອນນອນ)",
+      "bid (ວັນລະ 2 ຄັ້ງ ເຊົ້າ-ແລງ)", "tid (ວັນລະ 3 ຄັ້ງ ເຊົ້າ-ສວຍ-ແລງ)", "qid (ວັນລະ 4 ຄັ້ງ ເຊົ້າ-ສວຍ-ແລງ-ກ່ອນນອນ)",
+      "q4h (ທຸກໆ 4 ຊົ່ວໂມງ)", "prn (ກິນເວລາເຈັບ/ເປັນໄຂ້)", "po (ຢາກິນ)", "iv (ສີດເຂົ້າເສັ້ນເລືອດ)",
+      "im (ສີດເຂົ້າກ້າມ)", "od (ວັນລະ 1 ຄັ້ງ)", "stat (ກິນທັນທີ)"
+    ],
+    DrugUnit: ["ເມັດ (Tab)", "ແຄັບຊູນ (Cap)", "ມິນລິລິດ (ml)", "ກຣາມ (g)", "ຫຼອດ (Amp)", "ຕຸກ (Bottle)", "ຊອງ (Sachet)", "Dose", "ບ່ວງ (Spoon)"],
+    Title: ["ທ່ານ", "ນາງ", "ນາງສາວ", "ດຣ.", "ທ່ານ ດຣ.", "ນາງ ດຣ.", "ພ.ທ.", "ຜ.ສ."],
+    Gender: ["ຊາຍ", "ຍິງ", "ອື່ນໆ"],
+    BloodType: ["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"],
+    Nationality: ["ລາວ", "ໄທ", "ຈີນ", "ຫວຽດນາມ", "ກຳປູເຈຍ", "ມຽນມາ", "ສິງກະໂປ", "ມາເລເຊຍ", "ຍີ່ປຸ່ນ", "ເກົາຫຼີ", "ອັງກິດ", "ອາເມລິກາ", "ຝຣັ່ງ", "ອື່ນໆ"],
+    Occupation: ["ພະນັກງານລັດ", "ພະນັກງານເອກະຊົນ", "ທຸລະກິດສ່ວນຕົວ", "ຊາວນາ", "ນັກສຶກສາ", "ຄ້າຂາຍ", "ທ່ອງທ່ຽວ", "ຫວ່າງງານ", "ອື່ນໆ"],
+    Shift: ["ເຊົ້າ (08:00-16:00)", "ແລງ (16:00-24:00)", "ດຶກ (00:00-08:00)"],
+    Channel: ["ໂທລະສັບ", "ສອດ", "Facebook", "Line", "ຍາດພີ່ນ້ອງແນະນຳ", "ຜ່ານ ຮພ. ອື່ນ", "ສື່ໂຄສະນາ", "ອື່ນໆ"],
+    InsCompany: ["ບໍ່ມີ", "LSMI", "PVI", "Axa", "Prudential", "Allianz", "BCEL-AXA", "ອື່ນໆ"],
+    Department: ["OPD ທົ່ວໄປ", "ຫ້ອງສຸກເສີນ", "ຫ້ອງຜ່າຕັດ", "ຫ້ອງເດັກ", "ຫ້ອງໃນ (IPD)", "ກວດສະເພາະທາງ", "ທັນຕະກຳ", "ຕາ ຫູ ຄໍ ຈະມູກ"],
+  };
 
   try {
-    const { data: existingUsage } = await supabaseClient.from('MasterData').select('ID').eq('Category', 'DrugUsage').limit(1);
-    if (!existingUsage || existingUsage.length === 0) {
-      console.log("Seeding DrugUsage defaults...");
-      const rows = usageDefaults.map(v => ({ Category: 'DrugUsage', Value: v }));
-      await supabaseClient.from('MasterData').insert(rows);
-    }
-
-    const { data: existingUnit } = await supabaseClient.from('MasterData').select('ID').eq('Category', 'DrugUnit').limit(1);
-    if (!existingUnit || existingUnit.length === 0) {
-      console.log("Seeding DrugUnit defaults...");
-      const rows = unitDefaults.map(v => ({ Category: 'DrugUnit', Value: v }));
-      await supabaseClient.from('MasterData').insert(rows);
+    for (const [category, values] of Object.entries(defaults)) {
+      const { data: existing } = await supabaseClient.from('MasterData').select('ID').eq('Category', category).limit(1);
+      if (!existing || existing.length === 0) {
+        console.log(`Seeding ${category} defaults...`);
+        const rows = values.map(v => ({ Category: category, Value: v }));
+        await supabaseClient.from('MasterData').insert(rows);
+      }
     }
   } catch (err) {
     console.error("Seeding error:", err);
@@ -4233,8 +4286,9 @@ window.seedMasterDefaults = async function () {
 
 window.resetMasterDefaults = async function () {
   const c = $('#masterCategory').val();
-  if (c !== 'DrugUsage' && c !== 'DrugUnit') {
-    return Swal.fire('ແຈ້ງເຕືອນ', 'ຟັງຊັນນີ້ໃຊ້ໄດ້ສະເພາະກັບ ວິທີໃຊ້ ແລະ ຫົວໜ່ວຍຢາ ເທົ່ານັ້ນ', 'info');
+  const seededCategories = ['DrugUsage', 'DrugUnit', 'Title', 'Gender', 'BloodType', 'Nationality', 'Occupation', 'Shift', 'Channel', 'InsCompany', 'Department'];
+  if (!seededCategories.includes(c)) {
+    return Swal.fire('ແຈ້ງເຕືອນ', 'ຟັງຊັນນີ້ໃຊ້ໄດ້ສະເພາະກັບ category ທີ່ມີຂໍ້ມູນມາດຕະຖານ', 'info');
   }
 
   const r = await Swal.fire({
