@@ -1,0 +1,51 @@
+<div id="view-visit_history" style="display:none;">
+  <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2 pb-2" style="border-bottom:2px solid var(--border-color);">
+    <div>
+      <h4 class="fw-bold m-0 text-dark"><i class="fas fa-history text-info me-2"></i>ປະຫວັດການກວດ</h4>
+      <p class="text-muted mb-0 mt-0" style="font-size:11px;">ສະຫຼຸບຈຳນວນຄັ້ງທີ່ຄົນເຈັບເຂົ້າມາກວດ ແລະ ເບິ່ງປະຫວັດເກົ່າໄດ້ທຸກຄັ້ງ</p>
+    </div>
+    <div class="d-flex flex-wrap gap-2 align-items-center bg-white p-2 rounded shadow-sm border">
+      <span class="text-muted" style="font-size:11px;" id="visitRefreshTime">ອັບເດດ: -</span>
+      <div class="btn-group" id="visitHistoryRangeButtons">
+        <button class="btn btn-sm btn-primary active" id="btnVisitToday" onclick="window.setVisitHistoryRange('today')">ມື້ນີ້</button>
+        <button class="btn btn-sm btn-outline-primary" id="btnVisitWeek" onclick="window.setVisitHistoryRange('week')">ອາທິດນີ້</button>
+        <button class="btn btn-sm btn-outline-primary" id="btnVisitMonth" onclick="window.setVisitHistoryRange('month')">ເດືອນນີ້</button>
+        <button class="btn btn-sm btn-outline-primary" id="btnVisitYear" onclick="window.setVisitHistoryRange('year')">ປີນີ້</button>
+      </div>
+      <div class="input-group input-group-sm" style="width:auto;">
+        <span class="input-group-text bg-light">ຈາກ</span>
+        <input type="date" id="visitStartDate" class="form-control" onchange="window.fetchVisitHistoryData()">
+        <span class="input-group-text bg-light">ຫາ</span>
+        <input type="date" id="visitEndDate" class="form-control" onchange="window.fetchVisitHistoryData()">
+      </div>
+      <div class="input-group input-group-sm" style="width:220px;">
+        <input type="text" id="visitSearchInput" class="form-control" placeholder="🔍 ຄົ້ນຫາ ຊື່, CN..." onkeyup="window.searchVisitHistoryTable()">
+      </div>
+      <button class="btn btn-sm btn-success fw-bold shadow-sm" onclick="window.exportVisitHistoryExcel()"><i class="fas fa-file-excel me-1"></i>Excel</button>
+      <button class="btn btn-sm btn-danger fw-bold shadow-sm" onclick="window.exportVisitHistoryPDF()"><i class="fas fa-file-pdf me-1"></i>PDF</button>
+    </div>
+  </div>
+
+  <div class="card border-0 shadow-sm">
+    <div class="card-body p-0">
+      <div class="table-responsive">
+        <table id="visitHistoryTable" class="table table-hover w-100 align-middle mb-0" style="font-size:13px;">
+          <thead class="bg-light">
+            <tr>
+              <th style="min-width:85px;padding:8px 12px;">ວັນທີ</th>
+              <th style="min-width:55px;padding:8px 12px;">ເວລາ</th>
+              <th style="min-width:100px;padding:8px 12px;">CN</th>
+              <th style="min-width:150px;padding:8px 12px;">ຊື່ ແລະ ນາມສະກຸນ</th>
+              <th style="min-width:45px;padding:8px 12px;">ເພດ</th>
+              <th style="min-width:45px;padding:8px 12px;">ອາຍຸ</th>
+              <th style="min-width:120px;padding:8px 12px;">ຈຳນວນຄັ້ງມາກວດ</th>
+              <th style="min-width:110px;padding:8px 12px;">ພະແນກຫຼ້າສຸດ</th>
+              <th class="text-center" style="min-width:150px;padding:8px 12px;">ປະຫວັດເກົ່າ</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>

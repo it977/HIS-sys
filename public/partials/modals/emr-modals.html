@@ -34,37 +34,58 @@
         </div>
         <form id="emrForm" onsubmit="window.submitEMRForm(event)">
           <input type="hidden" id="emrRowIdx">
-          <div class="row g-3">
-            <div class="col-12">
-              <div class="row g-3">
-                <div class="col-md-6"><label class="form-label fw-bold">ສະຖານທີ່ (Site)</label><select class="form-select" id="emrSite" onchange="window.handleSiteChange()"></select></div>
-                <div class="col-md-6"><label class="form-label fw-bold">ປະເພດ (Type)</label><select class="form-select" id="emrDeptType"><option value="OPD">OPD</option><option value="IPD">IPD</option></select></div>
-                <div class="col-12">
-                  <label class="form-label fw-bold">ບໍລິການທີ່ໃຊ້ (Services) <span class="text-muted small fw-normal">— ເລືອກໄດ້ຫຼາຍລາຍການ</span></label>
-                  <select class="form-select" id="emrService" multiple style="width:100%;"></select>
-                </div>
-                <div class="col-md-6"><label class="form-label fw-bold">ແພດສະເພາະທາງ (Specialist)</label><input type="text" class="form-control bg-light" id="emrSpecialist" readonly placeholder="ຕື່ມອັດຕະໂນມັດຈາກ Services"></div>
-                <div class="col-md-6"><label class="form-label fw-bold">ໝວດລາຍຮັບ (Revenue Group)</label><input type="text" class="form-control bg-light" id="emrRevenue" readonly placeholder="ຕື່ມອັດຕະໂນມັດຈາກ Services"></div>
-                <div class="col-12"><label class="form-label fw-bold">ຜົນກວດຮ່າງກາຍ (Physical Exam)</label><textarea class="form-control" id="emrPE" rows="2" placeholder="ຜົນກວດ..."></textarea></div>
-                <div class="col-12"><label class="form-label fw-bold text-danger">ການວິນິດໄສ (Diagnosis / Dx)</label><textarea class="form-control border-danger" id="emrDiagnosis" rows="2" placeholder="Dx (ຈຳເປັນຕ້ອງໃສ່ເມື່ອຕ້ອງການປິດຈົບການກວດ)..."></textarea></div>
-                <div class="col-md-6"><label class="form-label fw-bold">ຄຳແນະນຳ (Advice)</label><textarea class="form-control" id="emrAdvice" rows="2" placeholder="ຄຳແນະນຳ / ຄຳເຕືອນ..."></textarea></div>
-                <div class="col-md-6"><label class="form-label fw-bold">ນັດໝາຍຕໍ່ໄປ (Follow-up)</label><input type="date" class="form-control" id="emrFollowup"></div>
-                <div class="col-md-6"><label class="form-label fw-bold">ແພດຜູ້ກວດ (Doctor)</label><select class="form-select dyn-Doctor" id="emrDoctor"><option value="">-- ເລືອກແພດ --</option></select></div>
-                <div class="col-md-6">
-                  <label class="form-label fw-bold text-danger required">ສະຖານະປິດຈົບ (Discharge Status)</label>
-                  <select class="form-select border-danger" id="emrDischargeStatus" required>
-                    <option value="">-- ກະລຸນາເລືອກ --</option>
-                    <option value="ລໍຖ້າຜົນແລັບ (Waiting Lab)">⏳ ລໍຖ້າຜົນແລັບ (ພັກການກວດໄວ້ກ່ອນ)</option>
-                    <option value="ຮັບຢາກັບບ້ານ">💊 ຮັບຢາກັບບ້ານ (ໄປຮັບຢາ)</option>
-                    <option value="ນອນຕິດຕາມ (Admit / IPD)">🏥 ນອນຕິດຕາມ (Admit / IPD)</option>
-                    <option value="ສົ່ງຕໍ່ (Transfer)">🚑 ສົ່ງຕໍ່ (Transfer)</option>
-                    <option value="ກວດສຳເລັດ / ກັບບ້ານ">🏠 ກວດສຳເລັດ / ກັບບ້ານ (ບໍ່ມີຢາ)</option>
-                  </select>
+          <div class="emr-workflow-shell">
+            <ul class="nav nav-tabs emr-workflow-tabs" id="emrWorkflowTabs" role="tablist">
+              <li class="nav-item" role="presentation">
+                <button class="nav-link active" id="emr-overview-tab" data-bs-toggle="tab" data-bs-target="#emr-overview-pane" type="button" role="tab" aria-controls="emr-overview-pane" aria-selected="true">
+                  <i class="fas fa-notes-medical me-2"></i>ຂໍ້ມູນການກວດ
+                </button>
+              </li>
+              <li class="nav-item" role="presentation">
+                <button class="nav-link" id="emr-lab-tab" data-bs-toggle="tab" data-bs-target="#emr-lab-pane" type="button" role="tab" aria-controls="emr-lab-pane" aria-selected="false">
+                  <i class="fas fa-flask me-2"></i>Lab
+                  <span class="emr-tab-count" id="emrLabTabCount">0</span>
+                </button>
+              </li>
+              <li class="nav-item" role="presentation">
+                <button class="nav-link" id="emr-rx-tab" data-bs-toggle="tab" data-bs-target="#emr-rx-pane" type="button" role="tab" aria-controls="emr-rx-pane" aria-selected="false">
+                  <i class="fas fa-pills me-2"></i>Rx
+                  <span class="emr-tab-count" id="emrRxTabCount">0</span>
+                </button>
+              </li>
+            </ul>
+
+            <div class="tab-content emr-workflow-content" id="emrWorkflowTabContent">
+              <div class="tab-pane fade show active emr-workflow-tab-pane" id="emr-overview-pane" role="tabpanel" aria-labelledby="emr-overview-tab">
+                <div class="row g-3">
+                  <div class="col-md-6"><label class="form-label fw-bold">ສະຖານທີ່ (Site)</label><select class="form-select" id="emrSite" onchange="window.handleSiteChange()"></select></div>
+                  <div class="col-md-6"><label class="form-label fw-bold">ປະເພດ (Type)</label><select class="form-select" id="emrDeptType"><option value="OPD">OPD</option><option value="IPD">IPD</option></select></div>
+                  <div class="col-12">
+                    <label class="form-label fw-bold">ບໍລິການທີ່ໃຊ້ (Services) <span class="text-muted small fw-normal">— ເລືອກໄດ້ຫຼາຍລາຍການ</span></label>
+                    <select class="form-select" id="emrService" multiple style="width:100%;"></select>
+                  </div>
+                  <div class="col-md-6"><label class="form-label fw-bold">ແພດສະເພາະທາງ (Specialist)</label><input type="text" class="form-control bg-light" id="emrSpecialist" readonly placeholder="ຕື່ມອັດຕະໂນມັດຈາກ Services"></div>
+                  <div class="col-md-6"><label class="form-label fw-bold">ໝວດລາຍຮັບ (Revenue Group)</label><input type="text" class="form-control bg-light" id="emrRevenue" readonly placeholder="ຕື່ມອັດຕະໂນມັດຈາກ Services"></div>
+                  <div class="col-12"><label class="form-label fw-bold">ຜົນກວດຮ່າງກາຍ (Physical Exam)</label><textarea class="form-control" id="emrPE" rows="2" placeholder="ຜົນກວດ..."></textarea></div>
+                  <div class="col-12"><label class="form-label fw-bold text-danger">ການວິນິດໄສ (Diagnosis / Dx)</label><textarea class="form-control border-danger" id="emrDiagnosis" rows="2" placeholder="Dx (ຈຳເປັນຕ້ອງໃສ່ເມື່ອຕ້ອງການປິດຈົບການກວດ)..."></textarea></div>
+                  <div class="col-md-6"><label class="form-label fw-bold">ຄຳແນະນຳ (Advice)</label><textarea class="form-control" id="emrAdvice" rows="2" placeholder="ຄຳແນະນຳ / ຄຳເຕືອນ..."></textarea></div>
+                  <div class="col-md-6"><label class="form-label fw-bold">ນັດໝາຍຕໍ່ໄປ (Follow-up)</label><input type="date" class="form-control" id="emrFollowup"></div>
+                  <div class="col-md-6"><label class="form-label fw-bold">ແພດຜູ້ກວດ (Doctor)</label><select class="form-select dyn-Doctor" id="emrDoctor"><option value="">-- ເລືອກແພດ --</option></select></div>
+                  <div class="col-md-6">
+                    <label class="form-label fw-bold text-danger required">ສະຖານະປິດຈົບ (Discharge Status)</label>
+                    <select class="form-select border-danger" id="emrDischargeStatus" required>
+                      <option value="">-- ກະລຸນາເລືອກ --</option>
+                      <option value="ລໍຖ້າຜົນແລັບ (Waiting Lab)">⏳ ລໍຖ້າຜົນແລັບ (ພັກການກວດໄວ້ກ່ອນ)</option>
+                      <option value="ຮັບຢາກັບບ້ານ">💊 ຮັບຢາກັບບ້ານ (ໄປຮັບຢາ)</option>
+                      <option value="ນອນຕິດຕາມ (Admit / IPD)">🏥 ນອນຕິດຕາມ (Admit / IPD)</option>
+                      <option value="ສົ່ງຕໍ່ (Transfer)">🚑 ສົ່ງຕໍ່ (Transfer)</option>
+                      <option value="ກວດສຳເລັດ / ກັບບ້ານ">🏠 ກວດສຳເລັດ / ກັບບ້ານ (ບໍ່ມີຢາ)</option>
+                    </select>
+                  </div>
                 </div>
               </div>
-            </div>
-            <div class="col-12">
-              <div class="emr-orders-grid">
+
+              <div class="tab-pane fade emr-workflow-tab-pane" id="emr-lab-pane" role="tabpanel" aria-labelledby="emr-lab-tab">
                 <section class="emr-order-panel lab">
                   <div class="emr-order-panel-header">
                     <div class="emr-order-panel-title">
@@ -80,7 +101,9 @@
                     <div id="emrLabTableBody" class="emr-order-list"></div>
                   </div>
                 </section>
+              </div>
 
+              <div class="tab-pane fade emr-workflow-tab-pane" id="emr-rx-pane" role="tabpanel" aria-labelledby="emr-rx-tab">
                 <section class="emr-order-panel rx">
                   <div class="emr-order-panel-header">
                     <div class="emr-order-panel-title">

@@ -16,6 +16,7 @@ let reportRefreshInterval = null;
 let chartInstances = {};
 let html5QrCode = null;
 let currentReportData = [];
+let currentVisitHistoryData = [];
 let currentTriageData = [];
 let systemSettings = { hospitalName: "", logoUrl: "", opdHeaderUrl: "", opdFooterUrl: "" };
 let servicesDataStore = [];
@@ -62,7 +63,7 @@ window.decorateDataTableUi = function (tableNode) {
 // ==========================================
 async function loadPartials() {
   const views = [
-    'dashboard', 'report', 'patients', 'triage', 'opd', 'ipd',
+    'dashboard', 'report', 'visit_history', 'patients', 'triage', 'opd', 'ipd',
     'appointments', 'vaccines', 'vaccine_master', 'drugs',
     'labs', 'services', 'locations', 'users', 'orgs', 'settings', 'activity_log', 'public-queue'
   ];
@@ -152,6 +153,18 @@ $(document).ready(async function () {
 
   if (typeof jQuery !== 'undefined' && $.fn.select2) {
     $('#emrService').select2({ dropdownParent: $('#emrModal'), placeholder: "-- ພິມຄົ້ນຫາບໍລິການ --", allowClear: true }).on('change', window.handleServiceSelectionChange);
+    $('#emrDischargeStatus').select2({
+      dropdownParent: $('#emrModal'),
+      placeholder: "-- ເລືອກ ຫຼື ພິມສະຖານະ --",
+      allowClear: true,
+      tags: true,
+      width: '100%',
+      createTag: function (params) {
+        let term = (params.term || '').trim();
+        if (!term) return null;
+        return { id: term, text: term, newTag: true };
+      }
+    });
 
     $('#p_district').select2({ dropdownParent: $('#patientModal'), placeholder: "-- ຄົ້ນຫາ ແລະ ເລືອກເມືອງ --", allowClear: false }).on('change', function () {
       let dist = $(this).val();
@@ -546,7 +559,7 @@ window.loadView = function (v) {
   }
 
   // Switch Views
-  let views = ['dashboard', 'report', 'patients', 'settings', 'orgs', 'triage', 'opd', 'ipd', 'users', 'services', 'locations', 'appointments', 'vaccines', 'vaccine_master', 'drugs', 'labs', 'activity_log', 'public-queue'];
+  let views = ['dashboard', 'report', 'visit_history', 'patients', 'settings', 'orgs', 'triage', 'opd', 'ipd', 'users', 'services', 'locations', 'appointments', 'vaccines', 'vaccine_master', 'drugs', 'labs', 'activity_log', 'public-queue'];
   views.forEach(n => {
     if (n === v) $('#view-' + n).show();
     else $('#view-' + n).hide();
@@ -633,6 +646,10 @@ window.loadView = function (v) {
   if (v === 'report') {
     window.setReportRange('today');
     reportRefreshInterval = setInterval(() => { window.fetchReportData(); window.checkAlerts(); }, 120000);
+  }
+  if (v === 'visit_history') {
+    window.setVisitHistoryRange('today');
+    reportRefreshInterval = setInterval(() => { window.fetchVisitHistoryData(); window.checkAlerts(); }, 120000);
   }
 
   // Close menus
@@ -1147,7 +1164,7 @@ window.renderDashboardCharts = function (visits) {
     }
   });
 
-  const palette = ['#6366f1', '#f43f5e', '#10b981', '#f59e0b', '#8b5cf6', '#06b6d4', '#ec4899', '#84cc16', '#f97316', '#64748b'];
+  const palette = ['#47c0c4', '#56c3c2', '#2c9ea3', '#7ad6c9', '#ffbf00', '#8bcf8c', '#ff7a15', '#94a3b8', '#3fae8c', '#84cc16'];
   
   let topSvc = getTopNWithOthers(services, 10, 0.001);
   let topRev = getTopNWithOthers(revenue, 8, 0.005);
@@ -1159,9 +1176,9 @@ window.renderDashboardCharts = function (visits) {
   window.createChart('chartRevenue', 'bar', topRev.labels, topRev.data, palette, true);
   window.createChart('chartSpecialist', 'bar', topSpec.labels, topSpec.data, palette, true);
   window.createChart('chartMarketing', 'bar', topDocs.labels, topDocs.data, palette, true);
-  window.createChart('chartGender', 'doughnut', Object.keys(gender), Object.values(gender), ['#3b82f6', '#f43f5e', '#94a3b8']);
-  window.createChart('chartDept', 'pie', Object.keys(deptType), Object.values(deptType), ['#10b981', '#f59e0b']);
-  window.createChart('chartSite', 'pie', Object.keys(site), Object.values(site), ['#8b5cf6', '#06b6d4']);
+  window.createChart('chartGender', 'doughnut', Object.keys(gender), Object.values(gender), ['#47c0c4', '#2c9ea3', '#94a3b8']);
+  window.createChart('chartDept', 'pie', Object.keys(deptType), Object.values(deptType), ['#47c0c4', '#2c9ea3']);
+  window.createChart('chartSite', 'pie', Object.keys(site), Object.values(site), ['#7ad6c9', '#56c3c2']);
   
   window.createChart('chartTime', 'bar', Object.keys(timeSlot).sort(), Object.values(timeSlot), palette, false);
   window.createChart('chartAge', 'bar', ["0-14", "15-34", "35-59", "60+"], ["0-14", "15-34", "35-59", "60+"].map(k => ageGroup[k] || 0), [palette[2], palette[0], palette[3], palette[1]], false);
@@ -1276,11 +1293,11 @@ window.renderPipeline = function (stage) {
   steps.forEach((s, i) => {
     const done = i + 1 < stage;
     const active = i + 1 === stage;
-    const bg = done ? '#22c55e' : active ? '#0ea5e9' : '#e2e8f0';
+    const bg = done ? '#2fa67f' : active ? '#47c0c4' : '#e2e8f0';
     const tc = done || active ? '#fff' : '#94a3b8';
-    const lc = done ? '#16a34a' : active ? '#0284c7' : '#94a3b8';
+    const lc = done ? '#25785e' : active ? '#2c9ea3' : '#94a3b8';
     if (i > 0) {
-      const cc = i < stage - 1 ? '#22c55e' : '#e2e8f0';
+      const cc = i < stage - 1 ? '#2fa67f' : '#e2e8f0';
       h += `<div style="flex:1;height:3px;background:${cc};margin-bottom:20px;min-width:6px"></div>`;
     }
     h += `<div style="text-align:center;flex-shrink:0">
@@ -1294,117 +1311,119 @@ window.renderPipeline = function (stage) {
   return h;
 };
 
+window.buildPatientVisitSummaryData = async function (sDate, eDate) {
+  // 1A. Fetch Patients registered in date range
+  let patientMap = {};
+  let pStart = 0;
+  while (true) {
+    const { data: chunk, error: pErr } = await supabaseClient.from('Patients')
+      .select('*')
+      .gte('Registration_Date', sDate)
+      .lte('Registration_Date', eDate)
+      .not('Registration_Date', 'is', null)
+      .order('Registration_Date', { ascending: false })
+      .range(pStart, pStart + 999);
+    if (pErr) throw pErr;
+    if (!chunk || chunk.length === 0) break;
+    chunk.forEach(p => { patientMap[p.Patient_ID] = p; });
+    if (chunk.length < 1000) break;
+    pStart += 1000;
+  }
+
+  // 1B. Fetch visits in date range so returning patients registered earlier are included
+  let visitsInRange = [];
+  let vStart = 0;
+  while (true) {
+    const { data: chunk, error: vErr } = await supabaseClient.from('Visits')
+      .select('Patient_ID, Patient_Name, Date, Status, Department, Visit_Type, Symptoms, Diagnosis, Doctor_Name, Lab_Orders_JSON, Prescription_JSON, Discharge_Status, Visit_ID, BP, Temp, Pulse, Weight, Height, SpO2, Advice, Follow_Up, Physical_Exam')
+      .gte('Date', sDate + 'T00:00:00Z')
+      .lte('Date', eDate + 'T23:59:59Z')
+      .not('Date', 'is', null)
+      .order('Date', { ascending: false })
+      .range(vStart, vStart + 999);
+    if (vErr) throw vErr;
+    if (!chunk || chunk.length === 0) break;
+    visitsInRange = visitsInRange.concat(chunk);
+    if (chunk.length < 1000) break;
+    vStart += 1000;
+  }
+
+  const duplicateVisitMap = {};
+  visitsInRange.forEach(v => {
+    if (!v?.Visit_ID) return;
+    duplicateVisitMap[v.Visit_ID] = (duplicateVisitMap[v.Visit_ID] || 0) + 1;
+  });
+  visitsInRange = visitsInRange.filter(v => !window.isSuspiciousDuplicateVisit(v, duplicateVisitMap));
+
+  const extraPIds = [...new Set(visitsInRange.map(v => v.Patient_ID).filter(id => id && !patientMap[id]))];
+  if (extraPIds.length > 0) {
+    for (let i = 0; i < extraPIds.length; i += 100) {
+      const chunk = extraPIds.slice(i, i + 100);
+      const { data: extra } = await supabaseClient.from('Patients').select('*').in('Patient_ID', chunk);
+      (extra || []).forEach(p => { patientMap[p.Patient_ID] = p; });
+    }
+  }
+
+  const allPatients = Object.values(patientMap);
+  if (allPatients.length === 0) return [];
+
+  const allPIds = allPatients.map(p => p.Patient_ID);
+  let visitsByPatient = {};
+  let visitCountMap = {};
+  let rangeVisitCountMap = {};
+
+  visitsInRange.forEach(v => {
+    if (!v.Patient_ID) return;
+    rangeVisitCountMap[v.Patient_ID] = (rangeVisitCountMap[v.Patient_ID] || 0) + 1;
+    if (!visitsByPatient[v.Patient_ID]) visitsByPatient[v.Patient_ID] = [];
+    visitsByPatient[v.Patient_ID].push(v);
+  });
+
+  for (let i = 0; i < allPIds.length; i += 100) {
+    const chunk = allPIds.slice(i, i + 100);
+    const { data: allV } = await supabaseClient.from('Visits')
+      .select('Patient_ID')
+      .in('Patient_ID', chunk);
+    const counts = {};
+    (allV || []).forEach(v => { counts[v.Patient_ID] = (counts[v.Patient_ID] || 0) + 1; });
+    Object.assign(visitCountMap, counts);
+  }
+
+  return allPatients.map(p => {
+    const candidateVisits = visitsByPatient[p.Patient_ID] || [];
+    const visit = candidateVisits.length > 0 ? candidateVisits[0] : null;
+    const visitDate = visit ? new Date(visit.Date) : null;
+    const regDate = p.Registration_Date ? new Date(p.Registration_Date) : null;
+    const displayDate = visitDate || regDate;
+    const totalVisitCount = visitCountMap[p.Patient_ID] || 0;
+
+    return {
+      ...p,
+      ...(visit || {}),
+      _sortDate: displayDate ? displayDate.toISOString() : '',
+      date: displayDate ? displayDate.toLocaleDateString('en-GB') : '-',
+      time: visit ? visitDate.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) : (p.Time || '-'),
+      id: p.Patient_ID,
+      name: `${p.First_Name || ''} ${p.Last_Name || ''}`.trim() || p.Patient_ID,
+      displayName: `${p.Title || ''} ${p.First_Name || ''} ${p.Last_Name || ''}`.trim() || `${p.First_Name || ''} ${p.Last_Name || ''}`.trim() || p.Patient_ID,
+      gender: p.Gender || '-',
+      age: p.Age || '-',
+      status: visit ? (totalVisitCount > 1 ? 'ເກົ່າ' : 'ໃໝ່') : '-',
+      visitCount: totalVisitCount,
+      rangeVisitCount: rangeVisitCountMap[p.Patient_ID] || 0,
+      department: visit?.Department || visit?.Visit_Type || 'OPD',
+      type: visit?.Visit_Type || 'OPD',
+      latestVisit: visit,
+    };
+  }).sort((a, b) => {
+    if (a._sortDate === b._sortDate) return 0;
+    return b._sortDate > a._sortDate ? 1 : -1;
+  });
+};
+
 window._fetchReportData = async function (sDate, eDate) {
   try {
-    // 1A. Fetch Patients registered in date range
-    let patientMap = {};
-    let pStart = 0;
-    while (true) {
-      const { data: chunk, error: pErr } = await supabaseClient.from('Patients')
-        .select('*')
-        .gte('Registration_Date', sDate)
-        .lte('Registration_Date', eDate)
-        .not('Registration_Date', 'is', null)
-        .order('Registration_Date', { ascending: false })
-        .range(pStart, pStart + 999);
-      if (pErr) throw pErr;
-      if (!chunk || chunk.length === 0) break;
-      chunk.forEach(p => { patientMap[p.Patient_ID] = p; });
-      if (chunk.length < 1000) break;
-      pStart += 1000;
-    }
-
-    // 1B. Also fetch Visits in date range → get Patient IDs who came today even if registered before
-    let visitsInRange = [];
-    let vStart = 0;
-    while (true) {
-        const { data: chunk, error: vErr } = await supabaseClient.from('Visits')
-          .select('Patient_ID, Patient_Name, Date, Status, Department, Visit_Type, Symptoms, Diagnosis, Doctor_Name, Lab_Orders_JSON, Prescription_JSON, Discharge_Status, Visit_ID, BP, Temp, Pulse, Weight, Height, SpO2, Advice, Follow_Up, Physical_Exam')
-        .gte('Date', sDate + 'T00:00:00Z')
-        .lte('Date', eDate + 'T23:59:59Z')
-        .not('Date', 'is', null)
-        .order('Date', { ascending: false })
-        .range(vStart, vStart + 999);
-      if (vErr) throw vErr;
-      if (!chunk || chunk.length === 0) break;
-      visitsInRange = visitsInRange.concat(chunk);
-      if (chunk.length < 1000) break;
-      vStart += 1000;
-    }
-
-    const duplicateVisitMap = {};
-    visitsInRange.forEach(v => {
-      if (!v?.Visit_ID) return;
-      duplicateVisitMap[v.Visit_ID] = (duplicateVisitMap[v.Visit_ID] || 0) + 1;
-    });
-    visitsInRange = visitsInRange.filter(v => !window.isSuspiciousDuplicateVisit(v, duplicateVisitMap));
-
-    // Collect Patient IDs from visits who are NOT already in patientMap
-    const extraPIds = [...new Set(visitsInRange.map(v => v.Patient_ID).filter(id => id && !patientMap[id]))];
-    if (extraPIds.length > 0) {
-      for (let i = 0; i < extraPIds.length; i += 100) {
-        const chunk = extraPIds.slice(i, i + 100);
-        const { data: extra } = await supabaseClient.from('Patients').select('*').in('Patient_ID', chunk);
-        (extra || []).forEach(p => { patientMap[p.Patient_ID] = p; });
-      }
-    }
-
-    const allPatients = Object.values(patientMap);
-    if (allPatients.length === 0) return window.renderReportPage([]);
-
-    const allPIds = allPatients.map(p => p.Patient_ID);
-
-    // 2. Build latest eligible visit per patient + total visit count
-    let visitsByPatient = {};
-    let visitCountMap = {};
-    // First use visits already fetched in range
-    visitsInRange.forEach(v => {
-      if (!v.Patient_ID) return;
-      visitCountMap[v.Patient_ID] = (visitCountMap[v.Patient_ID] || 0) + 1;
-      if (!visitsByPatient[v.Patient_ID]) visitsByPatient[v.Patient_ID] = [];
-      visitsByPatient[v.Patient_ID].push(v);
-    });
-    // Fetch total visit count for all patients (to determine new/returning)
-    for (let i = 0; i < allPIds.length; i += 100) {
-      const chunk = allPIds.slice(i, i + 100);
-      const { data: allV } = await supabaseClient.from('Visits')
-        .select('Patient_ID').in('Patient_ID', chunk);
-      (allV || []).forEach(v => {
-        if (!visitCountMap[v.Patient_ID]) visitCountMap[v.Patient_ID] = 0;
-        // Only count once per Patient_ID (total historical visits)
-      });
-      // Get accurate count
-      const counts = {};
-      (allV || []).forEach(v => { counts[v.Patient_ID] = (counts[v.Patient_ID] || 0) + 1; });
-      Object.assign(visitCountMap, counts);
-    }
-
-    // 3. Merge and sort by visit date (latest visit date or registration date)
-    const processed = allPatients.map(p => {
-      const candidateVisits = visitsByPatient[p.Patient_ID] || [];
-      const visit = candidateVisits.length > 0 ? candidateVisits[0] : null;
-
-      const visitDate = visit ? new Date(visit.Date) : null;
-      const regDate = p.Registration_Date ? new Date(p.Registration_Date) : null;
-      const displayDate = visitDate || regDate;
-      return {
-        ...p,
-        ...(visit || {}),
-        _sortDate: displayDate ? displayDate.toISOString() : '',
-        date: displayDate ? displayDate.toLocaleDateString('en-GB') : '-',
-        time: visit ? visitDate.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
-                    : (p.Time || '-'),
-        id: p.Patient_ID,
-        name: `${p.First_Name || ''} ${p.Last_Name || ''}`.trim() || p.Patient_ID,
-        gender: p.Gender || '-',
-        age: p.Age || '-',
-        status: visit ? ((visitCountMap[p.Patient_ID] || 0) > 1 ? 'ເກົ່າ' : 'ໃໝ່') : '-',
-        department: visit?.Department || visit?.Visit_Type || 'OPD',
-        type: visit?.Visit_Type || 'OPD',
-        latestVisit: visit,
-      };
-    }).sort((a, b) => (b._sortDate > a._sortDate ? 1 : -1));
-
+    const processed = await window.buildPatientVisitSummaryData(sDate, eDate);
     window.renderReportPage(processed);
   } catch (err) {
     console.error('Report Fetch Error:', err);
@@ -1478,6 +1497,234 @@ window.searchReportTable = function () {
   
   let table = $('#reportTable').DataTable();
   table.search(query).draw();
+};
+
+window.setVisitHistoryRange = function (type) {
+  $('#visitHistoryRangeButtons .btn').removeClass('active btn-primary').addClass('btn-outline-primary');
+  $('#btnVisit' + type.charAt(0).toUpperCase() + type.slice(1)).addClass('active btn-primary').removeClass('btn-outline-primary');
+
+  let start = new Date();
+  let end = new Date();
+  if (type === 'week') {
+    let day = start.getDay() || 7;
+    if (day !== 1) start.setDate(start.getDate() - (day - 1));
+  } else if (type === 'month') {
+    start.setDate(1);
+  } else if (type === 'year') {
+    start.setMonth(0, 1);
+  }
+  $('#visitStartDate').val(window.getLocalStr(start));
+  $('#visitEndDate').val(window.getLocalStr(end));
+  window.fetchVisitHistoryData();
+};
+
+window.fetchVisitHistoryData = function () {
+  let sDate = $('#visitStartDate').val();
+  let eDate = $('#visitEndDate').val();
+  if (!sDate || !eDate) return;
+
+  let d = new Date();
+  $('#visitRefreshTime').text(`ອັບເດດ: ${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}`);
+  if ($.fn.DataTable.isDataTable('#visitHistoryTable')) $('#visitHistoryTable').DataTable().destroy();
+  $('#visitHistoryTable tbody').html('<tr><td colspan="9" class="text-center py-4"><div class="spinner-border text-info spinner-border-sm"></div> ກຳລັງໂຫຼດປະຫວັດ...</td></tr>');
+  window._fetchVisitHistoryData(sDate, eDate);
+};
+
+window._fetchVisitHistoryData = async function (sDate, eDate) {
+  try {
+    const processed = await window.buildPatientVisitSummaryData(sDate, eDate);
+    window.renderVisitHistoryPage(processed.filter(r => r.latestVisit));
+  } catch (err) {
+    console.error('Visit History Fetch Error:', err);
+    Swal.fire('Error', 'ບໍ່ສາມາດໂຫຼດຂໍ້ມູນປະຫວັດການກວດໄດ້: ' + err.message, 'error');
+    window.renderVisitHistoryPage([]);
+  }
+};
+
+window.renderVisitCountBadge = function (count) {
+  const visitCount = Number(count) || 0;
+  let badgeClass = 'bg-info-subtle text-info border border-info-subtle';
+  let iconClass = 'fas fa-notes-medical';
+
+  if (visitCount >= 20) {
+    badgeClass = 'bg-danger-subtle text-danger border border-danger-subtle';
+    iconClass = 'fas fa-crown';
+  } else if (visitCount >= 15) {
+    badgeClass = 'bg-warning-subtle text-warning border border-warning-subtle';
+    iconClass = 'fas fa-trophy';
+  } else if (visitCount >= 10) {
+    badgeClass = 'bg-primary-subtle text-primary border border-primary-subtle';
+    iconClass = 'fas fa-medal';
+  } else if (visitCount >= 5) {
+    badgeClass = 'bg-success-subtle text-success border border-success-subtle';
+    iconClass = 'fas fa-award';
+  }
+
+  return `<span class="badge ${badgeClass} px-2 py-1"><i class="${iconClass} me-1"></i>${visitCount} ຄັ້ງ</span>`;
+};
+
+window.renderVisitHistoryPage = function (rows) {
+  currentVisitHistoryData = rows || [];
+  if ($.fn.DataTable.isDataTable('#visitHistoryTable')) $('#visitHistoryTable').DataTable().destroy();
+
+  if (!currentVisitHistoryData || currentVisitHistoryData.length === 0) {
+    $('#visitHistoryTable tbody').empty();
+    $('#visitHistoryTable').DataTable({
+      language: { emptyTable: 'ບໍ່ມີປະຫວັດການກວດໃນຊ່ວງວັນທີນີ້', search: 'ຄົ້ນຫາ:' }
+    });
+    return;
+  }
+
+  let html = '';
+  currentVisitHistoryData.forEach((row, index) => {
+    const visitCountBadge = window.renderVisitCountBadge(row.visitCount);
+    const departmentBadge = `<span class="badge bg-light text-dark border px-2 py-1">${row.department || row.type || 'OPD'}</span>`;
+    const actionBtn = `<button class="btn btn-sm btn-outline-info shadow-sm" onclick="window.showPatientTimeline('${row.id}')"><i class="fas fa-history me-1"></i>ເບິ່ງປະຫວັດ</button>`;
+
+    html += `<tr data-row-index="${index}">
+      <td data-order="${row._sortDate || ''}">${row.date}</td>
+      <td>${row.time}</td>
+      <td class="text-primary fw-bold" style="font-size:12px">${row.id}</td>
+      <td class="fw-bold">${row.displayName || row.name}</td>
+      <td>${row.gender}</td>
+      <td>${row.age}</td>
+      <td>${visitCountBadge}</td>
+      <td>${departmentBadge}</td>
+      <td class="text-center">${actionBtn}</td>
+    </tr>`;
+  });
+
+  $('#visitHistoryTable tbody').html(html);
+  $('#visitHistoryTable').DataTable({
+    pageLength: 15,
+    order: [[0, 'desc']],
+    columnDefs: [{ orderable: false, targets: [8] }],
+    language: {
+      search: 'ຄົ້ນຫາ:',
+      lengthMenu: 'ສະແດງ _MENU_',
+      info: 'ສະແດງ _START_ ຫາ _END_ ຈາກ _TOTAL_ ລາຍການ',
+      paginate: { previous: 'ກ່ອນໜ້າ', next: 'ຕໍ່ໄປ' },
+      emptyTable: 'ບໍ່ມີຂໍ້ມູນ'
+    }
+  });
+};
+
+window.searchVisitHistoryTable = function () {
+  let query = $('#visitSearchInput').val().toLowerCase();
+  if (!$.fn.DataTable.isDataTable('#visitHistoryTable')) return;
+
+  let table = $('#visitHistoryTable').DataTable();
+  table.search(query).draw();
+};
+
+window.getVisitHistoryExportRows = function () {
+  if (!currentVisitHistoryData || currentVisitHistoryData.length === 0) return [];
+  if (!$.fn.DataTable.isDataTable('#visitHistoryTable')) return currentVisitHistoryData;
+
+  const table = $('#visitHistoryTable').DataTable();
+  const nodes = table.rows({ search: 'applied' }).nodes().toArray();
+  if (!nodes.length) return [];
+
+  return nodes.map(node => {
+    const index = Number(node.getAttribute('data-row-index'));
+    return Number.isInteger(index) ? currentVisitHistoryData[index] : null;
+  }).filter(Boolean);
+};
+
+window.exportVisitHistoryExcel = function () {
+  const exportRows = window.getVisitHistoryExportRows();
+  if (!exportRows.length) return Swal.fire('ແຈ້ງເຕືອນ', 'ບໍ່ມີຂໍ້ມູນສຳລັບ Export', 'warning');
+
+  const exportArr = exportRows.map(row => ({
+    "ວັນທີ": row.date,
+    "ເວລາ": row.time,
+    "CN": row.id,
+    "ຊື່ ແລະ ນາມສະກຸນ": row.displayName || row.name,
+    "ເພດ": row.gender,
+    "ອາຍຸ": row.age,
+    "ຈຳນວນຄັ້ງມາກວດ": row.visitCount || 0,
+    "ຄັ້ງໃນຊ່ວງນີ້": row.rangeVisitCount || 0,
+    "ພະແນກຫຼ້າສຸດ": row.department || row.type || 'OPD'
+  }));
+
+  const ws = XLSX.utils.json_to_sheet(exportArr);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'VisitHistory');
+  XLSX.writeFile(wb, 'HIS_Visit_History.xlsx');
+};
+
+window.exportVisitHistoryPDF = function () {
+  const exportRows = window.getVisitHistoryExportRows();
+  if (!exportRows.length) return Swal.fire('ແຈ້ງເຕືອນ', 'ບໍ່ມີຂໍ້ມູນສຳລັບ Export', 'warning');
+  if (typeof html2pdf === 'undefined') return Swal.fire('ຜິດພາດ', 'ບໍ່ພົບຕົວຊ່ວຍສ້າງ PDF', 'error');
+
+  const rangeText = `${$('#visitStartDate').val() || '-'} ຫາ ${$('#visitEndDate').val() || '-'}`;
+  const searchText = ($('#visitSearchInput').val() || '').trim();
+  const rowsHtml = exportRows.map((row, index) => `
+    <tr>
+      <td style="border:1px solid #cbd5e1;padding:8px;">${index + 1}</td>
+      <td style="border:1px solid #cbd5e1;padding:8px;">${row.date}</td>
+      <td style="border:1px solid #cbd5e1;padding:8px;">${row.time}</td>
+      <td style="border:1px solid #cbd5e1;padding:8px;">${row.id}</td>
+      <td style="border:1px solid #cbd5e1;padding:8px;">${row.displayName || row.name}</td>
+      <td style="border:1px solid #cbd5e1;padding:8px;text-align:center;">${row.gender}</td>
+      <td style="border:1px solid #cbd5e1;padding:8px;text-align:center;">${row.age}</td>
+      <td style="border:1px solid #cbd5e1;padding:8px;text-align:center;">${row.visitCount || 0}</td>
+      <td style="border:1px solid #cbd5e1;padding:8px;">${row.department || row.type || 'OPD'}</td>
+    </tr>
+  `).join('');
+
+  const container = document.createElement('div');
+  container.style.position = 'fixed';
+  container.style.left = '-9999px';
+  container.style.top = '0';
+  container.style.width = '1100px';
+  container.style.background = '#ffffff';
+  container.style.padding = '24px';
+  container.style.fontFamily = "'Noto Sans Lao', sans-serif";
+  container.innerHTML = `
+    <div style="padding-bottom:16px;border-bottom:2px solid #e2e8f0;margin-bottom:16px;">
+      <h2 style="margin:0;color:#0f172a;font-size:24px;">ປະຫວັດການກວດ</h2>
+      <div style="margin-top:8px;color:#475569;font-size:13px;">ຊ່ວງວັນທີ: ${rangeText}</div>
+      <div style="margin-top:4px;color:#475569;font-size:13px;">ຄົ້ນຫາ: ${searchText || '-'}</div>
+      <div style="margin-top:4px;color:#475569;font-size:13px;">ຈຳນວນລາຍການ: ${exportRows.length}</div>
+    </div>
+    <table style="width:100%;border-collapse:collapse;font-size:12px;color:#0f172a;">
+      <thead>
+        <tr style="background:#eff6ff;">
+          <th style="border:1px solid #cbd5e1;padding:8px;">#</th>
+          <th style="border:1px solid #cbd5e1;padding:8px;">ວັນທີ</th>
+          <th style="border:1px solid #cbd5e1;padding:8px;">ເວລາ</th>
+          <th style="border:1px solid #cbd5e1;padding:8px;">CN</th>
+          <th style="border:1px solid #cbd5e1;padding:8px;">ຊື່ ແລະ ນາມສະກຸນ</th>
+          <th style="border:1px solid #cbd5e1;padding:8px;">ເພດ</th>
+          <th style="border:1px solid #cbd5e1;padding:8px;">ອາຍຸ</th>
+          <th style="border:1px solid #cbd5e1;padding:8px;">ຈຳນວນຄັ້ງ</th>
+          <th style="border:1px solid #cbd5e1;padding:8px;">ພະແນກຫຼ້າສຸດ</th>
+        </tr>
+      </thead>
+      <tbody>${rowsHtml}</tbody>
+    </table>
+  `;
+
+  document.body.appendChild(container);
+  const opt = {
+    margin: 0.4,
+    filename: 'HIS_Visit_History.pdf',
+    image: { type: 'jpeg', quality: 0.98 },
+    html2canvas: { scale: 2 },
+    jsPDF: { unit: 'in', format: 'a4', orientation: 'landscape' }
+  };
+
+  Swal.fire({ title: 'ກຳລັງສ້າງ PDF...', didOpen: () => { Swal.showLoading(); } });
+  html2pdf().set(opt).from(container).save().then(() => {
+    container.remove();
+    Swal.close();
+  }).catch((error) => {
+    container.remove();
+    console.error('Visit History PDF Export Error:', error);
+    Swal.fire('ຜິດພາດ', 'ບໍ່ສາມາດ Export PDF ໄດ້', 'error');
+  });
 };
 
 window.exportReportExcel = function () {
@@ -2098,7 +2345,7 @@ window.submitPatientForm = async function (e) {
     title: 'ລົງທະບຽນສຳເລັດ!', text: 'ລະຫັດ: ' + pId, icon: 'success',
     showCancelButton: true, showDenyButton: true,
     confirmButtonText: 'ສົ່ງເຂົ້າ Triage', denyButtonText: 'ພິມບັດ QR', cancelButtonText: 'ປິດ',
-    confirmButtonColor: '#f59e0b', denyButtonColor: '#0ea5e9'
+    confirmButtonColor: '#f59e0b', denyButtonColor: '#47c0c4'
   }).then((rr) => {
     if (rr.isConfirmed) window.sendToTriageFlow(pId, (fd.p_firstname || '') + ' ' + (fd.p_lastname || ''));
     else if (rr.isDenied) window.printQRCard(pId);
@@ -2320,6 +2567,7 @@ window.renderEMRLabTable = function () {
     });
   }
   $('#emrLabTableBody').html(h);
+  $('#emrLabTabCount').text(currentEMRLabs.length);
 };
 
 window.removeEMRLab = function (i) { currentEMRLabs.splice(i, 1); window.renderEMRLabTable(); };
@@ -2372,6 +2620,25 @@ window.renderEMRDrugTable = function () {
     });
   }
   $('#emrDrugTableBody').html(h);
+  $('#emrRxTabCount').text(currentEMRDrugs.length);
+};
+
+window.resetEMRWorkflowTabs = function () {
+  const tabButtons = document.querySelectorAll('#emrWorkflowTabs .nav-link');
+  const tabPanes = document.querySelectorAll('#emrWorkflowTabContent .tab-pane');
+  if (!tabButtons.length || !tabPanes.length) return;
+
+  tabButtons.forEach((button, index) => {
+    const isActive = index === 0;
+    button.classList.toggle('active', isActive);
+    button.setAttribute('aria-selected', isActive ? 'true' : 'false');
+  });
+
+  tabPanes.forEach((pane, index) => {
+    const isActive = index === 0;
+    pane.classList.toggle('show', isActive);
+    pane.classList.toggle('active', isActive);
+  });
 };
 
 window.removeEMRDrug = function (i) { currentEMRDrugs.splice(i, 1); window.renderEMRDrugTable(); };
@@ -2857,7 +3124,7 @@ window.viewTriage = function (i) {
             </div>`,
     width: '600px',
       confirmButtonText: isDone ? '<i class="fas fa-edit me-1"></i> ແກ້ໄຂ' : '<i class="fas fa-stethoscope me-1"></i> ວັດແທກຕອນນີ້',
-      confirmButtonColor: '#6f6cf6',
+      confirmButtonColor: '#47c0c4',
     showCancelButton: true,
     cancelButtonText: 'ປິດ',
       customClass: { popup: 'shadow-lg triage-view-popup' }
@@ -3121,15 +3388,57 @@ window.handleServiceSelectionChange = function () {
   let revenues = new Set();
 
   selectedServices.forEach(svcName => {
-    let match = servicesDataStore.find(s => s.Services_List === svcName);
+    let match = servicesDataStore.find(s => (s.service || s.Services_List || '') === svcName);
     if (match) {
-      if (match.Mapped_Specialist) specialists.add(match.Mapped_Specialist);
-      if (match.Revenue_Group) revenues.add(match.Revenue_Group);
+      let specialist = match.specialist || match.Mapped_Specialist || '';
+      let revenue = match.revenue || match.Revenue_Group || '';
+      if (specialist && specialist !== '-') specialists.add(specialist);
+      if (revenue && revenue !== '-') revenues.add(revenue);
     }
   });
 
   $('#emrSpecialist').val(Array.from(specialists).join(', '));
   $('#emrRevenue').val(Array.from(revenues).join(', '));
+};
+
+window.setEMRDischargeStatusValue = function (value) {
+  const select = $('#emrDischargeStatus');
+  const normalizedValue = (value || '').trim();
+  if (!select.length) return;
+
+  if (!normalizedValue) {
+    select.val('').trigger('change');
+    return;
+  }
+
+  const hasOption = select.find('option').toArray().some(option => option.value === normalizedValue);
+  if (!hasOption) {
+    select.append(new Option(normalizedValue, normalizedValue, false, false));
+  }
+
+  select.val(normalizedValue).trigger('change');
+};
+
+window.resolveVisitStatusFromDischarge = function (dischargeStatus) {
+  const value = (dischargeStatus || '').trim();
+  if (!value) return '';
+
+  const statusMap = {
+    "ລໍຖ້າຜົນແລັບ (Waiting Lab)": "Waiting Lab",
+    "ນອນຕິດຕາມ (Admit / IPD)": "Admit",
+    "ສົ່ງຕໍ່ (Transfer)": "Transfer",
+    "ກວດສຳເລັດ / ກັບບ້ານ": "Completed",
+    "ຮັບຢາກັບບ້ານ": "Pharmacy"
+  };
+
+  if (statusMap[value]) return statusMap[value];
+
+  const normalized = value.toLowerCase();
+  if (normalized.includes('waiting lab') || value.includes('ລໍຖ້າຜົນແລັບ')) return 'Waiting Lab';
+  if (normalized.includes('admit') || normalized.includes('ipd') || value.includes('ນອນຕິດຕາມ')) return 'Admit';
+  if (normalized.includes('transfer') || value.includes('ສົ່ງຕໍ່')) return 'Transfer';
+  if (normalized.includes('pharmacy') || normalized.includes('rx') || value.includes('ຮັບຢາ')) return 'Pharmacy';
+  return 'Completed';
 };
 
 window.openEMR = function (i) {
@@ -3202,7 +3511,7 @@ window.openEMR = function (i) {
   $('#emrDiagnosis').val(q.diagnosis || '');
   $('#emrAdvice').val(q.advice || '');
   $('#emrFollowup').val(q.followup || '');
-  $('#emrDischargeStatus').val(q.dischargeStatus || '');
+  window.setEMRDischargeStatusValue(q.dischargeStatus || '');
   $('#emrDoctor').val(q.doctor || (currentUser ? currentUser.name : ''));
 
   let os = '';
@@ -3225,6 +3534,7 @@ window.openEMR = function (i) {
 
   window.renderEMRLabTable();
   window.renderEMRDrugTable();
+  window.resetEMRWorkflowTabs();
 
   // Clear "Calling" status if opening
   if (q.status === 'Calling OPD' || q.status === 'Calling Lab') {
@@ -3254,13 +3564,7 @@ window.submitEMRForm = async function (e) {
 
   let visitId = $('#emrRowIdx').val();
   let patientId = $('#emrPatientId').text().trim();
-  let statusMap = {
-    "ລໍຖ້າຜົນແລັບ (Waiting Lab)": "Waiting Lab",
-    "ນອນຕິດຕາມ (Admit / IPD)": "Admit",
-    "ສົ່ງຕໍ່ (Transfer)": "Transfer",
-    "ກວດສຳເລັດ / ກັບບ້ານ": "Completed"
-  };
-  let mainStatus = statusMap[ds] || "Pharmacy";
+  let mainStatus = window.resolveVisitStatusFromDischarge(ds);
 
   const { error: updateError } = await supabaseClient.from('Visits').update({
     Status: mainStatus, Symptoms: $('#emrCC').text(), Diagnosis: dx,
