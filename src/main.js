@@ -27,7 +27,432 @@ let activeOrgsList = [];
 let drugsMasterList = [];
 let labsMasterList = [];
 let currentEMRLabs = [];
+let currentEMRLabPickerSelection = [];
+let currentEMRLabSearchQuery = '';
 let currentEMRDrugs = [];
+
+window.emrLabCategoryConfig = [
+  {
+    key: 'hematology',
+    label: 'Hematology',
+    columns: 2,
+    matchers: [/cbc/i, /abo group/i, /\brh\b/i, /esr/i, /hb\s*typing/i, /\biron\b/i, /ferritin/i, /hba1c/i, /g6pd/i, /tibc/i, /folic acid/i, /blood smear/i, /\bpt\b/i, /\baptt\b/i, /\btt\b/i, /bt\s*\(ts\s*tc\)/i, /\binr\b/i, /blood sugar$/i],
+    order: ['CBC 24P', 'ABO group', 'Rh', 'ESR/VS', 'Hb Typing', 'IRON', 'Ferritin', 'HbA1C', 'Blood sugar', 'G6PD', 'TIBC', 'Folic Acid', 'Blood smear', 'PT', 'APTT', 'TT', 'BT (Ts Tc)', 'INR']
+  },
+  {
+    key: 'serology',
+    label: 'Serology',
+    columns: 2,
+    matchers: [/anti-hav/i, /hbeag/i, /gonorrhea/i, /chlamydia|chamydia/i, /hbsag/i, /hbsab/i, /hiv/i, /vdrl/i, /h\.?pylori/i, /hcv/i, /crp/i, /tuberculosis|\btb\b/i, /rickettsia|rikettsia/i, /dengue/i, /typhoid/i, /influenza|infeuza|rsv|covid/i, /antigen/i, /igm/i, /igg/i],
+    order: ['Anti-HAV', 'HBsAg', 'HBsAb', 'HCV', 'Rickettsia', 'HBeAg', 'HIV', 'VDRL', 'CRP', 'Dengue NS1', 'IgM, IgG', 'Gonorrhea rapid test', 'Chlamydia rapid test', 'H.Pylori', 'Tuberculosis (TB)', 'Typhoi IgG/IgM', 'Antigen Influenza, RSV, Covid-19']
+  },
+  {
+    key: 'biochemistry',
+    label: 'Biochemistry',
+    columns: 2,
+    matchers: [/blood sugar\/fbs/i, /\bfbs\b/i, /urea\/bun|ureabun/i, /\bbun\b/i, /creatinine/i, /cholesterol/i, /triglycer/i, /hdl/i, /ldl/i, /sgot|\bast\b/i, /sgpt|\balt\b/i, /protein/i, /albumin/i, /direct bilirubin/i, /total bilirubin|bilirubin total/i, /amylase/i, /uric acid/i, /calcium/i, /gamma|ggt/i, /alkaline phosphatase|alp phosphatase|\balp\b/i, /electrolyte/i, /bilirubin/i],
+    order: ['Blood sugar/FBS', 'Urea/BUN', 'Creatinine', 'Cholesterol', 'Triglyceride', 'HDL-C', 'LDL-C', 'SGOT(AST)', 'SGPT(ALT)', 'Protein', 'Albumin', 'Direct Bilirubin', 'Total Bilirubin', 'Amylase', 'Uric Acid', 'Calcium', 'Gamma(GGT)', 'Alkaline phosphatase (ALP)', 'Electrolyte (Na,K,Cl)']
+  },
+  {
+    key: 'tumor_markers',
+    label: 'Tumor makers',
+    columns: 2,
+    matchers: [/\bafp\b/i, /ca[-\s]?153/i, /\bcea\b/i, /\bpsa\b/i, /\bt3\b/i, /\bt4\b/i, /\btsh\b/i, /ft3/i, /ft4/i, /ca[-\s]?125/i, /ca[-\s]?19-?9/i, /beta\s*hcg|\bhcg\b/i, /\bfsh\b/i, /\blh\b/i, /rapid test/i],
+    order: ['AFP', 'CA-153', 'CEA', 'PSA', 'T3', 'T4', 'TSH', 'FT3', 'FT4', 'CA-125', 'CA 19-9', 'Beta HCG', 'FSH', 'LH', 'AFP(rapid test)', 'CEA(rapid test)', 'PSA(rapid test)']
+  },
+  {
+    key: 'pathology',
+    label: 'Pathology',
+    columns: 1,
+    matchers: [/gram stain/i, /pap smear/i, /co[-\s]?testing/i, /culture/i, /biopsy/i],
+    order: ['Gram Stain', 'Pap smear', 'Co - Testing', 'Culture', 'Biopsy']
+  },
+  {
+    key: 'screening_heart',
+    label: 'Screening Heart disease',
+    columns: 1,
+    matchers: [/\bcpk\b/i, /troponin/i, /ck-?mb/i, /homocysteine/i],
+    order: ['CPK', 'Troponin T', 'CK-MB', 'Troponin I', 'Homocysteine']
+  },
+  {
+    key: 'urine_stool',
+    label: 'Urine/Stool Examination',
+    columns: 2,
+    matchers: [/urine analysis|urine test/i, /pregnancy/i, /amphetamine/i, /sediment|clot/i, /stool/i, /occult blood/i, /leukocyte/i],
+    order: ['Urine Analysis', 'Pregnancy Test', 'Amphetamine', 'Sediment/Clot', 'Stool Examination', 'Occult blood', 'Leukocyte']
+  },
+  {
+    key: 'service',
+    label: 'Service',
+    columns: 1,
+    matchers: [/service/i, /2h/i, /6h/i, /ຜ່າຕັດ/i, /ຄ່າບໍລິການ/i],
+    order: ['ການບໍລິການຕິດຕາມອາການ 2h - 6h', 'ການບໍລິການຕິດຕາມອາການ 6h ຂຶ້ນໄປ', 'ນັດຕາທາງສາຍຕາ', 'ນັດຕາທາງລຳບາກ', 'ນັດຕາທາງບັນທຶກ']
+  },
+  {
+    key: 'ultrasound',
+    label: 'Ultrasound',
+    columns: 2,
+    matchers: [/ultrasound/i, /4d obstetric/i, /obstetric/i, /pelvic/i, /prostatic/i, /breast/i, /thyroid/i, /soft tissue/i, /abdominal/i, /colposcopy/i],
+    order: ['Abdominal Ultrasound', 'Pelvic Ultrasound', 'Prostatic Ultrasound', 'Thyroid Ultrasound', 'Colposcopy', 'Obstetric Ultrasound', '4D Obstetric Ultrasound', 'Breast Ultrasound', 'Soft Tissue Ultrasound']
+  },
+  {
+    key: 'cardiology',
+    label: 'Cardiology',
+    columns: 1,
+    matchers: [/\becg\b/i, /echo cardio|cardiae ultrasound|cardiac ultrasound|u\/s cardio/i],
+    order: ['Cardiae ultrasound/Echo cardio graphy', 'ECG']
+  },
+  {
+    key: 'ent',
+    label: 'ENT',
+    columns: 2,
+    matchers: [/ear\s*-?\s*scopy/i, /throat|thoat\s*-?\s*scopy/i, /nose\s*-?\s*scopy/i, /clean\s*-?\s*ear/i, /clean\s*-?\s*nose/i, /clean\s*-?\s*throat|thoat/i, /\bent\b/i],
+    order: ['Ear - scopy', 'Nose - scopy', 'Clean - Nose', 'Thoat - scopy', 'Clean - Ear', 'Clean - Thoat']
+  },
+  {
+    key: 'xray',
+    label: 'X-Ray',
+    columns: 2,
+    matchers: [/x-?ray/i, /town view/i, /mortell|morteill/i, /frog leg/i, /oblique/i, /chest ap/i, /chest pa/i, /chest lat/i, /c\.spine/i, /(?:^|\s)pa(?:,|\s|$)/i],
+    order: ['PA, TOWN VIEW,LATERAL', 'PA, ALO', 'PA, LATERAL', 'C.Spine', 'AP, FROG LEG, OBLIQUE', 'Chest AP', 'Morteill AP, Lateral', 'Chest PA', 'Chest LAT']
+  },
+  {
+    key: 'others',
+    label: 'Others',
+    columns: 1,
+    matchers: [/check-?up/i, /package/i],
+    order: []
+  }
+];
+
+window.escapeEmrPickerHtml = function (value) {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+};
+
+window.normalizeEMRLabSelection = function (items) {
+  return Array.from(new Set((items || []).map(item => {
+    if (typeof item === 'string') return item.trim();
+    return String(item?.name || '').trim();
+  }).filter(Boolean)));
+};
+
+window.normalizeLabCategoryLabel = function (value) {
+  return String(value || '').trim().toLowerCase();
+};
+
+window.getLabCategoryOptions = function () {
+  const saved = (masterDataStore['LabCategory'] || []).map(item => String(item.value || '').trim()).filter(Boolean);
+  const fallback = (window._masterDataFallback?.LabCategory || []).map(item => String(item || '').trim()).filter(Boolean);
+  const merged = [];
+
+  [...saved, ...fallback].forEach(label => {
+    if (!label) return;
+    if (!merged.some(existing => window.normalizeLabCategoryLabel(existing) === window.normalizeLabCategoryLabel(label))) {
+      merged.push(label);
+    }
+  });
+
+  return merged;
+};
+
+window.getEMRLabPickerCategoryConfig = function () {
+  const othersCategory = window.emrLabCategoryConfig.find(category => category.key === 'others');
+  const base = window.emrLabCategoryConfig
+    .filter(category => category.key !== 'others')
+    .map(category => ({ ...category }));
+  const known = new Set(base.map(category => window.normalizeLabCategoryLabel(category.label)));
+
+  if (othersCategory) known.add(window.normalizeLabCategoryLabel(othersCategory.label));
+
+  window.getLabCategoryOptions().forEach(label => {
+    const normalized = window.normalizeLabCategoryLabel(label);
+    if (!normalized || known.has(normalized)) return;
+    known.add(normalized);
+    base.push({
+      key: `custom_${normalized.replace(/[^a-z0-9]+/g, '_')}`,
+      label,
+      columns: 2,
+      matchers: [],
+      order: []
+    });
+  });
+
+  if (othersCategory) base.push({ ...othersCategory });
+
+  return base;
+};
+
+window.getLabCategoryMappingLookup = function () {
+  const lookup = {};
+  (masterDataStore['LabCategoryMapping'] || []).forEach(item => {
+    try {
+      const parsed = JSON.parse(item.value || '{}');
+      const labId = String(parsed.labId || '').trim();
+      const category = String(parsed.category || '').trim();
+      if (!labId || !category) return;
+      lookup[labId] = { id: item.id, category };
+    } catch (error) {
+      console.warn('Invalid LabCategoryMapping entry:', item, error);
+    }
+  });
+  return lookup;
+};
+
+window.applyLabCategoriesToList = function (items) {
+  const lookup = window.getLabCategoryMappingLookup();
+  return (items || []).map(item => {
+    const labId = String(item.id || item.Lab_ID || '').trim();
+    return {
+      ...item,
+      category: item.category || lookup[labId]?.category || ''
+    };
+  });
+};
+
+window.ensureLabCategoriesExist = async function (categoryValues) {
+  const uniqueCategories = Array.from(new Set((categoryValues || []).map(value => String(value || '').trim()).filter(Boolean)));
+  if (!uniqueCategories.length) return { error: null };
+
+  const existing = new Set((masterDataStore['LabCategory'] || []).map(item => window.normalizeLabCategoryLabel(item.value)));
+  const missing = uniqueCategories.filter(value => !existing.has(window.normalizeLabCategoryLabel(value)));
+  if (!missing.length) return { error: null };
+
+  const { error } = await supabaseClient.from('MasterData').insert(missing.map(value => ({ Category: 'LabCategory', Value: value })));
+  return { error };
+};
+
+window.saveLabCategoryMapping = async function (labId, category) {
+  const normalizedLabId = String(labId || '').trim();
+  const normalizedCategory = String(category || '').trim();
+  if (!normalizedLabId) return { error: null };
+
+  const lookup = window.getLabCategoryMappingLookup();
+  const existing = lookup[normalizedLabId];
+
+  if (!normalizedCategory) {
+    if (!existing) return { error: null };
+    const { error } = await supabaseClient.from('MasterData').delete().eq('ID', existing.id);
+    return { error };
+  }
+
+  const ensureResult = await window.ensureLabCategoriesExist([normalizedCategory]);
+  if (ensureResult.error) return ensureResult;
+
+  const payload = JSON.stringify({ labId: normalizedLabId, category: normalizedCategory });
+  if (existing) {
+    if (existing.category === normalizedCategory) return { error: null };
+    const { error } = await supabaseClient.from('MasterData').update({ Value: payload }).eq('ID', existing.id);
+    return { error };
+  }
+
+  const { error } = await supabaseClient.from('MasterData').insert({ Category: 'LabCategoryMapping', Value: payload });
+  return { error };
+};
+
+window.deleteLabCategoryMappings = async function (labIds) {
+  const idSet = new Set((Array.isArray(labIds) ? labIds : [labIds]).map(id => String(id || '').trim()).filter(Boolean));
+  if (!idSet.size) return { error: null };
+
+  const mappingIds = (masterDataStore['LabCategoryMapping'] || []).flatMap(item => {
+    try {
+      const parsed = JSON.parse(item.value || '{}');
+      const labId = String(parsed.labId || '').trim();
+      return idSet.has(labId) ? [item.id] : [];
+    } catch {
+      return [];
+    }
+  });
+
+  if (!mappingIds.length) return { error: null };
+  const { error } = await supabaseClient.from('MasterData').delete().in('ID', mappingIds);
+  return { error };
+};
+
+window.normalizeEMRLabOrderText = function (value) {
+  return String(value || '')
+    .toLowerCase()
+    .replace(/[^a-z0-9\u0e80-\u0eff]+/g, '');
+};
+
+window.getEMRLabSheetOrderIndex = function (name, order) {
+  if (!order || !order.length) return Number.MAX_SAFE_INTEGER;
+  const normalizedName = window.normalizeEMRLabOrderText(name);
+  const foundIndex = order.findIndex(entry => {
+    const normalizedEntry = window.normalizeEMRLabOrderText(entry);
+    return normalizedName === normalizedEntry || normalizedName.includes(normalizedEntry) || normalizedEntry.includes(normalizedName);
+  });
+  return foundIndex === -1 ? Number.MAX_SAFE_INTEGER : foundIndex;
+};
+
+window.getEMRLabCategoryForItem = function (lab) {
+  const explicitCategory = String(lab?.category || '').trim();
+  const effectiveCategories = window.getEMRLabPickerCategoryConfig();
+  if (explicitCategory) {
+    const normalizedExplicit = window.normalizeLabCategoryLabel(explicitCategory);
+    const matched = effectiveCategories.find(category => window.normalizeLabCategoryLabel(category.label) === normalizedExplicit);
+    if (matched) return matched;
+    return {
+      key: `custom_${normalizedExplicit.replace(/[^a-z0-9]+/g, '_')}`,
+      label: explicitCategory,
+      columns: 2,
+      matchers: [],
+      order: []
+    };
+  }
+
+  const searchableText = `${lab?.name || ''} ${lab?.desc || ''}`.toLowerCase();
+  for (const category of window.emrLabCategoryConfig) {
+    if (category.key === 'others') continue;
+    if (category.matchers.some(matcher => matcher.test(searchableText))) return category;
+  }
+  const others = effectiveCategories.find(category => category.key === 'others');
+  return others || effectiveCategories[effectiveCategories.length - 1];
+};
+
+window.getEMRLabPickerGroups = function () {
+  const groups = window.getEMRLabPickerCategoryConfig().map(category => ({
+    ...category,
+    items: [],
+    selectedCount: 0
+  }));
+  const groupMap = Object.fromEntries(groups.map(group => [group.key, group]));
+
+  labsMasterList.forEach((lab, index) => {
+    const name = String(lab?.name || '').trim();
+    const desc = String(lab?.desc || '').trim();
+    const haystack = `${name} ${desc}`.toLowerCase();
+    if (currentEMRLabSearchQuery && !haystack.includes(currentEMRLabSearchQuery)) return;
+
+    const category = window.getEMRLabCategoryForItem(lab);
+    const group = groupMap[category.key] || groupMap.others;
+    group.items.push({ ...lab, index, name, desc });
+    if (currentEMRLabPickerSelection.includes(name)) group.selectedCount += 1;
+  });
+
+  groups.forEach(group => {
+    group.items.sort((a, b) => {
+      const orderA = window.getEMRLabSheetOrderIndex(a.name, group.order);
+      const orderB = window.getEMRLabSheetOrderIndex(b.name, group.order);
+      if (orderA !== orderB) return orderA - orderB;
+      return a.name.localeCompare(b.name);
+    });
+  });
+
+  return groups.filter(group => group.items.length > 0);
+};
+
+window.syncEMRLabPickerSelectionFromCurrentLabs = function () {
+  currentEMRLabPickerSelection = window.normalizeEMRLabSelection(currentEMRLabs || []);
+};
+
+window.removeEMRLabPickerSelectionAt = function (index) {
+  if (index < 0 || index >= currentEMRLabPickerSelection.length) return;
+  currentEMRLabPickerSelection.splice(index, 1);
+  currentEMRLabPickerSelection = [...currentEMRLabPickerSelection];
+  window.renderEMRLabPicker();
+};
+
+window.updateEMRLabPickerSummary = function () {
+  const summaryHost = document.getElementById('emrLabSelectedSummary');
+  const countHost = document.getElementById('emrLabPickerSelectedCount');
+  if (countHost) countHost.textContent = currentEMRLabPickerSelection.length;
+  if (!summaryHost) return;
+
+  if (!currentEMRLabPickerSelection.length) {
+    summaryHost.innerHTML = `<div class="emr-order-empty">
+      <i class="fas fa-clipboard-list"></i>
+      <strong>ຍັງບໍ່ມີລາຍການກວດ</strong>
+      <span>ເລືອກລາຍການຈາກຝັ່ງຊ້າຍເພື່ອເພີ່ມເຂົ້າ order</span>
+    </div>`;
+    return;
+  }
+
+  summaryHost.innerHTML = `<div class="emr-lis-summary-list">${currentEMRLabPickerSelection.map((name, index) => {
+    const match = labsMasterList.find(lab => lab.name === name);
+    const safeName = window.escapeEmrPickerHtml(name);
+    const safeDesc = window.escapeEmrPickerHtml(match?.desc || 'ພ້ອມສົ່ງກວດ');
+    return `<div class="emr-lis-summary-item">
+      <div class="emr-lis-summary-text">
+        <strong>${safeName}</strong>
+        <span>${safeDesc}</span>
+      </div>
+      <button type="button" class="btn btn-sm btn-link text-danger emr-lis-summary-remove" onclick="window.removeEMRLabPickerSelectionAt(${index})" title="ລຶບລາຍການ">
+        <i class="fas fa-times"></i>
+      </button>
+    </div>`;
+  }).join('')}</div>`;
+};
+
+window.toggleEMRLabPickerSelection = function (index, checked) {
+  const lab = labsMasterList[index];
+  const name = String(lab?.name || '').trim();
+  if (!name) return;
+
+  const selected = new Set(currentEMRLabPickerSelection);
+  if (checked) selected.add(name);
+  else selected.delete(name);
+  currentEMRLabPickerSelection = Array.from(selected);
+
+  window.renderEMRLabPicker();
+};
+
+window.filterEMRLabPicker = function (query) {
+  currentEMRLabSearchQuery = String(query || '').trim().toLowerCase();
+  window.renderEMRLabPicker();
+};
+
+window.renderEMRLabPicker = function () {
+  const host = document.getElementById('labCheckboxContainer');
+  if (!host) return;
+
+  const searchInput = document.getElementById('emrLabSearchInput');
+  if (searchInput && searchInput.value.toLowerCase() !== currentEMRLabSearchQuery) {
+    searchInput.value = currentEMRLabSearchQuery;
+  }
+
+  if (!labsMasterList.length) {
+    host.innerHTML = '<div class="emr-order-empty"><i class="fas fa-spinner fa-spin"></i><strong>ກຳລັງໂຫຼດລາຍການ Lab</strong><span>ກະລຸນາລໍຖ້າຊົ່ວຄູ່...</span></div>';
+    window.updateEMRLabPickerSummary();
+    return;
+  }
+
+  const groups = window.getEMRLabPickerGroups();
+
+  if (!groups.length) {
+    host.innerHTML = '<div class="emr-order-empty"><i class="fas fa-search"></i><strong>ບໍ່ພົບລາຍການກວດ</strong><span>ລອງປ່ຽນຄຳຄົ້ນຫາ ຫຼື ກົດ refresh</span></div>';
+  } else {
+    host.innerHTML = `<div class="emr-lis-sheet-layout">${groups.map(group => {
+      const selectedMeta = group.selectedCount > 0 ? `<span class="emr-lis-sheet-section-selected">${group.selectedCount} ເລືອກ</span>` : '';
+      return `<section class="emr-lis-sheet-section">
+        <div class="emr-lis-sheet-section-head">
+          <div>
+            <strong class="emr-lis-sheet-section-title">${group.label}</strong>
+            <span class="emr-lis-sheet-section-subtitle">${group.items.length} ລາຍການ</span>
+          </div>
+          <div class="emr-lis-sheet-section-meta">
+            ${selectedMeta}
+          </div>
+        </div>
+        <div class="emr-lis-sheet-checklist" style="--emr-sheet-cols:${group.columns || 2};">${group.items.map(item => {
+          const isSelected = currentEMRLabPickerSelection.includes(item.name);
+          const safeName = window.escapeEmrPickerHtml(item.name);
+          const safeDesc = window.escapeEmrPickerHtml(item.desc || '');
+          return `<label class="emr-lis-sheet-item ${isSelected ? 'is-selected' : ''}" data-lab-picker-card-index="${item.index}" title="${safeDesc || safeName}">
+            <input class="form-check-input shadow-none" type="checkbox" ${isSelected ? 'checked' : ''} onchange="window.toggleEMRLabPickerSelection(${item.index}, this.checked)">
+            <span class="emr-lis-sheet-item-text">${safeName}</span>
+          </label>`;
+        }).join('')}</div>
+      </section>`;
+    }).join('')}</div>`;
+  }
+
+  window.updateEMRLabPickerSummary();
+};
 
 window.decorateDataTableUi = function (tableNode) {
   if (!tableNode) return;
@@ -810,18 +1235,8 @@ window.preloadDropdownDataCallback = function (resolve) {
       if (typeof jQuery !== 'undefined') $('#emrAddDrugSelect').html(o).trigger('change');
     }),
     supabaseClient.from('Labs_Master').select('Lab_ID,Lab_Name,Description').order('Lab_Name').then(({ data }) => {
-      labsMasterList = (data || []).map(r => ({ id: r.Lab_ID, name: r.Lab_Name, desc: r.Description || '' }));
-      let h = '';
-      labsMasterList.forEach((l, i) => {
-        h += `<div class="emr-picker-option">
-                        <input class="form-check-input lab-checkbox mt-1" type="checkbox" value="${l.name}" id="chkLab${i}">
-                        <label class="form-check-label mb-0" for="chkLab${i}">
-                          <strong>${l.name}</strong>
-                          <span>${l.desc || 'ບໍ່ມີລາຍລະອຽດເພີ່ມເຕີມ'}</span>
-                        </label>
-                      </div>`;
-      });
-      if (document.getElementById('labCheckboxContainer')) document.getElementById('labCheckboxContainer').innerHTML = h;
+      labsMasterList = window.applyLabCategoriesToList((data || []).map(r => ({ id: r.Lab_ID, name: r.Lab_Name, desc: r.Description || '' })));
+      if (document.getElementById('labCheckboxContainer')) window.renderEMRLabPicker();
     })
   ];
   Promise.all(promises).then(() => resolve());
@@ -2531,14 +2946,16 @@ window.executeTriageSave = async function (fd) {
 };
 
 window.openEMRLabModal = function () {
-  $('.lab-checkbox').prop('checked', false);
+  currentEMRLabSearchQuery = '';
+  window.syncEMRLabPickerSelectionFromCurrentLabs();
+  if (document.getElementById('emrLabSearchInput')) document.getElementById('emrLabSearchInput').value = '';
+  window.renderEMRLabPicker();
   if (document.activeElement) document.activeElement.blur();
   $('#emrLabModal').modal('show');
 };
 
 window.addLabToEMRList = function () {
-  currentEMRLabs = [];
-  $('.lab-checkbox:checked').each(function () { currentEMRLabs.push({ name: $(this).val() }); });
+  currentEMRLabs = window.normalizeEMRLabSelection(currentEMRLabPickerSelection).map(name => ({ name }));
   window.renderEMRLabTable();
   $('#emrLabModal').modal('hide');
 };
@@ -4194,7 +4611,7 @@ window.submitDrugMasterForm = async function (e) {
 
 window.loadLabsMaster = async function () {
   if ($.fn.DataTable.isDataTable('#labTable')) $('#labTable').DataTable().destroy();
-  $('#labTable tbody').html('<tr><td colspan="4" class="text-center py-4"><div class="spinner-border text-primary spinner-border-sm"></div> ກຳລັງໂຫຼດ...</td></tr>');
+  $('#labTable tbody').html('<tr><td colspan="5" class="text-center py-4"><div class="spinner-border text-primary spinner-border-sm"></div> ກຳລັງໂຫຼດ...</td></tr>');
 
   try {
     const { data: r, error } = await supabaseClient.from('Labs_Master').select('*');
@@ -4207,15 +4624,19 @@ window.loadLabsMaster = async function () {
 
     if ($.fn.DataTable.isDataTable('#labTable')) $('#labTable').DataTable().destroy();
     let h = '';
-    if (r && r.length > 0) {
-      r.forEach(x => {
-        // ອີງຕາມ Column ໃນ CSV: Lab_ID, Lab_Name, Description
+    const rows = window.applyLabCategoriesToList((r || []).map(x => ({ ...x, id: x.Lab_ID, category: '' })));
+    if (rows.length > 0) {
+      rows.forEach(x => {
+        const safeName = encodeURIComponent(x.Lab_Name || '');
+        const safeDesc = encodeURIComponent(x.Description || '');
+        const safeCategory = encodeURIComponent(x.category || '');
         h += `<tr>
                         <td class="text-center"><input type="checkbox" class="form-check-input bulk-check-labs" value="${x.Lab_ID}"></td>
                         <td class="fw-bold text-primary">${x.Lab_Name}</td>
+                        <td>${x.category || '<span class="text-muted">-</span>'}</td>
                         <td>${x.Description}</td>
                         <td class="text-center">
-                            <button class="btn btn-sm btn-primary shadow-sm me-1" onclick="window.editLabMaster('${x.Lab_ID}','${x.Lab_Name}','${x.Description}')"><i class="fas fa-edit"></i></button>
+                            <button class="btn btn-sm btn-primary shadow-sm me-1" onclick="window.editLabMaster('${x.Lab_ID}','${safeName}','${safeDesc}','${safeCategory}')"><i class="fas fa-edit"></i></button>
                             <button class="btn btn-sm btn-danger shadow-sm" onclick="window.delLabMaster('${x.Lab_ID}')"><i class="fas fa-trash"></i></button>
                         </td>
                       </tr>`;
@@ -4232,13 +4653,15 @@ window.loadLabsMaster = async function () {
 window.openLabMasterModal = function () {
   $('#labMasterForm')[0].reset();
   $('#lb_id').val('');
+  $('#lb_category').val('');
   $('#labMasterModal').modal('show');
 };
 
-window.editLabMaster = function (id, n, d) {
+window.editLabMaster = function (id, n, d, category) {
   $('#lb_id').val(id);
-  $('#lb_name').val(n);
-  $('#lb_desc').val(d);
+  $('#lb_name').val(decodeURIComponent(n || ''));
+  $('#lb_desc').val(decodeURIComponent(d || ''));
+  $('#lb_category').val(decodeURIComponent(category || ''));
   $('#labMasterModal').modal('show');
 };
 
@@ -4246,7 +4669,10 @@ window.delLabMaster = async function (id) {
   let r = await Swal.fire({ title: 'ລຶບ?', icon: 'warning', showCancelButton: true, confirmButtonText: 'ລຶບ' });
   if (r.isConfirmed) {
     await supabaseClient.from('Labs_Master').delete().eq('Lab_ID', id);
+    await window.deleteLabCategoryMappings(id);
+    await window.loadMasterDataGlobal();
     window.loadLabsMaster();
+    window.preloadDropdownData();
   }
 };
 
@@ -4255,20 +4681,33 @@ window.submitLabMasterForm = async function (e) {
   Swal.fire({ title: 'ກຳລັງບັນທຶກ...', didOpen: () => Swal.showLoading() });
 
   let isEdit = $('#lb_id').val() !== '';
+  let category = ($('#lb_category').val() || '').trim();
   let row = {
     Lab_Name: $('#lb_name').val(), Description: $('#lb_desc').val()
   };
 
-  if (isEdit) {
-    await supabaseClient.from('Labs_Master').update(row).eq('Lab_ID', $('#lb_id').val());
-  } else {
-    await supabaseClient.from('Labs_Master').insert(row);
-  }
+  try {
+    let labId = $('#lb_id').val();
+    if (isEdit) {
+      const { error } = await supabaseClient.from('Labs_Master').update(row).eq('Lab_ID', labId);
+      if (error) throw error;
+    } else {
+      const { data, error } = await supabaseClient.from('Labs_Master').insert(row).select('Lab_ID').single();
+      if (error) throw error;
+      labId = data?.Lab_ID;
+    }
 
-  $('#labMasterModal').modal('hide');
-  window.loadLabsMaster();
-  window.preloadDropdownData();
-  Swal.fire('ສຳເລັດ!', '', 'success');
+    const mappingResult = await window.saveLabCategoryMapping(labId, category);
+    if (mappingResult.error) throw mappingResult.error;
+
+    await window.loadMasterDataGlobal();
+    $('#labMasterModal').modal('hide');
+    window.loadLabsMaster();
+    window.preloadDropdownData();
+    Swal.fire('ສຳເລັດ!', '', 'success');
+  } catch (error) {
+    Swal.fire('Error', error.message, 'error');
+  }
 };
 
 window.loadUsers = async function () {
@@ -4779,6 +5218,7 @@ window._masterDataFallback = {
   Channel: ["ໂທລະສັບ","ສອດ","Facebook","Line","ຍາດພີ່ນ້ອງແນະນຳ","ຜ່ານ ຮພ. ອື່ນ","ສື່ໂຄສະນາ","ອື່ນໆ"],
   InsCompany: ["ບໍ່ມີ","LSMI","PVI","Axa","Prudential","Allianz","BCEL-AXA","ອື່ນໆ"],
   Department: ["OPD ທົ່ວໄປ","ຫ້ອງສຸກເສີນ","ຫ້ອງຜ່າຕັດ","ຫ້ອງເດັກ","ຫ້ອງໃນ (IPD)","ກວດສະເພາະທາງ","ທັນຕະກຳ","ຕາ ຫູ ຄໍ ຈະມູກ"],
+  LabCategory: window.emrLabCategoryConfig.map(item => item.label),
   DrugUnit: ["ເມັດ (Tab)","ແຄັບຊູນ (Cap)","ມິນລິລິດ (ml)","ກຣາມ (g)","ຫຼອດ (Amp)","ຕຸກ (Bottle)","ຊອງ (Sachet)","Dose","ບ່ວງ (Spoon)"],
   DrugUsage: ["ac (ກ່ອນອາຫານ 30 ນາທີ)","pc (ຫຼັງອາຫານ 15-30 ນາທີ)","am (ຕອນເຊົ້າ)","pm (ຕອນແລງ)","hs (ກ່ອນນອນ)","bid (ວັນລະ 2 ຄັ້ງ)","tid (ວັນລະ 3 ຄັ້ງ)","qid (ວັນລະ 4 ຄັ້ງ)","prn (ກິນເວລາເຈັບ)","od (ວັນລະ 1 ຄັ້ງ)","stat (ກິນທັນທີ)"],
 };
@@ -4786,7 +5226,7 @@ window._masterDataFallback = {
 window.loadMasterDataGlobalCallback = function (data) {
   masterDataStore = data || {};
   let missingCategories = [];
-  ['Department', 'Shift', 'Title', 'Gender', 'Nationality', 'Occupation', 'BloodType', 'InsCompany', 'Channel', 'Doctor', 'Site', 'PatientType_InSite', 'PatientType_Onsite', 'DrugUnit', 'DrugUsage'].forEach(c => {
+  ['Department', 'Shift', 'Title', 'Gender', 'Nationality', 'Occupation', 'BloodType', 'InsCompany', 'Channel', 'Doctor', 'Site', 'PatientType_InSite', 'PatientType_Onsite', 'DrugUnit', 'DrugUsage', 'LabCategory'].forEach(c => {
     let o = '<option value="">-- ເລືອກ --</option>';
     const sourceData = masterDataStore[c] || (window._masterDataFallback[c] ? window._masterDataFallback[c].map(v => ({ value: v })) : null);
     if (!masterDataStore[c] && window._masterDataFallback[c]) missingCategories.push(c);
@@ -4890,7 +5330,8 @@ window.masterCategoryGroups = [
     summary: 'ໝວດຂໍ້ມູນສຳລັບການກວດ ແລະ ແພດ',
     categories: [
       { key: 'Department', label: 'ຫ້ອງກວດ', description: 'ຈັດການຊື່ພະແນກ ແລະ ຫ້ອງກວດ' },
-      { key: 'Doctor', label: 'ລາຍຊື່ແພດ', description: 'ເພີ່ມແລະຈັດການຊື່ແພດໃນລະບົບ' }
+      { key: 'Doctor', label: 'ລາຍຊື່ແພດ', description: 'ເພີ່ມແລະຈັດການຊື່ແພດໃນລະບົບ' },
+      { key: 'LabCategory', label: 'ໝວດ Lab', description: 'ຈັດການລາຍຊື່ໝວດການກວດທີ່ໃຊ້ໃນ checkbox picker' }
     ]
   },
   {
@@ -5746,15 +6187,43 @@ window.handleLabExcelUpload = function (e) {
     let jd = XLSX.utils.sheet_to_json(firstSheet, { header: 1, defval: "" });
 
     let insertData = [];
+    let importCategories = [];
     for (let i = 1; i < jd.length; i++) {
       let row = jd[i];
       if (row.length < 1 || !row[0]) continue;
-      insertData.push({ Lab_Name: row[0], Description: row[1] || '' });
+      const category = String(row[2] || '').trim();
+      insertData.push({ Lab_Name: row[0], Description: row[1] || '', category });
+      if (category) importCategories.push(category);
     }
 
     if (insertData.length > 0) {
-      const { error } = await supabaseClient.from('Labs_Master').insert(insertData);
+      const payload = insertData.map(item => ({ Lab_Name: item.Lab_Name, Description: item.Description }));
+      const { data: insertedRows, error } = await supabaseClient.from('Labs_Master').insert(payload).select('Lab_ID,Lab_Name');
       if (!error) {
+        const ensureResult = await window.ensureLabCategoriesExist(importCategories);
+        if (ensureResult.error) {
+          Swal.fire('ຜິດພາດ!', ensureResult.error.message, 'error');
+          $('#labExcelInput').val('');
+          return;
+        }
+
+        const mappingRows = [];
+        (insertedRows || []).forEach((inserted, index) => {
+          const category = String(insertData[index]?.category || '').trim();
+          if (!category) return;
+          mappingRows.push({ Category: 'LabCategoryMapping', Value: JSON.stringify({ labId: inserted.Lab_ID, category }) });
+        });
+
+        if (mappingRows.length > 0) {
+          const { error: mappingError } = await supabaseClient.from('MasterData').insert(mappingRows);
+          if (mappingError) {
+            Swal.fire('ຜິດພາດ!', mappingError.message, 'error');
+            $('#labExcelInput').val('');
+            return;
+          }
+        }
+
+        await window.loadMasterDataGlobal();
         Swal.fire('ສຳເລັດ!', `ນຳເຂົ້າ ${insertData.length} ລາຍການ`, 'success');
         window.loadLabsMaster();
         window.preloadDropdownData();
@@ -5814,6 +6283,13 @@ window.bulkDelete = async function (type) {
       try {
         const { error } = await supabaseClient.from(cfg.table).delete().in(cfg.col, ids);
         if (error) throw error;
+
+        if (type === 'labs') {
+          const mappingResult = await window.deleteLabCategoryMappings(ids);
+          if (mappingResult.error) throw mappingResult.error;
+          await window.loadMasterDataGlobal();
+          window.preloadDropdownData();
+        }
 
         cfg.reload();
         Swal.fire('ສຳເລັດ', 'ລຶບລາຍການທີ່ເລືອກສຳເລັດແລ້ວ', 'success');

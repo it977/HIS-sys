@@ -131,18 +131,59 @@
 
 <!-- EMR Lab Modal -->
 <div class="modal fade" id="emrLabModal" tabindex="-1">
-  <div class="modal-dialog modal-lg">
+  <div class="modal-dialog modal-xl">
     <div class="modal-content border-0 shadow">
       <div class="modal-header bg-primary text-white">
         <h5 class="modal-title fw-bold"><i class="fas fa-flask me-2"></i>ເລືອກລາຍການ Lab</h5>
         <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
       </div>
-      <div class="modal-body p-3">
-        <div class="mb-2">
-          <input type="text" class="form-control form-control-sm" placeholder="ຄົ້ນຫາລາຍການ Lab..." oninput="let q=this.value.toLowerCase();document.querySelectorAll('#labCheckboxContainer .form-check').forEach(el=>{el.style.display=el.textContent.toLowerCase().includes(q)?'':'none';});">
-        </div>
-        <div id="labCheckboxContainer" class="emr-picker-shell emr-picker-list">
-          <p class="text-muted text-center small py-3"><i class="fas fa-spinner fa-spin me-1"></i>ກຳລັງໂຫຼດລາຍການ Lab...</p>
+      <div class="modal-body p-3 p-lg-4">
+        <div class="emr-lis-shell">
+          <div class="emr-lis-layout">
+            <section class="emr-lis-panel">
+              <div class="emr-lis-panel-header">
+                <div class="emr-lis-panel-title">
+                  <i class="fas fa-vials"></i>
+                  <div>
+                    <strong>Order Lab</strong>
+                    <span>ເລືອກລາຍການກວດຈາກ LIS ໂດຍບໍ່ສະແດງລາຄາ</span>
+                  </div>
+                </div>
+                <button type="button" class="btn btn-sm btn-light border emr-lis-refresh" onclick="window.renderEMRLabPicker()" title="Refresh list">
+                  <i class="fas fa-rotate-right"></i>
+                </button>
+              </div>
+              <div class="emr-lis-search-row">
+                <div class="input-group input-group-sm">
+                  <span class="input-group-text bg-light"><i class="fas fa-search text-muted"></i></span>
+                  <input type="text" class="form-control" id="emrLabSearchInput" placeholder="ຄົ້ນຫາລາຍການ..." oninput="window.filterEMRLabPicker(this.value)">
+                </div>
+              </div>
+              <div id="labCheckboxContainer" class="emr-lis-test-container">
+                <p class="text-muted text-center small py-3"><i class="fas fa-spinner fa-spin me-1"></i>ກຳລັງໂຫຼດລາຍການ Lab...</p>
+              </div>
+            </section>
+
+            <aside class="emr-lis-panel emr-lis-summary-panel">
+              <div class="emr-lis-panel-header">
+                <div class="emr-lis-panel-title">
+                  <i class="fas fa-receipt"></i>
+                  <div>
+                    <strong>Selected Order</strong>
+                    <span>ສະຫຼຸບລາຍການກວດທີ່ເລືອກໄວ້</span>
+                  </div>
+                </div>
+                <span class="emr-lis-summary-count" id="emrLabPickerSelectedCount">0</span>
+              </div>
+              <div class="emr-lis-summary-body" id="emrLabSelectedSummary">
+                <div class="emr-order-empty">
+                  <i class="fas fa-clipboard-list"></i>
+                  <strong>ຍັງບໍ່ມີລາຍການກວດ</strong>
+                  <span>ເລືອກລາຍການຈາກຝັ່ງຊ້າຍເພື່ອເພີ່ມເຂົ້າ order</span>
+                </div>
+              </div>
+            </aside>
+          </div>
         </div>
       </div>
       <div class="modal-footer py-2">

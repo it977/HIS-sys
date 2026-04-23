@@ -11,6 +11,7 @@ node_modules
 dist
 dist-ssr
 *.local
+LIS-One-main/
 
 # Editor directories and files
 .vscode/*

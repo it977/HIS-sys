@@ -71,6 +71,13 @@
         <form id="labMasterForm" onsubmit="window.submitLabMasterForm(event)">
           <input type="hidden" id="lb_id">
           <div class="mb-3"><label class="form-label fw-bold required">ຊື່ Lab Test</label><input type="text" class="form-control" id="lb_name" required placeholder="ຕົວຢ່າງ: Complete Blood Count (CBC)"></div>
+          <div class="mb-3">
+            <label class="form-label fw-bold">ໝວດໝູ່ (Category)</label>
+            <select class="form-select dyn-LabCategory" id="lb_category">
+              <option value="">-- ເລືອກໝວດ --</option>
+            </select>
+            <div class="form-text">ຈັດການລາຍຊື່ໝວດໄດ້ທີ່ໜ້າ Settings > Lab Category</div>
+          </div>
           <div class="mb-4"><label class="form-label fw-bold">ລາຍລະອຽດ</label><input type="text" class="form-control" id="lb_desc" placeholder="ຕົວຢ່າງ: ກວດເລືອດທົ່ວໄປ"></div>
           <button type="submit" class="btn btn-primary w-100 fw-bold"><i class="fas fa-save me-2"></i>ບັນທຶກ</button>
         </form>
